@@ -1,0 +1,28 @@
+cargo-features = ["strip"]
+
+[package]
+name = "bulk-mkv-manipulation"
+version = "0.1.0"
+authors = ["Ryan Jones-Ward <sciguyryan@gmail.com>"]
+edition = "2021"
+readme = "README.md"
+description = "An automatic bulk MKV manipulation tool."
+license = "LGPL 2.1"
+repository = "https://github.com/sciguyryan/Bulk-MKV-Manipulation"
+homepage = "https://github.com/sciguyryan/Bulk-MKV-Manipulation"
+build = "build.rs"
+publish = false
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+
+
+[profile.dev]
+opt-level = 0
+
+[profile.release]
+opt-level = 3
+lto = true
+strip = true
+#panic = "abort"
