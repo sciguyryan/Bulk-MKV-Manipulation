@@ -16,6 +16,12 @@ publish = false
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+serde = "1.0.139"
+serde_derive = "1.0.139"
+serde_json = "1.0.74"
+
+[target.'cfg(windows)'.build-dependencies]
+winres = "0.1.12"
 
 
 [profile.dev]
