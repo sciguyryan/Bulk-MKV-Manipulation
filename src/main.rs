@@ -1,35 +1,44 @@
-mod media_info;
+mod enums;
+mod media_file;
+mod mkvtoolnix;
 mod paths;
 mod utils;
 
-use std::{fs::File, io::Write, process::Command};
-
-use media_info::MediaInfo;
+use media_file::MediaFile;
 
 fn main() {
     if !check_paths() {
         return;
     }
 
+    let audio_language = "ja";
+    let audio_count = 1;
+    let subtitle_language = "en";
+    let subtitle_count = 1;
+    let keep_other = false;
+
     let fp = "D:\\Temp\\Original\\aaaaaaa.mkv";
-    let json = get_mediainfo_json(fp);
-    //println!("{}", a);temp_json
 
-    // Temporarily write the JSON data to a file.
-    /*let temp_json = "E:\\Temp\\output.json";
-    let mut file = File::create(temp_json).expect("failed to create temp file");
-    write!(file, "{}", json);*/
-
-    let info = if let Some(mi) = parse_json(&json) {
+    let mut mf = if let Some(mi) = MediaFile::from_path(fp) {
         mi
     } else {
         panic!("Error parsing MediaInfo JSON output.");
     };
 
-    println!("{}", info.media.tracks.len());
+    mf.filter_tracks(
+        audio_language,
+        audio_count,
+        subtitle_language,
+        subtitle_count,
+        keep_other,
+    );
+
+    println!("{}", mf.media.tracks.len());
 }
 
 fn check_paths() -> bool {
+    use std::path::Path;
+
     let mut check: bool = true;
 
     if !utils::dir_exists(paths::FFMPEG_BASE) {
@@ -40,6 +49,16 @@ fn check_paths() -> bool {
     if !utils::dir_exists(paths::MKVTOOLNIX_BASE) {
         eprintln!("Failed to locate MkvToolNIX at {}", paths::MKVTOOLNIX_BASE);
         check = false;
+    } else {
+        let path = Path::new(paths::MKVTOOLNIX_BASE);
+        let exes = vec!["mkvextract.exe", "mkvmerge.exe"];
+        for exe in exes {
+            let temp = path.join(exe);
+            if !temp.exists() {
+                eprintln!("Failed to MkvToolNIX EXE {} at {:?}", exe, temp);
+                check = false;
+            }
+        }
     }
 
     if !utils::dir_exists(paths::TEMP_BASE) {
@@ -56,22 +75,4 @@ fn check_paths() -> bool {
     }
 
     check
-}
-
-fn get_mediainfo_json(fp: &str) -> String {
-    let output = Command::new(paths::MEDIAINFO)
-        .arg("--Output=JSON")
-        .arg(fp)
-        .output()
-        .expect("failed to run mediainfo process");
-
-    String::from_utf8_lossy(&output.stdout).to_string()
-}
-
-fn parse_json(json: &str) -> Option<MediaInfo> {
-    if let Ok(mi) = serde_json::from_str::<MediaInfo>(json) {
-        Some(mi)
-    } else {
-        None
-    }
 }

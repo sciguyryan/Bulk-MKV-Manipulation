@@ -1,89 +1,123 @@
-use core::fmt;
+use crate::{
+    enums::{Codec, TrackType},
+    paths, utils,
+};
+
 use serde::de::{self, Deserialize, Deserializer, Unexpected};
 use serde_derive::Deserialize;
+use std::process::Command;
 
-#[derive(Default, Deserialize)]
-pub enum TrackType {
-    Audio,
-    Button,
-    General,
-    Video,
-    #[serde(rename = "Text")]
-    Subtitle,
-    #[default]
-    Other,
+#[derive(Deserialize)]
+pub struct MediaFile {
+    /// The path to the media file.
+    #[serde(skip)]
+    pub file_path: String,
+
+    /// The data pertaining to the media file.
+    pub media: MediaFileInfo,
 }
 
-impl fmt::Display for TrackType {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            TrackType::Audio => write!(f, "audio"),
-            TrackType::Button => write!(f, "button"),
-            TrackType::General => write!(f, "general"),
-            TrackType::Video => write!(f, "video"),
-            TrackType::Subtitle => write!(f, "subtitle"),
-            TrackType::Other => write!(f, "other"),
+impl MediaFile {
+    pub fn from_path(fp: &str) -> Option<Self> {
+        if !utils::file_exists(fp) {
+            return None;
+        }
+
+        // Run the MediaInfo CLI process and grab the JSON output.
+        let output = Command::new(paths::MEDIAINFO)
+            .arg("--Output=JSON")
+            .arg(fp)
+            .output()
+            .expect("failed to run mediainfo process");
+
+        // Attempt to parse the JSON output.
+        let json = String::from_utf8_lossy(&output.stdout).to_string();
+
+        // We we able to successfully parse the output?
+        if let Some(mut mf) = MediaFile::parse_json(&json) {
+            // Set the media file path variable.
+            mf.file_path = fp.to_string();
+
+            // Return the MediaFile object.
+            Some(mf)
+        } else {
+            None
         }
     }
-}
 
-#[derive(Default)]
-pub enum Codec {
-    Aac,
-    Ac3,
-    Acm,
-    AdvancedSsa,
-    Alac,
-    Avs,
-    Dts,
-    DvbSubtitle,
-    FfV1,
-    Flac,
-    H264,
-    Hdmv,
-    Hevc,
-    Kate,
-    Ms,
-    Mp1,
-    Mp2,
-    Mp3,
-    Musepack,
-    Opus,
-    Pcm,
-    ProRes,
-    QuickTime,
-    Raw,
-    RealAudio,
-    RealVideo,
-    SubStationAlpha,
-    SubTextUtf8,
-    SubtitleBitmap,
-    Theora,
-    TheTrueAudio,
-    #[default]
-    Unknown,
-    VobSub,
-    Vp8,
-    Vp9,
-    WavPack4,
-    WebVtt,
+    pub fn filter_tracks(
+        &mut self,
+        audio_lang: &str,
+        audio_count: usize,
+        subtitle_lang: &str,
+        subtitle_count: usize,
+        keep_other: bool,
+    ) {
+        // Create a new vector to hold the tracks that we want to keep.
+        let mut kept_tracks = Vec::new();
+
+        let mut audio = 0;
+        let mut subs = 0;
+
+        for track in &mut self.media.tracks {
+            let keep = match track.track_type {
+                TrackType::Audio => audio < audio_count && track.language == audio_lang,
+                TrackType::Button => false,
+                TrackType::General => false,
+                TrackType::Video => true,
+                TrackType::Subtitle => subs < subtitle_count && track.language == subtitle_lang,
+                TrackType::Other => keep_other,
+            };
+
+            //println!("Language = {}", track.language);
+            //println!("Track {} (type = {}) should be kept = {}", track.id, track.track_type, keep);
+
+            if keep {
+                // Add the track to the kept list.
+                kept_tracks.push(track.clone());
+
+                // Update the relevant counters.
+                if track.track_type == TrackType::Audio {
+                    audio += 1;
+                } else if track.track_type == TrackType::Subtitle {
+                    subs += 1;
+                }
+            }
+        }
+
+        // Assign the kept tracks back into the container object.
+        self.media.tracks = kept_tracks;
+    }
+
+    fn clear_attachments(&mut self) {
+        // The general track is (or at least should) be the first track.
+        self.media.tracks[0].extra_info.attachments.clear();
+    }
+
+    fn parse_json(json: &str) -> Option<MediaFile> {
+        if let Ok(mi) = serde_json::from_str::<MediaFile>(json) {
+            Some(mi)
+        } else {
+            None
+        }
+    }
+
+    pub fn extract_attachments(&self) {}
+
+    pub fn extract_chapters(&self) {}
+
+    pub fn extract_tracks(&self) {}
 }
 
 #[derive(Deserialize)]
-pub struct MediaInfo {
-    /// The data pertaining to the media file.
-    pub media: MediaInfoMedia,
-}
-
-#[derive(Deserialize)]
-pub struct MediaInfoMedia {
+pub struct MediaFileInfo {
     /// A list of track that are found within the media file.
     #[serde(rename = "track")]
-    pub tracks: Vec<MediaInfoTrack>,
+    pub tracks: Vec<MediaFileTrack>,
 }
 
-#[derive(Deserialize)]
-pub struct MediaInfoTrack {
+#[derive(Clone, Deserialize)]
+pub struct MediaFileTrack {
     /// The track type field.
     ///
     /// `Note:` The [`TrackType::General`] indicates general information about the file, rather than describing a specific track.
@@ -123,10 +157,10 @@ pub struct MediaInfoTrack {
     pub extra_info: MediaInfoExtra,
 }
 
-impl MediaInfoTrack {
+impl MediaFileTrack {
     /// Get the formatted output name for this track.
     pub fn get_out_file_name(&self) -> String {
-        let ext = MediaInfoTrack::get_extension_from_codec(&self.codec);
+        let ext = MediaFileTrack::get_extension_from_codec(&self.codec);
 
         format!("{}_{}_{}.{}", self.track_type, self.id, self.language, ext)
     }
@@ -174,7 +208,7 @@ impl MediaInfoTrack {
     }
 }
 
-#[derive(Default, Deserialize)]
+#[derive(Clone, Default, Deserialize)]
 pub struct MediaInfoExtra {
     /// A list of attachments that are found within the media file.
     #[serde(
@@ -238,7 +272,7 @@ where
         "A_MS/ACM" => Codec::Acm,
         "A_AAC/MPEG2/MAIN" | "A_AAC/MPEG2/LC" | "A_AAC/MPEG2/LC/SBR" | "A_AAC/MPEG2/SSR"
         | "A_AAC/MPEG4/MAIN" | "A_AAC/MPEG4/LC" | "A_AAC/MPEG4/LC/SBR" | "A_AAC/MPEG4/SSR"
-        | "A_AAC/MPEG4/LTP" => Codec::Aac,
+        | "A_AAC/MPEG4/LTP" | "A_AAC-2" => Codec::Aac,
         "A_QUICKTIME" | "A_QUICKTIME/QDMC" | "A_QUICKTIME/QDM2" => Codec::QuickTime,
         "A_TTA1" => Codec::TheTrueAudio,
         "A_WAVPACK4" => Codec::WavPack4,
