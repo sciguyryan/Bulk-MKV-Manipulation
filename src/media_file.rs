@@ -1,4 +1,5 @@
 use crate::{
+    conversion_props::AudioProperties,
     enums::{Codec, TrackType},
     mkvtoolnix, paths, utils,
 };
@@ -34,9 +35,12 @@ pub struct MediaFile {
 }
 
 impl MediaFile {
+    /// Clear the list of attachments.
     fn clear_attachments(&mut self) {
         self.attachments.clear();
     }
+
+    pub fn convert_all_audio(&mut self, props: &AudioProperties) {}
 
     pub fn from_path(fp: &str) -> Option<Self> {
         if !utils::file_exists(fp) {
@@ -73,11 +77,21 @@ impl MediaFile {
         }
     }
 
+    /// Filter the media file tracks based on the specified criteria.
+    ///
+    /// # Arguments
+    ///
+    /// * `audio_lang` - A list of language codes to be kept for audio files.
+    /// * `audio_count` - The total number of audio tracks to be kept.
+    /// * `subtitle_lang` - A list of language codes to be kept for subtitle files.
+    /// * `subtitle_count` - The total number of subtitle tracks to be kept.
+    /// * `keep_other` - A boolean indicating whether tracks other than video, audio and subtitle should be kept.
+    ///
     pub fn filter_tracks(
         &mut self,
-        audio_lang: &str,
+        audio_lang: &[&str],
         audio_count: usize,
-        subtitle_lang: &str,
+        subtitle_lang: &[&str],
         subtitle_count: usize,
         keep_other: bool,
     ) {
@@ -89,14 +103,16 @@ impl MediaFile {
 
         for track in &mut self.media.tracks {
             let keep = match track.track_type {
-                TrackType::Audio => audio_kept < audio_count && track.language == audio_lang,
+                TrackType::Audio => {
+                    audio_kept < audio_count && audio_lang.contains(&&*track.language)
+                }
                 // I haven't even encountered one of these before.
                 TrackType::Button => keep_other,
                 // This isn't a true track.
                 TrackType::General => false,
                 TrackType::Video => true,
                 TrackType::Subtitle => {
-                    subs_kept < subtitle_count && track.language == subtitle_lang
+                    subs_kept < subtitle_count && subtitle_lang.contains(&&*track.language)
                 }
                 TrackType::Other => keep_other,
             };

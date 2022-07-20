@@ -1,3 +1,4 @@
+mod conversion_props;
 mod enums;
 mod media_file;
 mod mkvtoolnix;
@@ -26,16 +27,14 @@ fn main() {
     };
 
     mf.filter_tracks(
-        audio_language,
+        &[audio_language],
         audio_count,
-        subtitle_language,
+        &[subtitle_language],
         subtitle_count,
         keep_other,
     );
 
     mf.extract(true, true, true);
-
-    println!("{}", mf.media.tracks.len());
 }
 
 fn check_paths() -> bool {
