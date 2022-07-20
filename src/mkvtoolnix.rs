@@ -2,15 +2,15 @@ use crate::paths;
 
 use std::{path::Path, process::Command};
 
-pub fn run_mkv_extract(fp: &str, arg_type: &str, args: &[String]) {
+pub fn run_mkv_extract(fp: &str, out_path: &str, arg_type: &str, args: &[String]) {
     let path = get_mkvtoolnix_exe("mkvextract.exe");
 
-    // Run the MKV extract process.
-    let output = Command::new(path)
+    let r = Command::new(path)
         .arg(fp)
         .arg(arg_type)
-        // TODO: add the arguments here.
-        .spawn()
+        .args(args)
+        .current_dir(format!("{}/{}", out_path, arg_type))
+        .output()
         .expect("failed to run MKVToolnix extract process");
 }
 

@@ -33,6 +33,8 @@ fn main() {
         keep_other,
     );
 
+    mf.extract(true, true, true);
+
     println!("{}", mf.media.tracks.len());
 }
 

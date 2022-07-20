@@ -1,23 +1,43 @@
 use crate::{
     enums::{Codec, TrackType},
-    paths, utils,
+    mkvtoolnix, paths, utils,
 };
 
 use serde::de::{self, Deserialize, Deserializer, Unexpected};
 use serde_derive::Deserialize;
-use std::process::Command;
+use std::{
+    fs,
+    path::Path,
+    process::Command,
+    sync::atomic::{AtomicUsize, Ordering},
+};
+
+/// This will generate sequential thread-global unique IDs for instances of this struct.
+static UNIQUE_ID: AtomicUsize = AtomicUsize::new(0);
 
 #[derive(Deserialize)]
 pub struct MediaFile {
+    /// The unique sequential ID for this file.
+    #[serde(skip)]
+    id: usize,
+
     /// The path to the media file.
     #[serde(skip)]
     pub file_path: String,
 
     /// The data pertaining to the media file.
     pub media: MediaFileInfo,
+
+    /// Any attachments that might be present in the media file.
+    #[serde(skip)]
+    pub attachments: Vec<String>,
 }
 
 impl MediaFile {
+    fn clear_attachments(&mut self) {
+        self.attachments.clear();
+    }
+
     pub fn from_path(fp: &str) -> Option<Self> {
         if !utils::file_exists(fp) {
             return None;
@@ -35,8 +55,16 @@ impl MediaFile {
 
         // We we able to successfully parse the output?
         if let Some(mut mf) = MediaFile::parse_json(&json) {
+            mf.id = UNIQUE_ID.fetch_add(1, Ordering::SeqCst);
+
             // Set the media file path variable.
             mf.file_path = fp.to_string();
+
+            // Do we have any attachments? If so, copy them to the main struct.
+            mf.attachments = mf.media.tracks[0].extra_info.attachments.clone();
+
+            // Set up the temporary directory structure for the file.
+            mf.init_temp_directory();
 
             // Return the MediaFile object.
             Some(mf)
@@ -56,21 +84,22 @@ impl MediaFile {
         // Create a new vector to hold the tracks that we want to keep.
         let mut kept_tracks = Vec::new();
 
-        let mut audio = 0;
-        let mut subs = 0;
+        let mut audio_kept = 0;
+        let mut subs_kept = 0;
 
         for track in &mut self.media.tracks {
             let keep = match track.track_type {
-                TrackType::Audio => audio < audio_count && track.language == audio_lang,
-                TrackType::Button => false,
+                TrackType::Audio => audio_kept < audio_count && track.language == audio_lang,
+                // I haven't even encountered one of these before.
+                TrackType::Button => keep_other,
+                // This isn't a true track.
                 TrackType::General => false,
                 TrackType::Video => true,
-                TrackType::Subtitle => subs < subtitle_count && track.language == subtitle_lang,
+                TrackType::Subtitle => {
+                    subs_kept < subtitle_count && track.language == subtitle_lang
+                }
                 TrackType::Other => keep_other,
             };
-
-            //println!("Language = {}", track.language);
-            //println!("Track {} (type = {}) should be kept = {}", track.id, track.track_type, keep);
 
             if keep {
                 // Add the track to the kept list.
@@ -78,9 +107,9 @@ impl MediaFile {
 
                 // Update the relevant counters.
                 if track.track_type == TrackType::Audio {
-                    audio += 1;
+                    audio_kept += 1;
                 } else if track.track_type == TrackType::Subtitle {
-                    subs += 1;
+                    subs_kept += 1;
                 }
             }
         }
@@ -89,9 +118,88 @@ impl MediaFile {
         self.media.tracks = kept_tracks;
     }
 
-    fn clear_attachments(&mut self) {
-        // The general track is (or at least should) be the first track.
-        self.media.tracks[0].extra_info.attachments.clear();
+    fn get_full_temp_path(&self) -> String {
+        let p = Path::new(paths::TEMP_BASE).join(self.id.to_string());
+        p.to_string_lossy().to_string()
+    }
+
+    fn get_temp_dir_for_output_type(&self, output_type: &str) -> String {
+        Path::new(paths::TEMP_BASE)
+            .join(self.id.to_string())
+            .join(output_type)
+            .to_string_lossy()
+            .to_string()
+    }
+
+    fn init_temp_directory(&self) {
+        let sub_dirs = vec!["attachments", "chapters", "tracks"];
+
+        // Create each subdirectory.
+        for dir in sub_dirs {
+            let p = self.get_temp_dir_for_output_type(dir);
+            fs::create_dir_all(p);
+        }
+    }
+
+    pub fn extract_attachments(&self) {
+        // Do we have any attachments to extract?
+        // The attachments will always be found on the first
+        // track of the file.
+        if self.attachments.is_empty() {
+            return;
+        }
+
+        let mut args = Vec::new();
+        for (i, attachment) in self.attachments.iter().enumerate() {
+            // Note: attachments indices do not start at index 0,
+            // so we have to add one to each of the IDs.
+            args.push(format!("{}:{}", i + 1, attachment));
+        }
+
+        mkvtoolnix::run_mkv_extract(
+            &self.file_path,
+            &self.get_full_temp_path(),
+            "attachments",
+            &args,
+        );
+    }
+
+    pub fn extract(&self, extract_tracks: bool, extract_attachments: bool, extract_chapters: bool) {
+        if extract_tracks {
+            self.extract_tracks();
+        }
+
+        if extract_attachments {
+            self.extract_attachments();
+        }
+
+        if extract_chapters {
+            self.extract_chapters();
+        }
+    }
+
+    pub fn extract_chapters(&self) {
+        mkvtoolnix::run_mkv_extract(
+            &self.file_path,
+            &self.get_full_temp_path(),
+            "chapters",
+            &["chapters.xml".to_string()],
+        );
+    }
+
+    pub fn extract_tracks(&self) {
+        let tracks = &self.media.tracks;
+        if tracks.is_empty() {
+            return;
+        }
+
+        let mut args = Vec::new();
+        for track in tracks {
+            // Note: track indices start at index 0.
+            args.push(format!("{}:{}", track.id, track.get_out_file_name()));
+        }
+
+        mkvtoolnix::run_mkv_extract(&self.file_path, &self.get_full_temp_path(), "tracks", &args);
     }
 
     fn parse_json(json: &str) -> Option<MediaFile> {
@@ -101,12 +209,6 @@ impl MediaFile {
             None
         }
     }
-
-    pub fn extract_attachments(&self) {}
-
-    pub fn extract_chapters(&self) {}
-
-    pub fn extract_tracks(&self) {}
 }
 
 #[derive(Deserialize)]
@@ -127,12 +229,8 @@ pub struct MediaFileTrack {
     /// The index of the track.
     ///
     /// `Note:` [`TrackType::General`] tracks do not have an index, and so will be assigned a default value of -1.
-    #[serde(
-        rename = "StreamOrder",
-        deserialize_with = "string_to_i32",
-        default = "default_track_index"
-    )]
-    pub id: i32,
+    #[serde(rename = "StreamOrder", deserialize_with = "string_to_u32", default)]
+    pub id: u32,
 
     /// The ID of the track's codec. This will be used to determine some additional information later.
     #[serde(rename = "CodecID", deserialize_with = "string_to_codec_enum", default)]
@@ -298,17 +396,17 @@ where
     Ok(codec)
 }
 
-fn string_to_i32<'de, D>(deserializer: D) -> Result<i32, D::Error>
+fn string_to_u32<'de, D>(deserializer: D) -> Result<u32, D::Error>
 where
     D: Deserializer<'de>,
 {
     let string = String::deserialize(deserializer)?;
 
-    match string.parse::<i32>() {
+    match string.parse::<u32>() {
         Ok(n) => Ok(n),
         Err(_) => Err(de::Error::invalid_value(
             Unexpected::Str(&string),
-            &"expected a signed integer",
+            &"expected an unsigned integer",
         )),
     }
 }
@@ -342,10 +440,6 @@ where
             &"expected yes or no",
         )),
     }
-}
-
-fn default_track_index() -> i32 {
-    -1
 }
 
 fn default_track_language() -> String {
