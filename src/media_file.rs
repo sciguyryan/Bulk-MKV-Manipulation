@@ -58,6 +58,23 @@ pub enum Codec {
     WebVtt,
 }
 
+impl From<AudioCodec> for Codec {
+    fn from(ac: AudioCodec) -> Self {
+        match ac {
+            AudioCodec::Aac => Codec::Aac,
+            AudioCodec::AacLibfdk => Codec::Aac,
+            AudioCodec::Ac3 => Codec::Ac3,
+            AudioCodec::Flac => Codec::Flac,
+            AudioCodec::Mp2 => Codec::Mp2,
+            AudioCodec::Mp3Lame => Codec::Mp3,
+            AudioCodec::Mp3Shine => Codec::Mp3,
+            AudioCodec::Opus => Codec::Opus,
+            AudioCodec::Vorbis => Codec::Opus,
+            AudioCodec::WavPack => Codec::WavPack4,
+        }
+    }
+}
+
 #[derive(Clone, Default, Deserialize, PartialEq)]
 pub enum TrackType {
     Audio,

@@ -1,7 +1,5 @@
 use core::fmt;
 
-use crate::media_file::Codec;
-
 pub enum OpusVbrOptions {
     Off,
     On,
@@ -45,23 +43,6 @@ pub enum AudioCodec {
     Opus,
     Vorbis,
     WavPack,
-}
-
-impl Into<Codec> for AudioCodec {
-    fn into(self) -> Codec {
-        match self {
-            AudioCodec::Aac => Codec::Aac,
-            AudioCodec::AacLibfdk => Codec::Aac,
-            AudioCodec::Ac3 => Codec::Ac3,
-            AudioCodec::Flac => Codec::Flac,
-            AudioCodec::Mp2 => Codec::Mp2,
-            AudioCodec::Mp3Lame => Codec::Mp3,
-            AudioCodec::Mp3Shine => Codec::Mp3,
-            AudioCodec::Opus => Codec::Opus,
-            AudioCodec::Vorbis => Codec::Opus,
-            AudioCodec::WavPack => Codec::WavPack4,
-        }
-    }
 }
 
 impl fmt::Display for AudioCodec {
