@@ -1,10 +1,12 @@
 mod conversion_props;
-mod enums;
+mod converters;
+mod ffmpeg;
 mod media_file;
 mod mkvtoolnix;
 mod paths;
 mod utils;
 
+use conversion_props::{AudioCodec, AudioProperties, OpusVbrOptions, VbrOptions};
 use media_file::MediaFile;
 
 fn main() {
@@ -12,6 +14,7 @@ fn main() {
         return;
     }
 
+    let threads = 8;
     let audio_language = "ja";
     let audio_count = 1;
     let subtitle_language = "en";
@@ -35,6 +38,17 @@ fn main() {
     );
 
     mf.extract(true, true, true);
+
+    let audio_props = AudioProperties {
+        codec: Some(AudioCodec::Opus),
+        channels: None,
+        bitrate: Some(64),
+        vbr: Some(VbrOptions::Opus(OpusVbrOptions::On)),
+        compression_level: Some(10),
+        threads: Some(threads),
+    };
+
+    mf.convert_all_audio(&audio_props);
 }
 
 fn check_paths() -> bool {

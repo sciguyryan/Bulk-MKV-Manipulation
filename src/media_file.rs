@@ -1,9 +1,9 @@
 use crate::{
-    conversion_props::AudioProperties,
-    enums::{Codec, TrackType},
-    mkvtoolnix, paths, utils,
+    conversion_props::{AudioCodec, AudioProperties},
+    converters, mkvtoolnix, paths, utils,
 };
 
+use core::fmt;
 use serde::de::{self, Deserialize, Deserializer, Unexpected};
 use serde_derive::Deserialize;
 use std::{
@@ -15,6 +15,73 @@ use std::{
 
 /// This will generate sequential thread-global unique IDs for instances of this struct.
 static UNIQUE_ID: AtomicUsize = AtomicUsize::new(0);
+
+#[derive(Clone, Default)]
+pub enum Codec {
+    Aac,
+    Ac3,
+    Acm,
+    AdvancedSsa,
+    Alac,
+    Avs,
+    Dts,
+    DvbSubtitle,
+    FfV1,
+    Flac,
+    H264,
+    Hdmv,
+    Hevc,
+    Kate,
+    Ms,
+    Mp1,
+    Mp2,
+    Mp3,
+    Musepack,
+    Opus,
+    Pcm,
+    ProRes,
+    QuickTime,
+    Raw,
+    RealAudio,
+    RealVideo,
+    SubStationAlpha,
+    SubTextUtf8,
+    SubtitleBitmap,
+    Theora,
+    TheTrueAudio,
+    #[default]
+    Unknown,
+    VobSub,
+    Vp8,
+    Vp9,
+    WavPack4,
+    WebVtt,
+}
+
+#[derive(Clone, Default, Deserialize, PartialEq)]
+pub enum TrackType {
+    Audio,
+    Button,
+    General,
+    Video,
+    #[serde(rename = "Text")]
+    Subtitle,
+    #[default]
+    Other,
+}
+
+impl fmt::Display for TrackType {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            TrackType::Audio => write!(f, "audio"),
+            TrackType::Button => write!(f, "button"),
+            TrackType::General => write!(f, "general"),
+            TrackType::Video => write!(f, "video"),
+            TrackType::Subtitle => write!(f, "subtitle"),
+            TrackType::Other => write!(f, "other"),
+        }
+    }
+}
 
 #[derive(Deserialize)]
 pub struct MediaFile {
@@ -40,8 +107,45 @@ impl MediaFile {
         self.attachments.clear();
     }
 
-    pub fn convert_all_audio(&mut self, props: &AudioProperties) {}
+    pub fn convert_all_audio(&mut self, props: &AudioProperties) {
+        if props.codec.is_none() {
+            return;
+        };
 
+        // This is the conversion codec type, converted into the
+        // local codec type. These need to be segregated as they have different purposes.
+        let codec = &props.codec.clone().unwrap().into();
+
+        // Iterate through all audio tracks.
+        for t in self
+            .media
+            .tracks
+            .iter()
+            .filter(|x| x.track_type == TrackType::Audio)
+        {
+            let file_name = t.get_out_file_name();
+            let in_file_path = format!("{}\\tracks\\{}", self.get_full_temp_path(), file_name);
+            let mut out_file_path = in_file_path.clone();
+            //eprintln!("file_path = {}", in_file_path);
+
+            if let Some(ext) = utils::get_file_extension(&in_file_path) {
+                let out_ext = MediaFileTrack::get_extension_from_codec(codec);
+
+                out_file_path =
+                    out_file_path.replace(&format!(".{}", ext), &format!(".{}", out_ext));
+
+                //eprintln!("out_file_path = {:?}", out_file_path);
+
+                converters::convert_audio_file(&in_file_path, &out_file_path, props);
+            }
+        }
+    }
+
+    /// Create a [`MediaFile] instance from a media file path.
+    /// # Arguments
+    ///
+    /// * `fp` - The path to the media file.
+    ///
     pub fn from_path(fp: &str) -> Option<Self> {
         if !utils::file_exists(fp) {
             return None;
