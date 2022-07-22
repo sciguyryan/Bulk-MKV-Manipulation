@@ -21,7 +21,6 @@ fn run_ffmpeg(args: &[String]) {
     let ffmpeg = format!("{}/ffmpeg.exe", paths::FFMPEG_BASE);
     let r = Command::new(ffmpeg)
         .args(args)
-        //.current_dir(format!("{}/{}", out_path, arg_type))
         .output()
         .expect("failed to run FFMPEG extract process");
 }

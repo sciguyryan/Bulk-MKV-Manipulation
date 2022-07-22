@@ -144,8 +144,11 @@ impl MediaFile {
             .filter(|(_, x)| x.track_type == TrackType::Audio)
         {
             // Determine the output file name.
-            let file_name = t.get_out_file_name();
-            let in_file_path = format!("{}\\tracks\\{}", self.get_full_temp_path(), file_name);
+            let in_file_path = format!(
+                "{}\\tracks\\{}",
+                self.get_full_temp_path(),
+                t.get_out_file_name()
+            );
             let mut out_file_path = in_file_path.clone();
 
             // Get the file extension.
@@ -267,16 +270,14 @@ impl MediaFile {
     }
 
     fn get_full_temp_path(&self) -> String {
-        let p = Path::new(paths::TEMP_BASE).join(self.id.to_string());
-        p.to_string_lossy().to_string()
+        utils::join_paths_to_string(paths::TEMP_BASE, &[self.id.to_string().as_str()])
     }
 
     fn get_temp_dir_for_output_type(&self, output_type: &str) -> String {
-        Path::new(paths::TEMP_BASE)
-            .join(self.id.to_string())
-            .join(output_type)
-            .to_string_lossy()
-            .to_string()
+        utils::join_paths_to_string(
+            paths::TEMP_BASE,
+            &[self.id.to_string().as_str(), output_type],
+        )
     }
 
     fn init_temp_directory(&self) {

@@ -13,6 +13,9 @@ fn main() {
         return;
     }
 
+    // Clear the temporary files.
+    utils::delete_directory(paths::TEMP_BASE);
+
     let threads = 8;
     let audio_language = "ja";
     let audio_count = 1;
