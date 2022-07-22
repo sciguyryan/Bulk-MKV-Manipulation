@@ -131,30 +131,41 @@ impl MediaFile {
 
         // This is the conversion codec type, converted into the
         // local codec type. These need to be segregated as they have different purposes.
-        let codec = &props.codec.clone().unwrap().into();
+        let out_codec = &props.codec.clone().unwrap().into();
+
+        let mut update_indices = Vec::new();
 
         // Iterate through all audio tracks.
-        for t in self
+        for (i, t) in self
             .media
             .tracks
             .iter()
-            .filter(|x| x.track_type == TrackType::Audio)
+            .enumerate()
+            .filter(|(_, x)| x.track_type == TrackType::Audio)
         {
+            // Determine the output file name.
             let file_name = t.get_out_file_name();
             let in_file_path = format!("{}\\tracks\\{}", self.get_full_temp_path(), file_name);
             let mut out_file_path = in_file_path.clone();
-            //eprintln!("file_path = {}", in_file_path);
 
-            if let Some(ext) = utils::get_file_extension(&in_file_path) {
-                let out_ext = MediaFileTrack::get_extension_from_codec(codec);
+            // Get the file extension.
+            let in_ext = MediaFileTrack::get_extension_from_codec(&t.codec);
+            let out_ext = MediaFileTrack::get_extension_from_codec(out_codec);
 
-                out_file_path =
-                    out_file_path.replace(&format!(".{}", ext), &format!(".{}", out_ext));
+            // Swap the file extensions.
+            out_file_path =
+                out_file_path.replace(&format!(".{}", in_ext), &format!(".{}", out_ext));
 
-                //eprintln!("out_file_path = {:?}", out_file_path);
-
-                converters::convert_audio_file(&in_file_path, &out_file_path, props);
+            // Was the conversion successful? If so, add the index to the list
+            // so that the codec can be updated later.
+            if converters::convert_audio_file(&in_file_path, &out_file_path, props) {
+                update_indices.push(i);
             }
+        }
+
+        // Update the codecs of the converted tracks.
+        for index in update_indices {
+            self.media.tracks[index].codec = out_codec.clone();
         }
     }
 
