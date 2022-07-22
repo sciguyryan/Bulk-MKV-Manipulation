@@ -62,6 +62,12 @@ impl fmt::Display for AudioCodec {
     }
 }
 
+pub enum ConversionType {
+    Audio,
+    Subtitle,
+    Video,
+}
+
 pub struct AudioProperties {
     /// The audio codec to be used for the conversion.
     pub codec: Option<AudioCodec>,
@@ -107,7 +113,12 @@ impl AudioProperties {
         }
     }
 
-    pub fn as_ffmpeg_argument_list(&self, file_in: &str, file_out: &str) -> Option<Vec<String>> {
+    pub fn as_ffmpeg_argument_list(
+        &self,
+        file_in: &str,
+        file_out: &str,
+        conversion_type: ConversionType,
+    ) -> Option<Vec<String>> {
         if !self.validate() {
             return None;
         }
@@ -118,31 +129,62 @@ impl AudioProperties {
         let codec = if let Some(c) = &self.codec {
             c
         } else {
-            return Some(vec![String::from("-c:a"), String::from("copy")]);
+            match conversion_type {
+                ConversionType::Audio => String::from("-c:a"),
+                ConversionType::Subtitle => String::from("-c:s"),
+                ConversionType::Video => String::from("-c:v"),
+            };
+            args.push(String::from("copy"));
+            return Some(args);
         };
 
+        // Number of threads to use when encoding.
         if let Some(threads) = self.threads {
             args.push(String::from("-threads"));
             args.push(threads.to_string());
         }
 
+        // Input file.
         args.push(String::from("-i"));
         args.push(file_in.to_string());
 
-        args.push(String::from("-c:a"));
-        args.push(format!("{}", codec));
+        // Codec type.
+        match conversion_type {
+            ConversionType::Audio => {
+                args.push(String::from("-c:a"));
+                args.push(format!("{}", codec));
+            }
+            ConversionType::Subtitle => {
+                args.push(String::from("-c:s"));
+                args.push(format!("{}", codec));
+            }
+            ConversionType::Video => {
+                args.push(String::from("-c:v"));
+                args.push(format!("{}", codec));
+            }
+        }
 
+        // Bitrate.
         if let Some(bitrate) = self.bitrate {
-            args.push(String::from("-b:a"));
+            match conversion_type {
+                ConversionType::Audio => args.push(String::from("-b:a")),
+                ConversionType::Subtitle => {
+                    panic!("Unexpected bitrate option while converting a subtitle.");
+                }
+                ConversionType::Video => args.push(String::from("-b:v")),
+            }
             args.push(format!("{}k", bitrate));
         }
 
+        // Compression level. Only applied to audio tracks.
         if let Some(level) = self.compression_level {
             args.push(String::from("-compression_level"));
             args.push(level.to_string());
         }
 
         if let Some(vbr) = &self.vbr {
+            // Opus defaults to a variable bitrate, so this parameter will be ignored
+            // if set to on.
             args.push(String::from("-vbr"));
             args.push(format!("{}", vbr));
         }

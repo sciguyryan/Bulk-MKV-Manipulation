@@ -1,6 +1,5 @@
 mod conversion_props;
 mod converters;
-mod ffmpeg;
 mod media_file;
 mod mkvtoolnix;
 mod paths;
