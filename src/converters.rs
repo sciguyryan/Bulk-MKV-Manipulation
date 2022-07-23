@@ -1,5 +1,5 @@
 use crate::{
-    conversion_props::{AudioParameters, ConversionType},
+    conversion_params::{audio::AudioParams, subtitle::SubtitleParams, video::VideoParams},
     paths,
 };
 
@@ -8,11 +8,11 @@ use std::process::Command;
 pub fn convert_audio_file(
     file_in: &str,
     file_out: &str,
-    ap: &AudioParameters,
+    params: &AudioParams,
     remove_original: bool,
 ) -> bool {
     // If the arguments were not valid then None will be returned.
-    let args = ap.as_ffmpeg_argument_list(file_in, file_out, ConversionType::Audio);
+    let args = params.as_ffmpeg_argument_list(file_in, file_out);
     if args == None {
         return false;
     }
@@ -28,6 +28,26 @@ pub fn convert_audio_file(
     }
 
     true
+}
+
+#[allow(unused)]
+pub fn convert_subtitle_file(
+    file_in: &str,
+    file_out: &str,
+    params: &SubtitleParams,
+    remove_original: bool,
+) -> bool {
+    todo!("not yet implemented");
+}
+
+#[allow(unused)]
+pub fn convert_video_file(
+    file_in: &str,
+    file_out: &str,
+    params: &VideoParams,
+    remove_original: bool,
+) -> bool {
+    todo!("not yet implemented");
 }
 
 fn run_ffmpeg(args: &[String]) {

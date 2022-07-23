@@ -1,6 +1,8 @@
 use crate::{
-    conversion_props::{AudioCodec, AudioParameters},
-    converters, mkvtoolnix, paths, utils,
+    conversion_params::audio::{AudioCodec, AudioParams},
+    converters,
+    media_process_params::MediaProcessParams,
+    mkvtoolnix, paths, utils,
 };
 
 use core::fmt;
@@ -118,7 +120,7 @@ pub struct MediaFile {
 }
 
 impl MediaFile {
-    pub fn convert_all_audio(&mut self, props: &AudioParameters) {
+    pub fn convert_all_audio(&mut self, props: &AudioParams) {
         if props.codec.is_none() {
             return;
         };
@@ -167,6 +169,78 @@ impl MediaFile {
         }
     }
 
+    /// Extract the specified items from a MKV file.
+    ///
+    /// # Arguments
+    ///
+    /// * `extract_tracks` - Should tracks be extracted?
+    /// * `extract_attachments` - Should attachments be extracted?
+    /// * `extract_chapters` - Should chapters be extracted?
+    ///
+    pub fn extract(&self, extract_tracks: bool, extract_attachments: bool, extract_chapters: bool) {
+        if extract_tracks {
+            self.extract_tracks();
+        }
+
+        if extract_attachments {
+            self.extract_attachments();
+        }
+
+        if extract_chapters {
+            self.extract_chapters();
+        }
+    }
+
+    /// Extract the attachments from a MKV file, if present.
+    pub fn extract_attachments(&self) {
+        // Do we have any attachments to extract?
+        // The attachments will always be found on the first
+        // track of the file.
+        if self.attachments.is_empty() {
+            return;
+        }
+
+        let mut args = Vec::new();
+        for (i, attachment) in self.attachments.iter().enumerate() {
+            // Note: attachments indices do not start at index 0,
+            // so we have to add one to each of the IDs.
+            args.push(format!("{}:{}", i + 1, attachment));
+        }
+
+        mkvtoolnix::run_mkv_extract(
+            &self.file_path,
+            &self.get_full_temp_path(),
+            "attachments",
+            &args,
+        );
+    }
+
+    /// Extract the chapters from a MKV file, if present.
+    pub fn extract_chapters(&self) {
+        mkvtoolnix::run_mkv_extract(
+            &self.file_path,
+            &self.get_full_temp_path(),
+            "chapters",
+            &["chapters.xml".to_string()],
+        );
+    }
+
+    /// Extract the tracks from a MKV file.
+    pub fn extract_tracks(&self) {
+        let tracks = &self.media.tracks;
+        if tracks.is_empty() {
+            return;
+        }
+
+        let mut args = Vec::new();
+        for track in tracks {
+            // Note: track indices start at index 0.
+            args.push(format!("{}:{}", track.id, track.get_out_file_name()));
+        }
+
+        mkvtoolnix::run_mkv_extract(&self.file_path, &self.get_full_temp_path(), "tracks", &args);
+    }
+
     /// Filter the media file tracks based on the specified criteria.
     ///
     /// # Arguments
@@ -179,9 +253,9 @@ impl MediaFile {
     ///
     pub fn filter_tracks(
         &mut self,
-        audio_lang: &[&str],
+        audio_lang: &[String],
         audio_count: usize,
-        subtitle_lang: &[&str],
+        subtitle_lang: &[String],
         subtitle_count: usize,
         keep_other: bool,
     ) {
@@ -194,7 +268,7 @@ impl MediaFile {
         for track in &mut self.media.tracks {
             let keep = match track.track_type {
                 TrackType::Audio => {
-                    audio_kept < audio_count && audio_lang.contains(&&*track.language)
+                    audio_kept < audio_count && audio_lang.contains(&track.language.to_string())
                 }
                 // I haven't even encountered one of these before.
                 TrackType::Button => keep_other,
@@ -202,7 +276,8 @@ impl MediaFile {
                 TrackType::General => false,
                 TrackType::Video => true,
                 TrackType::Subtitle => {
-                    subs_kept < subtitle_count && subtitle_lang.contains(&&*track.language)
+                    subs_kept < subtitle_count
+                        && subtitle_lang.contains(&track.language.to_string())
                 }
                 TrackType::Other => keep_other,
             };
@@ -221,11 +296,17 @@ impl MediaFile {
         }
 
         if audio_kept < audio_count {
-            eprintln!("Fewer audio tracks than required for file {}.", self.file_path);
+            eprintln!(
+                "Fewer audio tracks than required for file {}.",
+                self.file_path
+            );
         }
 
         if subs_kept < subtitle_count {
-            eprintln!("Fewer subtitle tracks than required for file {}.", self.file_path);
+            eprintln!(
+                "Fewer subtitle tracks than required for file {}.",
+                self.file_path
+            );
         }
 
         // Assign the kept tracks back into the container object.
@@ -314,76 +395,39 @@ impl MediaFile {
         result
     }
 
-    /// Extract the attachments from a MKV file, if present.
-    pub fn extract_attachments(&self) {
-        // Do we have any attachments to extract?
-        // The attachments will always be found on the first
-        // track of the file.
-        if self.attachments.is_empty() {
-            return;
-        }
-
-        let mut args = Vec::new();
-        for (i, attachment) in self.attachments.iter().enumerate() {
-            // Note: attachments indices do not start at index 0,
-            // so we have to add one to each of the IDs.
-            args.push(format!("{}:{}", i + 1, attachment));
-        }
-
-        mkvtoolnix::run_mkv_extract(
-            &self.file_path,
-            &self.get_full_temp_path(),
-            "attachments",
-            &args,
+    pub fn process(&mut self, props: &MediaProcessParams, out_path: &str) {
+        // Filter the tracks so that only the tracks
+        // that match our parameters are kept.
+        self.filter_tracks(
+            &props.audio_languages[..],
+            props.audio_count,
+            &props.subtitle_languages[..],
+            props.subtitle_count,
+            props.keep_other_tracks,
         );
-    }
 
-    /// Extract the specified items from a MKV file.
-    ///
-    /// # Arguments
-    ///
-    /// * `extract_tracks` - Should tracks be extracted?
-    /// * `extract_attachments` - Should attachments be extracted?
-    /// * `extract_chapters` - Should chapters be extracted?
-    ///
-    pub fn extract(&self, extract_tracks: bool, extract_attachments: bool, extract_chapters: bool) {
-        if extract_tracks {
-            self.extract_tracks();
+        // Extract the files.
+        self.extract(true, props.keep_attachments, props.keep_chapters);
+
+        // Convert the audio tracks.
+        if let Some(ac) = &props.audio_conv_params {
+            if ac.codec.is_some() {
+                self.convert_all_audio(ac);
+            }
         }
 
-        if extract_attachments {
-            self.extract_attachments();
+        // Convert the subtitle tracks.
+        if let Some(_sc) = &props.subtitle_conv_params {
+            todo!("not yet implemented");
         }
 
-        if extract_chapters {
-            self.extract_chapters();
-        }
-    }
-
-    /// Extract the chapters from a MKV file, if present.
-    pub fn extract_chapters(&self) {
-        mkvtoolnix::run_mkv_extract(
-            &self.file_path,
-            &self.get_full_temp_path(),
-            "chapters",
-            &["chapters.xml".to_string()],
-        );
-    }
-
-    /// Extract the tracks from a MKV file.
-    pub fn extract_tracks(&self) {
-        let tracks = &self.media.tracks;
-        if tracks.is_empty() {
-            return;
+        // Convert the video tracks.
+        if let Some(_vc) = &props.video_conv_params {
+            todo!("not yet implemented");
         }
 
-        let mut args = Vec::new();
-        for track in tracks {
-            // Note: track indices start at index 0.
-            args.push(format!("{}:{}", track.id, track.get_out_file_name()));
-        }
-
-        mkvtoolnix::run_mkv_extract(&self.file_path, &self.get_full_temp_path(), "tracks", &args);
+        // Remux the media file.
+        self.remux_file(out_path);
     }
 
     /// Mux the attachments, chapters and tracks into a MKV file.

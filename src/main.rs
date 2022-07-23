@@ -1,12 +1,14 @@
-mod conversion_props;
+mod conversion_params;
 mod converters;
 mod media_file;
+mod media_process_params;
 mod mkvtoolnix;
 mod paths;
 mod utils;
 
-use conversion_props::{AudioCodec, AudioParameters, OpusVbrOptions, VbrOptions};
+use conversion_params::audio::{AudioCodec, AudioParams, OpusVbrOptions, VbrOptions};
 use media_file::MediaFile;
+use media_process_params::MediaProcessParams;
 
 fn main() {
     if !check_paths() {
@@ -15,13 +17,6 @@ fn main() {
 
     // Clear the temporary files.
     utils::delete_directory(paths::TEMP_BASE);
-
-    let threads = 8;
-    let audio_language = "ja";
-    let audio_count = 1;
-    let subtitle_language = "en";
-    let subtitle_count = 1;
-    let keep_other = false;
 
     let fp = "D:\\Temp\\Original\\aaaaaaa.mkv";
     let out_path = "E:\\muxed.mkv";
@@ -32,30 +27,29 @@ fn main() {
         panic!("Error parsing MediaInfo JSON output.");
     };
 
-    mf.filter_tracks(
-        &[audio_language],
-        audio_count,
-        &[subtitle_language],
-        subtitle_count,
-        keep_other,
-    );
-
-    mf.extract(true, true, true);
-
-    let audio_props = AudioParameters {
+    let audio_params = AudioParams {
         codec: Some(AudioCodec::Opus),
         channels: None,
         bitrate: Some(64),
         vbr: Some(VbrOptions::Opus(OpusVbrOptions::On)),
         compression_level: Some(10),
-        threads: Some(threads),
+        threads: Some(8),
     };
 
-    // Convert the audio tracks.
-    mf.convert_all_audio(&audio_props);
+    let params = MediaProcessParams {
+        audio_languages: vec!["ja".to_string()],
+        audio_count: 1,
+        subtitle_languages: vec!["en".to_string()],
+        subtitle_count: 1,
+        keep_attachments: true,
+        keep_chapters: true,
+        keep_other_tracks: false,
+        audio_conv_params: Some(audio_params),
+        video_conv_params: None,
+        subtitle_conv_params: None,
+    };
 
-    // Mux the media file.
-    mf.remux_file(out_path);
+    mf.process(&params, out_path);
 }
 
 fn check_paths() -> bool {
