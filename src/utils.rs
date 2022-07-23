@@ -38,10 +38,11 @@ pub fn join_paths_to_string(base: &str, paths: &[&str]) -> String {
 }
 
 /// Strip invalid NTFS characters from a path string.
+///
 /// # Arguments
 ///
 /// * `str` - The string to be sanitized.
 ///
-pub fn strip_bad_ntfs_chars(str: &str) -> String {
+pub fn sanitize_ntfs_name(str: &str) -> String {
     str.replace(&BAD_NTFS_CHARS[..], "")
 }

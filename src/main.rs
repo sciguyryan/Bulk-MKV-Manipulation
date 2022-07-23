@@ -28,8 +28,14 @@ fn main() {
     let in_dir = "D:\\Temp\\Original".to_string();
     let out_file_names = "D:\\Temp\\Original\\names.txt".to_string();
     let out_dir = "D:\\Temp\\Encodes".to_string();
+    let start_from = 980;
+    let pad_type = PadType::Hundred;
 
-    let processor = FileProcessor::new(in_dir, out_dir, out_file_names, 980, PadType::Hundred);
+    let file_processor =
+        match FileProcessor::new(in_dir, out_dir, out_file_names, start_from, pad_type) {
+            Some(p) => p,
+            None => return,
+        };
 
     return;
 

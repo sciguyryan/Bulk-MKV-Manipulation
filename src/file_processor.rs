@@ -62,7 +62,7 @@ impl FileProcessor {
             Ok(f) => f,
             Err(e) => {
                 eprintln!(
-                    "An error occured while attempting to open the output names file: {:?}",
+                    "An error occurred while attempting to open the output names file: {:?}",
                     e
                 );
                 return None;
@@ -75,7 +75,7 @@ impl FileProcessor {
             // depending on context.
             // We also want to remove various other characters that are
             // invalid for use with NTFS filenames.
-            let sanitized = utils::strip_bad_ntfs_chars(&line.replace("? ", " - "));
+            let sanitized = utils::sanitize_ntfs_name(&line.replace("? ", " - "));
 
             // Handle the number padding.
             let file_name = match out_name_pad {
