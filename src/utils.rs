@@ -1,4 +1,4 @@
-use std::{ffi::OsStr, fs, path::Path};
+use std::{fs, path::Path};
 
 pub fn dir_exists(path: &str) -> bool {
     let path = Path::new(path);
@@ -19,11 +19,10 @@ pub fn file_exists(path: &str) -> bool {
 }
 
 pub fn get_file_extension(fp: &str) -> Option<&str> {
-    if !file_exists(fp) {
-        return None;
-    }
+    let index = fp.rfind('.')?;
+    let (_, ext) = fp.split_at(index + 1);
 
-    Path::new(fp).extension().and_then(OsStr::to_str)
+    Some(ext)
 }
 
 pub fn join_paths_to_string(base: &str, paths: &[&str]) -> String {

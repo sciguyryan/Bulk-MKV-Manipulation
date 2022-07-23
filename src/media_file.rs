@@ -392,6 +392,8 @@ impl MediaFile {
                 args.push(format!("0:{}", track.language));
             }
 
+            // Set the default track flag.
+
             // Set the file path.
             args.push(format!(".\\tracks\\{}", track.get_out_file_name()));
         }
