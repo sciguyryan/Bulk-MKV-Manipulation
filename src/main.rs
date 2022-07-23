@@ -24,6 +24,7 @@ fn main() {
     let keep_other = false;
 
     let fp = "D:\\Temp\\Original\\aaaaaaa.mkv";
+    let out_path = "E:\\muxed.mkv";
 
     let mut mf = if let Some(mi) = MediaFile::from_path(fp) {
         mi
@@ -50,7 +51,11 @@ fn main() {
         threads: Some(threads),
     };
 
+    // Convert the audio tracks.
     mf.convert_all_audio(&audio_props);
+
+    // Mux the media file.
+    mf.mux_file(out_path);
 }
 
 fn check_paths() -> bool {

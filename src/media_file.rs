@@ -156,7 +156,7 @@ impl MediaFile {
 
             // Was the conversion successful? If so, add the index to the list
             // so that the codec can be updated later.
-            if converters::convert_audio_file(&in_file_path, &out_file_path, props) {
+            if converters::convert_audio_file(&in_file_path, &out_file_path, props, true) {
                 update_indices.push(i);
             }
         }
@@ -164,47 +164,6 @@ impl MediaFile {
         // Update the codecs of the converted tracks.
         for index in update_indices {
             self.media.tracks[index].codec = out_codec.clone();
-        }
-    }
-
-    /// Create a [`MediaFile] instance from a media file path.
-    ///
-    /// # Arguments
-    ///
-    /// * `fp` - The path to the media file.
-    ///
-    pub fn from_path(fp: &str) -> Option<Self> {
-        if !utils::file_exists(fp) {
-            return None;
-        }
-
-        // Run the MediaInfo CLI process and grab the JSON output.
-        let output = Command::new(paths::MEDIAINFO)
-            .arg("--Output=JSON")
-            .arg(fp)
-            .output()
-            .expect("failed to run mediainfo process");
-
-        // Attempt to parse the JSON output.
-        let json = String::from_utf8_lossy(&output.stdout).to_string();
-
-        // We we able to successfully parse the output?
-        if let Some(mut mf) = MediaFile::parse_json(&json) {
-            mf.id = UNIQUE_ID.fetch_add(1, Ordering::SeqCst);
-
-            // Set the media file path variable.
-            mf.file_path = fp.to_string();
-
-            // Do we have any attachments? If so, copy them to the main struct.
-            mf.attachments = mf.media.tracks[0].extra_info.attachments.clone();
-
-            // Set up the temporary directory structure for the file.
-            mf.init_temp_directory();
-
-            // Return the MediaFile object.
-            Some(mf)
-        } else {
-            None
         }
     }
 
@@ -263,6 +222,57 @@ impl MediaFile {
 
         // Assign the kept tracks back into the container object.
         self.media.tracks = kept_tracks;
+    }
+
+    fn guess_mime_from_extension(ext: &str) -> String {
+        match ext.to_lowercase().as_str() {
+            "otf" => String::from("font/otf"),
+            "ttf" => String::from("font/ttf"),
+            _ => {
+                panic!("Unrecognized file extension: {}", ext);
+            }
+        }
+    }
+
+    /// Create a [`MediaFile] instance from a media file path.
+    ///
+    /// # Arguments
+    ///
+    /// * `fp` - The path to the media file.
+    ///
+    pub fn from_path(fp: &str) -> Option<Self> {
+        if !utils::file_exists(fp) {
+            return None;
+        }
+
+        // Run the MediaInfo CLI process and grab the JSON output.
+        let output = Command::new(paths::MEDIAINFO)
+            .arg("--Output=JSON")
+            .arg(fp)
+            .output()
+            .expect("failed to run mediainfo process");
+
+        // Attempt to parse the JSON output.
+        let json = String::from_utf8_lossy(&output.stdout).to_string();
+
+        // We we able to successfully parse the output?
+        if let Some(mut mf) = MediaFile::parse_json(&json) {
+            mf.id = UNIQUE_ID.fetch_add(1, Ordering::SeqCst);
+
+            // Set the media file path variable.
+            mf.file_path = fp.to_string();
+
+            // Do we have any attachments? If so, copy them to the main struct.
+            mf.attachments = mf.media.tracks[0].extra_info.attachments.clone();
+
+            // Set up the temporary directory structure for the file.
+            mf.init_temp_directory();
+
+            // Return the MediaFile object.
+            Some(mf)
+        } else {
+            None
+        }
     }
 
     fn get_full_temp_path(&self) -> String {
@@ -360,6 +370,74 @@ impl MediaFile {
         }
 
         mkvtoolnix::run_mkv_extract(&self.file_path, &self.get_full_temp_path(), "tracks", &args);
+    }
+
+    /// Mux the attachments, chapters and tracks into a MKV file.
+    pub fn mux_file(&self, out_path: &str) {
+        use std::fmt::Write;
+
+        let mut args = Vec::with_capacity(100);
+
+        // The output file path.
+        args.extend_from_slice(&[String::from("--output"), String::from(out_path)]);
+
+        // Iterate over all of the tracks.
+        for track in &self.media.tracks {
+            args.push(String::from("--language"));
+
+            // Set the track language. We set undefined for any video tracks.
+            if track.track_type == TrackType::Video {
+                args.push("0:und".to_string());
+            } else {
+                args.push(format!("0:{}", track.language));
+            }
+
+            // Set the file path.
+            args.push(format!(
+                "{}\\tracks\\{}",
+                self.get_full_temp_path(),
+                track.get_out_file_name()
+            ));
+        }
+
+        // Iterate over all of the attachments.
+        for attachment in &self.attachments {
+            let path = format!("{}\\attachments\\{}", self.get_full_temp_path(), attachment);
+
+            let ext = utils::get_file_extension(&path);
+            if ext.is_none() {
+                continue;
+            }
+            let mime = MediaFile::guess_mime_from_extension(ext.unwrap());
+
+            // Set the attachment name.
+            args.push(String::from("--attachment-name"));
+            args.push(attachment.clone());
+
+            // Set the attachment mimetype.
+            args.push(String::from("--attachment-mime-type"));
+            args.push(mime);
+
+            // Set the attachment file path.
+            args.push(String::from("--attach-file"));
+            args.push(path);
+        }
+
+        // Set the track order.
+        args.push(String::from("--track-order"));
+
+        let mut order = String::new();
+        for i in 0..self.media.tracks.len() {
+            let _r = write!(&mut order, "{}:0", i);
+
+            // A comma at the end would be considered malformed.
+            if i < self.media.tracks.len() - 1 {
+                order.push(',');
+            }
+        }
+        args.push(order);
+
+        mkvtoolnix::run_mkv_merge(out_path, &args);
     }
 
     /// Parse the JSON output from MediaInfo.

@@ -1,6 +1,7 @@
 use core::fmt;
 
 /// Variable bitrate options applicable to the Opus codec.
+#[allow(unused)]
 pub enum OpusVbrOptions {
     /// Disable variable bitrate, enabling constant bitrate.
     Off,
@@ -20,6 +21,7 @@ impl fmt::Display for OpusVbrOptions {
     }
 }
 
+#[allow(unused)]
 pub enum VbrOptions {
     Opus(OpusVbrOptions),
     // TODO: validate that this is in the range of 1 to 5.
@@ -35,6 +37,7 @@ impl fmt::Display for VbrOptions {
     }
 }
 
+#[allow(unused)]
 #[derive(Clone)]
 pub enum AudioCodec {
     Aac,
@@ -67,6 +70,7 @@ impl fmt::Display for AudioCodec {
 }
 
 /// The type of media to be converted.
+#[allow(unused)]
 pub enum ConversionType {
     /// The media file is audio.
     Audio,

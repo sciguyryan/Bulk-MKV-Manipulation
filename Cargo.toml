@@ -23,7 +23,6 @@ serde_json = "1.0.74"
 [target.'cfg(windows)'.build-dependencies]
 winres = "0.1.12"
 
-
 [profile.dev]
 opt-level = 0
 
