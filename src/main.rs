@@ -5,7 +5,7 @@ mod mkvtoolnix;
 mod paths;
 mod utils;
 
-use conversion_props::{AudioCodec, AudioProperties, OpusVbrOptions, VbrOptions};
+use conversion_props::{AudioCodec, AudioParameters, OpusVbrOptions, VbrOptions};
 use media_file::MediaFile;
 
 fn main() {
@@ -41,7 +41,7 @@ fn main() {
 
     mf.extract(true, true, true);
 
-    let audio_props = AudioProperties {
+    let audio_props = AudioParameters {
         codec: Some(AudioCodec::Opus),
         channels: None,
         bitrate: Some(64),
@@ -57,11 +57,6 @@ fn check_paths() -> bool {
     use std::path::Path;
 
     let mut check: bool = true;
-
-    if !utils::dir_exists(paths::FFMPEG_BASE) {
-        eprintln!("Failed to locate FFMPEG at {}", paths::FFMPEG_BASE);
-        check = false;
-    }
 
     if !utils::dir_exists(paths::MKVTOOLNIX_BASE) {
         eprintln!("Failed to locate MkvToolNIX at {}", paths::MKVTOOLNIX_BASE);
@@ -80,6 +75,11 @@ fn check_paths() -> bool {
 
     if !utils::dir_exists(paths::TEMP_BASE) {
         eprintln!("Failed to locate temporary folder at {}", paths::TEMP_BASE);
+        check = false;
+    }
+
+    if !utils::file_exists(paths::FFMPEG) {
+        eprintln!("Failed to locate FFMPEG at {}", paths::FFMPEG);
         check = false;
     }
 

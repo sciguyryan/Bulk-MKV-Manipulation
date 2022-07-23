@@ -1,5 +1,5 @@
 use crate::{
-    conversion_props::{AudioCodec, AudioProperties},
+    conversion_props::{AudioCodec, AudioParameters},
     converters, mkvtoolnix, paths, utils,
 };
 
@@ -8,7 +8,6 @@ use serde::de::{self, Deserialize, Deserializer, Unexpected};
 use serde_derive::Deserialize;
 use std::{
     fs,
-    path::Path,
     process::Command,
     sync::atomic::{AtomicUsize, Ordering},
 };
@@ -119,12 +118,7 @@ pub struct MediaFile {
 }
 
 impl MediaFile {
-    /// Clear the list of attachments.
-    fn clear_attachments(&mut self) {
-        self.attachments.clear();
-    }
-
-    pub fn convert_all_audio(&mut self, props: &AudioProperties) {
+    pub fn convert_all_audio(&mut self, props: &AudioParameters) {
         if props.codec.is_none() {
             return;
         };
@@ -133,6 +127,7 @@ impl MediaFile {
         // local codec type. These need to be segregated as they have different purposes.
         let out_codec = &props.codec.clone().unwrap().into();
 
+        // A list of the updated track indices.
         let mut update_indices = Vec::new();
 
         // Iterate through all audio tracks.
@@ -173,6 +168,7 @@ impl MediaFile {
     }
 
     /// Create a [`MediaFile] instance from a media file path.
+    ///
     /// # Arguments
     ///
     /// * `fp` - The path to the media file.
@@ -280,16 +276,21 @@ impl MediaFile {
         )
     }
 
-    fn init_temp_directory(&self) {
+    fn init_temp_directory(&self) -> bool {
         let sub_dirs = vec!["attachments", "chapters", "tracks"];
+
+        let mut result = true;
 
         // Create each subdirectory.
         for dir in sub_dirs {
             let p = self.get_temp_dir_for_output_type(dir);
-            fs::create_dir_all(p);
+            result &= fs::create_dir_all(p).is_ok();
         }
+
+        result
     }
 
+    /// Extract the attachments from a MKV file, if present.
     pub fn extract_attachments(&self) {
         // Do we have any attachments to extract?
         // The attachments will always be found on the first
@@ -313,6 +314,14 @@ impl MediaFile {
         );
     }
 
+    /// Extract the specified items from a MKV file.
+    ///
+    /// # Arguments
+    ///
+    /// * `extract_tracks` - Should tracks be extracted?
+    /// * `extract_attachments` - Should attachments be extracted?
+    /// * `extract_chapters` - Should chapters be extracted?
+    ///
     pub fn extract(&self, extract_tracks: bool, extract_attachments: bool, extract_chapters: bool) {
         if extract_tracks {
             self.extract_tracks();
@@ -327,6 +336,7 @@ impl MediaFile {
         }
     }
 
+    /// Extract the chapters from a MKV file, if present.
     pub fn extract_chapters(&self) {
         mkvtoolnix::run_mkv_extract(
             &self.file_path,
@@ -336,6 +346,7 @@ impl MediaFile {
         );
     }
 
+    /// Extract the tracks from a MKV file.
     pub fn extract_tracks(&self) {
         let tracks = &self.media.tracks;
         if tracks.is_empty() {
@@ -351,6 +362,7 @@ impl MediaFile {
         mkvtoolnix::run_mkv_extract(&self.file_path, &self.get_full_temp_path(), "tracks", &args);
     }
 
+    /// Parse the JSON output from MediaInfo.
     fn parse_json(json: &str) -> Option<MediaFile> {
         if let Ok(mi) = serde_json::from_str::<MediaFile>(json) {
             Some(mi)
@@ -405,7 +417,7 @@ pub struct MediaFileTrack {
 }
 
 impl MediaFileTrack {
-    /// Get the formatted output name for this track.
+    /// Get the output name for this track.
     pub fn get_out_file_name(&self) -> String {
         let ext = MediaFileTrack::get_extension_from_codec(&self.codec);
 

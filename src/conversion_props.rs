@@ -1,8 +1,12 @@
 use core::fmt;
 
+/// Variable bitrate options applicable to the Opus codec.
 pub enum OpusVbrOptions {
+    /// Disable variable bitrate, enabling constant bitrate.
     Off,
+    /// Enable variable bitrate, on by default.
     On,
+    /// Enable constrained variable bitrate.
     Constrained,
 }
 
@@ -62,13 +66,17 @@ impl fmt::Display for AudioCodec {
     }
 }
 
+/// The type of media to be converted.
 pub enum ConversionType {
+    /// The media file is audio.
     Audio,
+    /// The media file is subtitle.
     Subtitle,
+    /// The media file is video.
     Video,
 }
 
-pub struct AudioProperties {
+pub struct AudioParameters {
     /// The audio codec to be used for the conversion.
     pub codec: Option<AudioCodec>,
     /// The number of channels to be used for the conversion. If None, the number will be the same as the source.
@@ -85,7 +93,7 @@ pub struct AudioProperties {
     pub threads: Option<u8>,
 }
 
-impl AudioProperties {
+impl AudioParameters {
     pub fn validate(&self) -> bool {
         let codec = if let Some(c) = &self.codec {
             c
@@ -94,6 +102,7 @@ impl AudioProperties {
         };
 
         match codec {
+            // Validate the Opus audio conversion parameters.
             AudioCodec::Opus => {
                 let mut valid = true;
 
