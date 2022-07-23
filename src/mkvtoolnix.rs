@@ -12,7 +12,7 @@ pub fn get_mkvtoolnix_exe(exe: &str) -> String {
 pub fn run_mkv_extract(in_path: &str, out_path: &str, arg_type: &str, args: &[String]) {
     let path = get_mkvtoolnix_exe("mkvextract.exe");
 
-    let r = Command::new(path)
+    let _r = Command::new(path)
         .arg(in_path)
         .arg(arg_type)
         .args(args)
@@ -21,11 +21,12 @@ pub fn run_mkv_extract(in_path: &str, out_path: &str, arg_type: &str, args: &[St
         .expect("failed to run MKVToolnix extract process");
 }
 
-pub fn run_mkv_merge(out_path: &str, args: &[String]) {
+pub fn run_mkv_merge(base_dir: &str, args: &[String]) {
     let path = get_mkvtoolnix_exe("mkvmerge.exe");
 
-    let r = Command::new(path)
+    let _r = Command::new(path)
         .args(args)
+        .current_dir(base_dir)
         .output()
         .expect("failed to run MKVToolnix merge process");
 }

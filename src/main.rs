@@ -55,7 +55,7 @@ fn main() {
     mf.convert_all_audio(&audio_props);
 
     // Mux the media file.
-    mf.mux_file(out_path);
+    mf.remux_file(out_path);
 }
 
 fn check_paths() -> bool {

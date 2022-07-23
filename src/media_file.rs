@@ -226,8 +226,8 @@ impl MediaFile {
 
     fn guess_mime_from_extension(ext: &str) -> String {
         match ext.to_lowercase().as_str() {
-            "otf" => String::from("font/otf"),
-            "ttf" => String::from("font/ttf"),
+            "otf" => "font/otf".to_string(),
+            "ttf" => "font/ttf".to_string(),
             _ => {
                 panic!("Unrecognized file extension: {}", ext);
             }
@@ -250,7 +250,7 @@ impl MediaFile {
             .arg("--Output=JSON")
             .arg(fp)
             .output()
-            .expect("failed to run mediainfo process");
+            .expect("failed to run MediaInfo process");
 
         // Attempt to parse the JSON output.
         let json = String::from_utf8_lossy(&output.stdout).to_string();
@@ -373,17 +373,17 @@ impl MediaFile {
     }
 
     /// Mux the attachments, chapters and tracks into a MKV file.
-    pub fn mux_file(&self, out_path: &str) {
+    pub fn remux_file(&self, out_path: &str) {
         use std::fmt::Write;
 
         let mut args = Vec::with_capacity(100);
 
         // The output file path.
-        args.extend_from_slice(&[String::from("--output"), String::from(out_path)]);
+        args.extend_from_slice(&["-o".to_string(), out_path.to_string()]);
 
         // Iterate over all of the tracks.
         for track in &self.media.tracks {
-            args.push(String::from("--language"));
+            args.push("--language".to_string());
 
             // Set the track language. We set undefined for any video tracks.
             if track.track_type == TrackType::Video {
@@ -393,16 +393,12 @@ impl MediaFile {
             }
 
             // Set the file path.
-            args.push(format!(
-                "{}\\tracks\\{}",
-                self.get_full_temp_path(),
-                track.get_out_file_name()
-            ));
+            args.push(format!(".\\tracks\\{}", track.get_out_file_name()));
         }
 
         // Iterate over all of the attachments.
         for attachment in &self.attachments {
-            let path = format!("{}\\attachments\\{}", self.get_full_temp_path(), attachment);
+            let path = format!(".\\attachments\\{}", attachment);
 
             let ext = utils::get_file_extension(&path);
             if ext.is_none() {
@@ -411,21 +407,26 @@ impl MediaFile {
             let mime = MediaFile::guess_mime_from_extension(ext.unwrap());
 
             // Set the attachment name.
-            args.push(String::from("--attachment-name"));
+            args.push("--attachment-name".to_string());
             args.push(attachment.clone());
 
             // Set the attachment mimetype.
-            args.push(String::from("--attachment-mime-type"));
+            args.push("--attachment-mime-type".to_string());
             args.push(mime);
 
             // Set the attachment file path.
-            args.push(String::from("--attach-file"));
+            args.push("--attach-file".to_string());
             args.push(path);
         }
 
-        // Set the track order.
-        args.push(String::from("--track-order"));
+        // Do we have a chapter file to include?
+        let chapters_fp = ".\\chapters\\chapters.xml".to_string();
+        if utils::file_exists(&chapters_fp) {
+            args.push("--chapters".to_string());
+            args.push(chapters_fp);
+        }
 
+        // Set the track order.
         let mut order = String::new();
         for i in 0..self.media.tracks.len() {
             let _r = write!(&mut order, "{}:0", i);
@@ -435,9 +436,11 @@ impl MediaFile {
                 order.push(',');
             }
         }
+        args.push("--track-order".to_string());
         args.push(order);
 
-        mkvtoolnix::run_mkv_merge(out_path, &args);
+        // Run the MKV merge process.
+        mkvtoolnix::run_mkv_merge(&self.get_full_temp_path(), &args);
     }
 
     /// Parse the JSON output from MediaInfo.
