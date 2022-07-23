@@ -1,5 +1,7 @@
 use core::fmt;
 
+use super::params::ConversionParams;
+
 /// Variable bitrate options applicable to the Opus codec.
 #[allow(unused)]
 pub enum OpusVbrOptions {
@@ -86,8 +88,9 @@ pub struct AudioParams {
     pub threads: Option<u8>,
 }
 
-impl AudioParams {
-    pub fn validate(&self) -> bool {
+impl ConversionParams for AudioParams {
+    /// Validate the specified codec parameters.
+    fn validate(&self) -> bool {
         let codec = if let Some(c) = &self.codec {
             c
         } else {
@@ -115,7 +118,7 @@ impl AudioParams {
         }
     }
 
-    pub fn as_ffmpeg_argument_list(&self, file_in: &str, file_out: &str) -> Option<Vec<String>> {
+    fn as_ffmpeg_argument_list(&self, file_in: &str, file_out: &str) -> Option<Vec<String>> {
         if !self.validate() {
             return None;
         }

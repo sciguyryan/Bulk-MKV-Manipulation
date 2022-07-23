@@ -1,5 +1,7 @@
 use crate::{
-    conversion_params::{audio::AudioParams, subtitle::SubtitleParams, video::VideoParams},
+    conversion_params::{
+        audio::AudioParams, params::ConversionParams, subtitle::SubtitleParams, video::VideoParams,
+    },
     paths,
 };
 

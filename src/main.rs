@@ -1,5 +1,6 @@
 mod conversion_params;
 mod converters;
+mod file_processor;
 mod media_file;
 mod media_process_params;
 mod mkvtoolnix;
@@ -7,8 +8,11 @@ mod paths;
 mod utils;
 
 use conversion_params::audio::{AudioCodec, AudioParams, OpusVbrOptions, VbrOptions};
+use file_processor::{FileProcessor, PadType};
 use media_file::MediaFile;
 use media_process_params::MediaProcessParams;
+
+use std::fs;
 
 fn main() {
     if !check_paths() {
@@ -17,6 +21,17 @@ fn main() {
 
     // Clear the temporary files.
     utils::delete_directory(paths::TEMP_BASE);
+
+    // Recreate the base directory.
+    _ = fs::create_dir_all(paths::TEMP_BASE);
+
+    let in_dir = "D:\\Temp\\Original".to_string();
+    let out_file_names = "D:\\Temp\\Original\\names.txt".to_string();
+    let out_dir = "D:\\Temp\\Encodes".to_string();
+
+    let processor = FileProcessor::new(in_dir, out_dir, out_file_names, 980, PadType::Hundred);
+
+    return;
 
     let fp = "D:\\Temp\\Original\\aaaaaaa.mkv";
     let out_path = "E:\\muxed.mkv";

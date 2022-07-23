@@ -320,7 +320,7 @@ impl MediaFile {
     /// * `ext` - The extension of the file.
     ///
     fn guess_mime_from_extension(ext: &str) -> String {
-        match ext.to_lowercase().as_str() {
+        match ext {
             "otf" => "font/otf".to_string(),
             "ttf" => "font/ttf".to_string(),
             _ => {
@@ -453,18 +453,18 @@ impl MediaFile {
             // Set the default track flag.
 
             // Set the file path.
-            args.push(format!(".\\tracks\\{}", track.get_out_file_name()));
+            args.push(format!("./tracks/{}", track.get_out_file_name()));
         }
 
         // Iterate over all of the attachments.
         for attachment in &self.attachments {
-            let path = format!(".\\attachments\\{}", attachment);
+            let path = format!("./attachments/{}", attachment);
 
             let ext = utils::get_file_extension(&path);
             if ext.is_none() {
                 continue;
             }
-            let mime = MediaFile::guess_mime_from_extension(ext.unwrap());
+            let mime = MediaFile::guess_mime_from_extension(&ext.unwrap());
 
             // Set the attachment name.
             args.push("--attachment-name".to_string());
@@ -480,7 +480,7 @@ impl MediaFile {
         }
 
         // Do we have a chapter file to include?
-        let chapters_fp = ".\\chapters\\chapters.xml".to_string();
+        let chapters_fp = "./chapters/chapters.xml".to_string();
         if utils::file_exists(&chapters_fp) {
             args.push("--chapters".to_string());
             args.push(chapters_fp);

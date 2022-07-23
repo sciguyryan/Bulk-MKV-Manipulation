@@ -1,5 +1,7 @@
 use std::{fs, path::Path};
 
+const BAD_NTFS_CHARS: [char; 9] = ['/', '?', '<', '>', '\\', ':', '*', '|', '"'];
+
 pub fn dir_exists(path: &str) -> bool {
     let path = Path::new(path);
     path.exists() && path.is_dir()
@@ -18,11 +20,11 @@ pub fn file_exists(path: &str) -> bool {
     path.exists() && path.is_file()
 }
 
-pub fn get_file_extension(fp: &str) -> Option<&str> {
+pub fn get_file_extension(fp: &str) -> Option<String> {
     let index = fp.rfind('.')?;
     let (_, ext) = fp.split_at(index + 1);
 
-    Some(ext)
+    Some(ext.to_lowercase())
 }
 
 pub fn join_paths_to_string(base: &str, paths: &[&str]) -> String {
@@ -33,4 +35,13 @@ pub fn join_paths_to_string(base: &str, paths: &[&str]) -> String {
     }
 
     p.to_string_lossy().to_string()
+}
+
+/// Strip invalid NTFS characters from a path string.
+/// # Arguments
+///
+/// * `str` - The string to be sanitized.
+///
+pub fn strip_bad_ntfs_chars(str: &str) -> String {
+    str.replace(&BAD_NTFS_CHARS[..], "")
 }
