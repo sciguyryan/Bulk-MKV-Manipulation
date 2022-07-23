@@ -31,7 +31,7 @@ pub fn convert_audio_file(
 }
 
 fn run_ffmpeg(args: &[String]) {
-    let r = Command::new(paths::FFMPEG)
+    let _r = Command::new(paths::FFMPEG)
         .args(args)
         .output()
         .expect("failed to run FFMPEG extract process");

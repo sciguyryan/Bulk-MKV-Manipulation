@@ -220,10 +220,24 @@ impl MediaFile {
             }
         }
 
+        if audio_kept < audio_count {
+            eprintln!("Fewer audio tracks than required for file {}.", self.file_path);
+        }
+
+        if subs_kept < subtitle_count {
+            eprintln!("Fewer subtitle tracks than required for file {}.", self.file_path);
+        }
+
         // Assign the kept tracks back into the container object.
         self.media.tracks = kept_tracks;
     }
 
+    /// Attempt to guess the mimetype of a file from it's file extension.
+    ///
+    /// # Arguments
+    ///
+    /// * `ext` - The extension of the file.
+    ///
     fn guess_mime_from_extension(ext: &str) -> String {
         match ext.to_lowercase().as_str() {
             "otf" => "font/otf".to_string(),
