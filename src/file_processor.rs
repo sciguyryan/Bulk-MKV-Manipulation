@@ -148,7 +148,7 @@ impl FileProcessor {
         // Process each media file.
         for (i, m) in &mut media.iter_mut().enumerate() {
             print!("Processing media file {} of {}...", i + 1, media_len);
-            m.process(params, &self.output_paths[i]);
+            m.process(&self.output_paths[i], params);
             print!(" Done!\r\n");
 
             // Delete the original file, if required.

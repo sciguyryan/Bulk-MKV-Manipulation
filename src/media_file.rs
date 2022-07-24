@@ -84,14 +84,21 @@ impl From<AudioCodec> for Codec {
 
 #[derive(Clone, Default, Deserialize, PartialEq)]
 pub enum TrackType {
+    /// An audio track.
     Audio,
+    /// A button track, not something that is useful here.
     Button,
+    /// A general data pseudo-track.
     General,
+    /// A menu track. This is how chapters are typically displayed.
     Menu,
+    /// A track that does not fit into any of the other categories.
     #[default]
     Other,
+    /// A subtitle track.
     #[serde(rename = "Text")]
     Subtitle,
+    /// A video track.
     Video,
 }
 
@@ -336,11 +343,8 @@ impl MediaFile {
                 TrackType::Audio => {
                     audio_kept < audio_count && audio_lang.contains(&track.language.to_string())
                 }
-                // I haven't even encountered one of these before.
                 TrackType::Button => keep_other,
-                // This isn't a true track.
                 TrackType::General => false,
-                // I haven't even encountered one of these before.
                 TrackType::Menu => false,
                 TrackType::Other => keep_other,
                 TrackType::Subtitle => {
@@ -446,48 +450,52 @@ impl MediaFile {
         result
     }
 
-    pub fn process(&mut self, props: &UnifiedParams, out_path: &str) {
+    pub fn process(&mut self, out_path: &str, params: &UnifiedParams) {
         // Filter the tracks so that only the tracks
         // that match our parameters are kept.
         self.filter_tracks(
-            &props.audio_languages[..],
-            props.audio_count,
-            &props.subtitle_languages[..],
-            props.subtitle_count,
-            props.keep_other_tracks,
+            &params.audio_languages[..],
+            params.audio_count,
+            &params.subtitle_languages[..],
+            params.subtitle_count,
+            params.include_other_tracks,
         );
 
         // Extract the files.
-        self.extract(true, props.keep_attachments, props.keep_chapters);
+        self.extract(
+            true,
+            params.include_attachments,
+            params.chapters.include,
+        );
 
         // Convert the audio tracks.
-        if let Some(ac) = &props.audio_conv_params {
+        if let Some(ac) = &params.audio_conversion {
             if ac.codec.is_some() {
                 self.convert_all_audio(ac);
             }
         }
 
         // Convert the subtitle tracks.
-        if let Some(_sc) = &props.subtitle_conv_params {
+        if let Some(_sc) = &params.subtitle_conversion {
             todo!("not yet implemented");
         }
 
         // Convert the video tracks.
-        if let Some(_vc) = &props.video_conv_params {
+        if let Some(_vc) = &params.video_conversion {
             todo!("not yet implemented");
         }
 
         // Remux the media file.
-        self.remux_file(out_path);
+        self.remux_file(out_path, params);
 
         // Delete the temporary files.
-        if props.remove_temp_files {
+        if params.remove_temp_files {
             utils::delete_directory(&self.get_full_temp_path());
         }
     }
 
     /// Mux the attachments, chapters and tracks into a MKV file.
-    pub fn remux_file(&self, out_path: &str) {
+    pub fn remux_file(&self, out_path: &str, params: &UnifiedParams) {
         use std::fmt::Write;
 
         let mut args = Vec::with_capacity(100);
@@ -547,15 +555,35 @@ impl MediaFile {
             args.push(path);
         }
 
-        // Do we have a chapter file to include?
-        let chapters_fp =
-            utils::join_paths_to_string(&self.get_full_temp_path(), &["chapters", "chapters.xml"]);
-        if utils::file_exists(&chapters_fp) {
+        // Do we need to include chapters?
+        if params.chapters.include {
             args.push("--chapter-language".to_string());
             args.push("en".to_string());
 
-            args.push("--chapters".to_string());
-            args.push(chapters_fp);
+            // Did we export an existing chapters file?
+            let chapters_fp = utils::join_paths_to_string(
+                &self.get_full_temp_path(),
+                &["chapters", "chapters.xml"],
+            );
+            if utils::file_exists(&chapters_fp) {
+                // Yes, include that file.
+                args.push("--chapters".to_string());
+                args.push(chapters_fp);
+            } else if params.chapters.create_if_not_present {
+                // No, we will have to create the chapters from scratch.
+                args.push("--generate-chapters-name-template".to_string());
+                args.push("Chapter <NUM:2>".to_string());
+
+                args.push("--generate-chapters".to_string());
+
+                let mut format = "00:05:00.000000000";
+                if let Some(interval) = &params.chapters.create_interval {
+                    if !interval.is_empty() {
+                        format = interval;
+                    }
+                }
+                args.push(format!("interval:{}", format));
+            }
         }
 
         // Set the track order.
