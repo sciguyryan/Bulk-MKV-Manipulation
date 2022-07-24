@@ -1,6 +1,25 @@
-use super::params::ConversionParams;
+use core::fmt;
 
-pub struct SubtitleParams {}
+use super::params_trait::ConversionParams;
+
+#[allow(unused)]
+#[derive(Clone)]
+pub enum SubtitleCodec {
+    None,
+}
+
+impl fmt::Display for SubtitleCodec {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            SubtitleCodec::None => write!(f, "none"),
+        }
+    }
+}
+
+pub struct SubtitleParams {
+    /// The subtitle codec to be used for the conversion.
+    pub codec: Option<SubtitleCodec>,
+}
 
 impl ConversionParams for SubtitleParams {
     /// Validate the specified codec parameters.

@@ -1,4 +1,4 @@
-use crate::utils;
+use crate::{conversion_params::unified::UnifiedParams, utils};
 
 use std::{
     fs::{self, File},
@@ -43,6 +43,10 @@ impl FileProcessor {
         // Read all of the files within the input directory.
         let paths = fs::read_dir(in_dir).unwrap();
         for path in paths.flatten() {
+            if !path.path().is_file() {
+                continue;
+            }
+
             let p = format!("{}", path.path().display());
 
             // We currently only support the manipulation of MKV files.
@@ -71,6 +75,11 @@ impl FileProcessor {
 
         // Iterate over each line of the file.
         for line in BufReader::new(file).lines().flatten() {
+            // Skip empty lines.
+            if line.is_empty() {
+                continue;
+            }
+
             // Question marks need to be handled slightly differently
             // depending on context.
             // We also want to remove various other characters that are
@@ -111,5 +120,32 @@ impl FileProcessor {
         })
     }
 
-    pub fn process() {}
+    /// Process each of the media files in the input directory.
+    ///
+    /// # Arguments
+    ///
+    /// * `props` - The [`MediaProcessParams`] to be used while processing the media files.
+    ///
+    pub fn process(&self, params: &UnifiedParams) {
+        use crate::media_file::MediaFile;
+
+        // Process the data from each of the media files.
+        let mut media = Vec::new();
+        for i in 0..self.input_paths.len() {
+            if let Some(mf) = MediaFile::from_path(&self.input_paths[i]) {
+                media.push(mf);
+            }
+        }
+
+        // Process each media file.
+        for (i, m) in &mut media.iter_mut().enumerate() {
+            print!(
+                "Processing media file #{} \"{}\"...",
+                i + 1,
+                self.input_paths[i]
+            );
+            m.process(params, &self.output_paths[i]);
+            print!(" Done!\r\n");
+        }
+    }
 }

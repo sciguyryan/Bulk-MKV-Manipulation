@@ -1,6 +1,6 @@
 use core::fmt;
 
-use super::params::ConversionParams;
+use super::params_trait::ConversionParams;
 
 /// Variable bitrate options applicable to the Opus codec.
 #[allow(unused)]
@@ -154,17 +154,23 @@ impl ConversionParams for AudioParams {
             args.push(format!("{}k", bitrate));
         }
 
+        if let Some(vbr) = &self.vbr {
+            // Opus defaults to a variable bitrate, so this parameter will be ignored
+            // if set to on.
+            args.push("-vbr".to_string());
+            args.push(format!("{}", vbr));
+        }
+
         // Compression level. Only applied to audio tracks.
         if let Some(level) = self.compression_level {
             args.push("-compression_level".to_string());
             args.push(level.to_string());
         }
 
-        if let Some(vbr) = &self.vbr {
-            // Opus defaults to a variable bitrate, so this parameter will be ignored
-            // if set to on.
-            args.push("-vbr".to_string());
-            args.push(format!("{}", vbr));
+        // The number of audio channels.
+        if let Some(channels) = self.channels {
+            args.push("-ac".to_string());
+            args.push(channels.to_string());
         }
 
         // The output file path should always go last.

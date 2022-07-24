@@ -1,8 +1,11 @@
 use crate::{
-    conversion_params::audio::{AudioCodec, AudioParams},
-    converters,
-    media_process_params::MediaProcessParams,
-    mkvtoolnix, paths, utils,
+    conversion_params::{
+        audio::{AudioCodec, AudioParams},
+        subtitle::SubtitleParams,
+        unified::UnifiedParams,
+        video::VideoParams,
+    },
+    converters, mkvtoolnix, paths, utils,
 };
 
 use core::fmt;
@@ -120,14 +123,14 @@ pub struct MediaFile {
 }
 
 impl MediaFile {
-    pub fn convert_all_audio(&mut self, props: &AudioParams) {
-        if props.codec.is_none() {
+    pub fn convert_all_audio(&mut self, params: &AudioParams) {
+        if params.codec.is_none() {
             return;
         };
 
         // This is the conversion codec type, converted into the
         // local codec type. These need to be segregated as they have different purposes.
-        let out_codec = &props.codec.clone().unwrap().into();
+        let out_codec = &params.codec.clone().unwrap().into();
 
         // A list of the updated track indices.
         let mut update_indices = Vec::new();
@@ -146,19 +149,15 @@ impl MediaFile {
                 self.get_full_temp_path(),
                 t.get_out_file_name()
             );
-            let mut out_file_path = in_file_path.clone();
 
-            // Get the file extension.
-            let in_ext = MediaFileTrack::get_extension_from_codec(&t.codec);
+            // Get the new file extension and set the output
+            // file extension to it.
             let out_ext = MediaFileTrack::get_extension_from_codec(out_codec);
-
-            // Swap the file extensions.
-            out_file_path =
-                out_file_path.replace(&format!(".{}", in_ext), &format!(".{}", out_ext));
+            let out_file_path = utils::swap_file_extension(&in_file_path, &out_ext);
 
             // Was the conversion successful? If so, add the index to the list
             // so that the codec can be updated later.
-            if converters::convert_audio_file(&in_file_path, &out_file_path, props, true) {
+            if converters::convert_audio_file(&in_file_path, &out_file_path, params, true) {
                 update_indices.push(i);
             }
         }
@@ -169,6 +168,24 @@ impl MediaFile {
         }
     }
 
+    #[allow(unused)]
+    pub fn convert_all_subtitles(&mut self, params: &SubtitleParams) {
+        if params.codec.is_none() {
+            return;
+        };
+
+        todo!("not yet implemented");
+    }
+
+    #[allow(unused)]
+    pub fn convert_all_video(&mut self, params: &VideoParams) {
+        if params.codec.is_none() {
+            return;
+        };
+
+        todo!("not yet implemented");
+    }
+
     /// Extract the specified items from a MKV file.
     ///
     /// # Arguments
@@ -177,13 +194,23 @@ impl MediaFile {
     /// * `extract_attachments` - Should attachments be extracted?
     /// * `extract_chapters` - Should chapters be extracted?
     ///
-    pub fn extract(&self, extract_tracks: bool, extract_attachments: bool, extract_chapters: bool) {
+    pub fn extract(
+        &mut self,
+        extract_tracks: bool,
+        extract_attachments: bool,
+        extract_chapters: bool,
+    ) {
         if extract_tracks {
             self.extract_tracks();
         }
 
         if extract_attachments {
             self.extract_attachments();
+        } else {
+            // In the instance where we -do not- want to keep attachments,
+            // we also need to clear the internal attachment list to avoid
+            // issues when remuxing the file later.
+            self.attachments.clear();
         }
 
         if extract_chapters {
@@ -313,22 +340,6 @@ impl MediaFile {
         self.media.tracks = kept_tracks;
     }
 
-    /// Attempt to guess the mimetype of a file from it's file extension.
-    ///
-    /// # Arguments
-    ///
-    /// * `ext` - The extension of the file.
-    ///
-    fn guess_mime_from_extension(ext: &str) -> String {
-        match ext {
-            "otf" => "font/otf".to_string(),
-            "ttf" => "font/ttf".to_string(),
-            _ => {
-                panic!("Unrecognized file extension: {}", ext);
-            }
-        }
-    }
-
     /// Create a [`MediaFile] instance from a media file path.
     ///
     /// # Arguments
@@ -384,9 +395,8 @@ impl MediaFile {
     fn init_temp_directory(&self) -> bool {
         let sub_dirs = vec!["attachments", "chapters", "tracks"];
 
-        let mut result = true;
-
         // Create each subdirectory.
+        let mut result = true;
         for dir in sub_dirs {
             let p = self.get_temp_dir_for_output_type(dir);
             result &= fs::create_dir_all(p).is_ok();
@@ -395,7 +405,7 @@ impl MediaFile {
         result
     }
 
-    pub fn process(&mut self, props: &MediaProcessParams, out_path: &str) {
+    pub fn process(&mut self, props: &UnifiedParams, out_path: &str) {
         // Filter the tracks so that only the tracks
         // that match our parameters are kept.
         self.filter_tracks(
@@ -428,6 +438,9 @@ impl MediaFile {
 
         // Remux the media file.
         self.remux_file(out_path);
+
+        // Delete the temporary files.
+        utils::delete_directory(&self.get_full_temp_path());
     }
 
     /// Mux the attachments, chapters and tracks into a MKV file.
@@ -450,8 +463,6 @@ impl MediaFile {
                 args.push(format!("0:{}", track.language));
             }
 
-            // Set the default track flag.
-
             // Set the file path.
             args.push(format!("./tracks/{}", track.get_out_file_name()));
         }
@@ -464,7 +475,7 @@ impl MediaFile {
             if ext.is_none() {
                 continue;
             }
-            let mime = MediaFile::guess_mime_from_extension(&ext.unwrap());
+            let mime = utils::guess_mime_from_extension(&ext.unwrap());
 
             // Set the attachment name.
             args.push("--attachment-name".to_string());
@@ -525,12 +536,14 @@ pub struct MediaFileTrack {
     /// The track type field.
     ///
     /// `Note:` The [`TrackType::General`] indicates general information about the file, rather than describing a specific track.
+    ///
     #[serde(rename = "@type")]
     pub track_type: TrackType,
 
     /// The index of the track.
     ///
     /// `Note:` [`TrackType::General`] tracks do not have an index, and so will be assigned a default value of -1.
+    ///
     #[serde(rename = "StreamOrder", deserialize_with = "string_to_u32", default)]
     pub id: u32,
 
@@ -553,6 +566,7 @@ pub struct MediaFileTrack {
     /// The additional track information.
     ///
     /// `Note:` This field will only contains meaningful data when the [`MediaInfoTrack::track_type`] is [`TrackType::General`].
+    ///
     #[serde(rename = "extra", default)]
     pub extra_info: MediaInfoExtra,
 }

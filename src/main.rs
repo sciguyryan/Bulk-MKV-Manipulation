@@ -2,28 +2,20 @@ mod conversion_params;
 mod converters;
 mod file_processor;
 mod media_file;
-mod media_process_params;
 mod mkvtoolnix;
 mod paths;
 mod utils;
 
-use conversion_params::audio::{AudioCodec, AudioParams, OpusVbrOptions, VbrOptions};
+use conversion_params::{
+    audio::{AudioCodec, AudioParams, OpusVbrOptions, VbrOptions},
+    unified::UnifiedParams,
+};
 use file_processor::{FileProcessor, PadType};
-use media_file::MediaFile;
-use media_process_params::MediaProcessParams;
-
-use std::fs;
 
 fn main() {
     if !check_paths() {
         return;
     }
-
-    // Clear the temporary files.
-    utils::delete_directory(paths::TEMP_BASE);
-
-    // Recreate the base directory.
-    _ = fs::create_dir_all(paths::TEMP_BASE);
 
     let in_dir = "D:\\Temp\\Original".to_string();
     let out_file_names = "D:\\Temp\\Original\\names.txt".to_string();
@@ -37,17 +29,6 @@ fn main() {
             None => return,
         };
 
-    return;
-
-    let fp = "D:\\Temp\\Original\\aaaaaaa.mkv";
-    let out_path = "E:\\muxed.mkv";
-
-    let mut mf = if let Some(mi) = MediaFile::from_path(fp) {
-        mi
-    } else {
-        panic!("Error parsing MediaInfo JSON output.");
-    };
-
     let audio_params = AudioParams {
         codec: Some(AudioCodec::Opus),
         channels: None,
@@ -57,12 +38,12 @@ fn main() {
         threads: Some(8),
     };
 
-    let params = MediaProcessParams {
+    let params = UnifiedParams {
         audio_languages: vec!["ja".to_string()],
         audio_count: 1,
         subtitle_languages: vec!["en".to_string()],
         subtitle_count: 1,
-        keep_attachments: true,
+        keep_attachments: false,
         keep_chapters: true,
         keep_other_tracks: false,
         audio_conv_params: Some(audio_params),
@@ -70,7 +51,7 @@ fn main() {
         subtitle_conv_params: None,
     };
 
-    mf.process(&params, out_path);
+    file_processor.process(&params);
 }
 
 fn check_paths() -> bool {
