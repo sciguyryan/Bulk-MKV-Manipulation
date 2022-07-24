@@ -1,9 +1,10 @@
 use core::fmt;
+use serde_derive::{Deserialize, Serialize};
 
 use super::params_trait::ConversionParams;
 
+#[derive(Clone, Deserialize, Serialize)]
 #[allow(unused)]
-#[derive(Clone)]
 pub enum SubtitleCodec {
     None,
 }
@@ -16,6 +17,7 @@ impl fmt::Display for SubtitleCodec {
     }
 }
 
+#[derive(Clone, Deserialize, Serialize)]
 pub struct SubtitleParams {
     /// The subtitle codec to be used for the conversion.
     pub codec: Option<SubtitleCodec>,

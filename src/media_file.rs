@@ -216,7 +216,7 @@ impl MediaFile {
     }
 
     #[allow(unused)]
-    fn dump_json(json: &str) {
+    pub(crate) fn dump_json(json: &str) {
         use std::{fs::File, io::Write};
 
         let fp = utils::join_paths_to_string(paths::TEMP_BASE, &["output.json"]);

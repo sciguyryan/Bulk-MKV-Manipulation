@@ -1,3 +1,5 @@
+use serde_derive::{Deserialize, Serialize};
+
 use crate::{conversion_params::unified::UnifiedParams, utils};
 
 use std::{
@@ -5,6 +7,7 @@ use std::{
     io::{BufRead, BufReader},
 };
 
+#[derive(Deserialize, Serialize)]
 #[allow(unused)]
 pub enum PadType {
     Ten,

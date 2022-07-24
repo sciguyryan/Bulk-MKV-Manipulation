@@ -1,5 +1,8 @@
+use serde_derive::{Deserialize, Serialize};
+
 use crate::conversion_params::{audio::AudioParams, subtitle::SubtitleParams, video::VideoParams};
 
+#[derive(Deserialize, Serialize)]
 pub struct UnifiedParams {
     pub audio_languages: Vec<String>,
     pub audio_count: usize,

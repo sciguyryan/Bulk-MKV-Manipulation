@@ -1,8 +1,10 @@
 use core::fmt;
+use serde_derive::{Deserialize, Serialize};
 
 use super::params_trait::ConversionParams;
 
 /// Variable bitrate options applicable to the Opus codec.
+#[derive(Clone, Deserialize, Serialize)]
 #[allow(unused)]
 pub enum OpusVbrOptions {
     /// Disable variable bitrate, enabling constant bitrate.
@@ -23,6 +25,7 @@ impl fmt::Display for OpusVbrOptions {
     }
 }
 
+#[derive(Clone, Deserialize, Serialize)]
 #[allow(unused)]
 pub enum VbrOptions {
     Opus(OpusVbrOptions),
@@ -39,8 +42,8 @@ impl fmt::Display for VbrOptions {
     }
 }
 
+#[derive(Clone, Deserialize, Serialize)]
 #[allow(unused)]
-#[derive(Clone)]
 pub enum AudioCodec {
     Aac,
     AacLibfdk,
@@ -71,6 +74,7 @@ impl fmt::Display for AudioCodec {
     }
 }
 
+#[derive(Deserialize, Serialize)]
 pub struct AudioParams {
     /// The audio codec to be used for the conversion.
     pub codec: Option<AudioCodec>,

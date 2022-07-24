@@ -1,59 +1,59 @@
 mod conversion_params;
 mod converters;
 mod file_processor;
+mod input_profile;
 mod media_file;
 mod mkvtoolnix;
 mod paths;
 mod utils;
 
-use conversion_params::{
-    audio::{AudioCodec, AudioParams, OpusVbrOptions, VbrOptions},
-    unified::UnifiedParams,
-};
-use file_processor::{FileProcessor, PadType};
+use file_processor::FileProcessor;
+use input_profile::InputProfile;
+use std::{env, fs};
 
 fn main() {
     if !check_paths() {
         return;
     }
 
-    let in_dir = "D:\\Temp\\Input".to_string();
-    let out_file_names = "D:\\Temp\\Input\\names.txt".to_string();
-    let out_dir = "D:\\Temp\\Output".to_string();
-    let start_from = 1;
-    let pad_type = PadType::Hundred;
+    let args: Vec<String> = env::args().collect();
+    if args.len() < 2 {
+        eprintln!("You must specify the path to the conversion profile data file.");
+        return;
+    }
 
-    let file_processor =
-        match FileProcessor::new(in_dir, out_dir, out_file_names, start_from, pad_type) {
-            Some(p) => p,
-            None => return,
-        };
+    let fp = &args[1];
+    if !utils::file_exists(fp) {
+        eprintln!("You must specify the path to the conversion profile data file.");
+        return;
+    }
 
-    let audio_params = AudioParams {
-        codec: Some(AudioCodec::Opus),
-        channels: None,
-        bitrate: Some(64),
-        vbr: Some(VbrOptions::Opus(OpusVbrOptions::On)),
-        compression_level: Some(10),
-        threads: Some(12),
+    // Read the contents of the conversion profile data file.
+    let json = fs::read_to_string(fp).expect("failed to open profile data file");
+
+    // Attempt to parse the conversion profile data file.
+    let result = serde_json::from_str::<InputProfile>(&json);
+    let profile = if let Ok(p) = result {
+        p
+    } else {
+        println!("Error attempting to parse JSON data: {:?}", result.err());
+        return;
     };
 
-    let params = UnifiedParams {
-        audio_languages: vec!["ja".to_string()],
-        audio_count: 1,
-        subtitle_languages: vec!["en".to_string()],
-        subtitle_count: 1,
-        keep_attachments: false,
-        keep_chapters: true,
-        keep_other_tracks: false,
-        audio_conv_params: Some(audio_params),
-        video_conv_params: None,
-        subtitle_conv_params: None,
-        remove_original_file: false,
-        remove_temp_files: true,
+    // Create the file processor instance.
+    let file_processor = match FileProcessor::new(
+        profile.in_dir,
+        profile.out_dir,
+        profile.output_names_path,
+        profile.start_from,
+        profile.index_pad_type,
+    ) {
+        Some(p) => p,
+        None => return,
     };
 
-    file_processor.process(&params);
+    // Run the converter.
+    file_processor.process(&profile.processing_params);
 }
 
 fn check_paths() -> bool {
