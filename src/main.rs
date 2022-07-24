@@ -17,10 +17,10 @@ fn main() {
         return;
     }
 
-    let in_dir = "D:\\Temp\\Original".to_string();
-    let out_file_names = "D:\\Temp\\Original\\names.txt".to_string();
-    let out_dir = "D:\\Temp\\Encodes".to_string();
-    let start_from = 980;
+    let in_dir = "D:\\Temp\\Input".to_string();
+    let out_file_names = "D:\\Temp\\Input\\names.txt".to_string();
+    let out_dir = "D:\\Temp\\Output".to_string();
+    let start_from = 1;
     let pad_type = PadType::Hundred;
 
     let file_processor =
@@ -49,6 +49,8 @@ fn main() {
         audio_conv_params: Some(audio_params),
         video_conv_params: None,
         subtitle_conv_params: None,
+        remove_original_file: false,
+        remove_temp_files: false,
     };
 
     file_processor.process(&params);

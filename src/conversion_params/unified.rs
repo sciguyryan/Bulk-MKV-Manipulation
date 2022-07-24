@@ -11,4 +11,6 @@ pub struct UnifiedParams {
     pub audio_conv_params: Option<AudioParams>,
     pub video_conv_params: Option<VideoParams>,
     pub subtitle_conv_params: Option<SubtitleParams>,
+    pub remove_original_file: bool,
+    pub remove_temp_files: bool,
 }

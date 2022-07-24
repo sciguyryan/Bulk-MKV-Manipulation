@@ -130,8 +130,9 @@ impl FileProcessor {
         use crate::media_file::MediaFile;
 
         // Process the data from each of the media files.
-        let mut media = Vec::new();
-        for i in 0..self.input_paths.len() {
+        let media_len = self.input_paths.len();
+        let mut media = Vec::with_capacity(media_len);
+        for i in 0..media_len {
             if let Some(mf) = MediaFile::from_path(&self.input_paths[i]) {
                 media.push(mf);
             }
@@ -139,13 +140,14 @@ impl FileProcessor {
 
         // Process each media file.
         for (i, m) in &mut media.iter_mut().enumerate() {
-            print!(
-                "Processing media file #{} \"{}\"...",
-                i + 1,
-                self.input_paths[i]
-            );
+            print!("Processing media file {} of {}...", i + 1, media_len);
             m.process(params, &self.output_paths[i]);
             print!(" Done!\r\n");
+
+            // Delete the original file, if required.
+            if params.remove_original_file {
+                let _ = trash::delete(&self.input_paths[i]);
+            }
         }
     }
 }

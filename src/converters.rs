@@ -15,29 +15,16 @@ use std::process::Command;
 /// * `file_in` - The path to the input file.
 /// * `file_out` - The path to the output file.
 /// * `params` - The parameters to be used for encoding the output file.
-///  * `remove_original` - Whether to remove the original file should be removed after conversion.
 ///
-pub fn convert_audio_file(
-    file_in: &str,
-    file_out: &str,
-    params: &AudioParams,
-    remove_original: bool,
-) -> bool {
+pub fn convert_audio_file(file_in: &str, file_out: &str, params: &AudioParams) -> bool {
     // If the arguments were not valid then None will be returned.
     let args = params.as_ffmpeg_argument_list(file_in, file_out);
     if args == None {
         return false;
     }
 
-    // Run the FFMPEG command.
+    // Run FFMPEG with the specified parameters.
     run_ffmpeg(&args.unwrap());
-
-    // Do we need to remove the original media file?
-    if remove_original {
-        // We do not care if this succeeds or not, since the files will be removed
-        // at the end of the process in any event.
-        _ = std::fs::remove_file(file_in);
-    }
 
     true
 }
@@ -49,15 +36,9 @@ pub fn convert_audio_file(
 /// * `file_in` - The path to the input file.
 /// * `file_out` - The path to the output file.
 /// * `params` - The parameters to be used for encoding the output file.
-///  * `remove_original` - Whether to remove the original file should be removed after conversion.
 ///
 #[allow(unused)]
-pub fn convert_subtitle_file(
-    file_in: &str,
-    file_out: &str,
-    params: &SubtitleParams,
-    remove_original: bool,
-) -> bool {
+pub fn convert_subtitle_file(file_in: &str, file_out: &str, params: &SubtitleParams) -> bool {
     todo!("not yet implemented");
 }
 
@@ -68,7 +49,6 @@ pub fn convert_subtitle_file(
 /// * `file_in` - The path to the input file.
 /// * `file_out` - The path to the output file.
 /// * `params` - The parameters to be used for encoding the output file.
-///  * `remove_original` - Whether to remove the original file should be removed after conversion.
 ///
 #[allow(unused)]
 pub fn convert_video_file(

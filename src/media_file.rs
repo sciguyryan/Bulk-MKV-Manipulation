@@ -20,6 +20,9 @@ use std::{
 /// This will generate sequential thread-global unique IDs for instances of this struct.
 static UNIQUE_ID: AtomicUsize = AtomicUsize::new(0);
 
+/// This will indicate whether the JSON MediaInfo output should be exported to a file.
+const EXPORT_JSON: bool = false;
+
 #[derive(Clone, Default)]
 pub enum Codec {
     Aac,
@@ -84,11 +87,12 @@ pub enum TrackType {
     Audio,
     Button,
     General,
-    Video,
-    #[serde(rename = "Text")]
-    Subtitle,
+    Menu,
     #[default]
     Other,
+    #[serde(rename = "Text")]
+    Subtitle,
+    Video,
 }
 
 impl fmt::Display for TrackType {
@@ -97,9 +101,10 @@ impl fmt::Display for TrackType {
             TrackType::Audio => write!(f, "audio"),
             TrackType::Button => write!(f, "button"),
             TrackType::General => write!(f, "general"),
-            TrackType::Video => write!(f, "video"),
-            TrackType::Subtitle => write!(f, "subtitle"),
+            TrackType::Menu => write!(f, "menu"),
             TrackType::Other => write!(f, "other"),
+            TrackType::Subtitle => write!(f, "subtitle"),
+            TrackType::Video => write!(f, "video"),
         }
     }
 }
@@ -144,7 +149,7 @@ impl MediaFile {
             .filter(|(_, x)| x.track_type == TrackType::Audio)
         {
             // Determine the output file name.
-            let in_file_path = format!(
+            let mut in_file_path = format!(
                 "{}\\tracks\\{}",
                 self.get_full_temp_path(),
                 t.get_out_file_name()
@@ -152,12 +157,28 @@ impl MediaFile {
 
             // Get the new file extension and set the output
             // file extension to it.
+            let in_ext = MediaFileTrack::get_extension_from_codec(&t.codec);
             let out_ext = MediaFileTrack::get_extension_from_codec(out_codec);
             let out_file_path = utils::swap_file_extension(&in_file_path, &out_ext);
 
+            // In the case where the input and output files have the same
+            // name (by having the same codec type), we need to rename
+            // the original to avoid attempting to overwrite the original
+            // while also trying to convert it. Needless to say, that does not work.
+            if in_ext == out_ext {
+                let new_file_path = in_file_path.replace(
+                    &t.get_out_file_name(),
+                    &format!("moved{}.{}", t.id, out_ext),
+                );
+                let _ = fs::rename(&in_file_path, &new_file_path);
+
+                // Ensure that we work with the new path.
+                in_file_path = new_file_path;
+            }
+
             // Was the conversion successful? If so, add the index to the list
             // so that the codec can be updated later.
-            if converters::convert_audio_file(&in_file_path, &out_file_path, params, true) {
+            if converters::convert_audio_file(&in_file_path, &out_file_path, params) {
                 update_indices.push(i);
             }
         }
@@ -184,6 +205,16 @@ impl MediaFile {
         };
 
         todo!("not yet implemented");
+    }
+
+    #[allow(unused)]
+    fn dump_json(json: &str) {
+        use std::{fs::File, io::Write};
+
+        let fp = utils::join_paths_to_string(paths::TEMP_BASE, &["output.json"]);
+
+        let mut file = File::create(fp).expect("create failed");
+        Write::write_all(&mut file, json.as_bytes()).expect("write failed");
     }
 
     /// Extract the specified items from a MKV file.
@@ -301,12 +332,14 @@ impl MediaFile {
                 TrackType::Button => keep_other,
                 // This isn't a true track.
                 TrackType::General => false,
-                TrackType::Video => true,
+                // I haven't even encountered one of these before.
+                TrackType::Menu => false,
+                TrackType::Other => keep_other,
                 TrackType::Subtitle => {
                     subs_kept < subtitle_count
                         && subtitle_lang.contains(&track.language.to_string())
                 }
-                TrackType::Other => keep_other,
+                TrackType::Video => true,
             };
 
             if keep {
@@ -440,7 +473,9 @@ impl MediaFile {
         self.remux_file(out_path);
 
         // Delete the temporary files.
-        utils::delete_directory(&self.get_full_temp_path());
+        if props.remove_temp_files {
+            utils::delete_directory(&self.get_full_temp_path());
+        }
     }
 
     /// Mux the attachments, chapters and tracks into a MKV file.
@@ -516,9 +551,15 @@ impl MediaFile {
 
     /// Parse the JSON output from MediaInfo.
     fn parse_json(json: &str) -> Option<MediaFile> {
-        if let Ok(mi) = serde_json::from_str::<MediaFile>(json) {
+        if EXPORT_JSON {
+            MediaFile::dump_json(json);
+        }
+
+        let result = serde_json::from_str::<MediaFile>(json);
+        if let Ok(mi) = result {
             Some(mi)
         } else {
+            println!("Error attempting to parse JSON data: {:?}", result.err());
             None
         }
     }
@@ -679,7 +720,7 @@ where
         "A_AC3" | "A_AC3/BSID9" | "A_AC3/BSID10" => Codec::Ac3,
         "A_ALAC" => Codec::Alac,
         "A_DTS" | "A_DTS/EXPRESS" | "A_DTS/LOSSLESS" => Codec::Dts,
-        "A_VORBIS" => Codec::Opus,
+        "A_VORBIS" | "A_OPUS" => Codec::Opus,
         "A_FLAC" => Codec::Flac,
         "A_REAL/14_4" | "A_REAL/28_8" | "A_REAL/COOK" | "A_REAL/SIPR" | "A_REAL/RALF"
         | "A_REAL/ATRC" => Codec::RealAudio,
