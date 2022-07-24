@@ -548,7 +548,8 @@ impl MediaFile {
         }
 
         // Do we have a chapter file to include?
-        let chapters_fp = "./chapters/chapters.xml".to_string();
+        let chapters_fp =
+            utils::join_paths_to_string(&self.get_full_temp_path(), &["chapters", "chapters.xml"]);
         if utils::file_exists(&chapters_fp) {
             args.push("--chapter-language".to_string());
             args.push("en".to_string());

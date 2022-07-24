@@ -65,7 +65,7 @@ impl FileProcessor {
 
         // Read the file containing the output names.
         let mut index = out_name_start_from;
-        let file = match File::open(out_names_path) {
+        let file = match File::open(&out_names_path) {
             Ok(f) => f,
             Err(e) => {
                 eprintln!(
