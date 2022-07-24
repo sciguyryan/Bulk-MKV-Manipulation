@@ -89,6 +89,10 @@ impl FileProcessor {
             // invalid for use with NTFS filenames.
             let sanitized = utils::sanitize_ntfs_name(&line.replace("? ", " - "));
 
+            // Ensure that there are no stray tabs and spaces at the start
+            // and end of the file name.
+            let sanitized = sanitized.trim();
+
             // Handle the number padding.
             let file_name = match out_name_pad {
                 PadType::Ten => {
