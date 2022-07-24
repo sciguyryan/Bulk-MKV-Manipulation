@@ -109,6 +109,14 @@ impl fmt::Display for TrackType {
     }
 }
 
+#[derive(Clone, Default, Deserialize, PartialEq)]
+pub enum DelaySource {
+    Container,
+    #[default]
+    None,
+    Stream,
+}
+
 #[derive(Deserialize)]
 pub struct MediaFile {
     /// The unique sequential ID for this file.
@@ -489,6 +497,20 @@ impl MediaFile {
 
         // Iterate over all of the tracks.
         for track in &self.media.tracks {
+            // Do we need to specify a delay for the track?
+            if track.delay != 0 {
+                match track.delay_source {
+                    DelaySource::Container => {
+                        args.push("--sync".to_string());
+                        args.push(format!("0:{}", track.delay));
+                    }
+                    _ => {
+                        todo!("not yet implemented.");
+                    }
+                }
+            }
+
+            // Specify the track language.
             args.push("--language".to_string());
 
             // Set the track language. We set undefined for any video tracks.
@@ -528,6 +550,9 @@ impl MediaFile {
         // Do we have a chapter file to include?
         let chapters_fp = "./chapters/chapters.xml".to_string();
         if utils::file_exists(&chapters_fp) {
+            args.push("--chapter-language".to_string());
+            args.push("en".to_string());
+
             args.push("--chapters".to_string());
             args.push(chapters_fp);
         }
@@ -591,6 +616,18 @@ pub struct MediaFileTrack {
     /// The ID of the track's codec. This will be used to determine some additional information later.
     #[serde(rename = "CodecID", deserialize_with = "string_to_codec_enum", default)]
     pub codec: Codec,
+
+    /// The delay of the tracks, in milliseconds.
+    #[serde(rename = "Delay", deserialize_with = "second_string_to_ms", default)]
+    pub delay: i32,
+
+    /// If there is a track delay, what is the delay relative too?
+    #[serde(
+        rename = "Delay_Source",
+        deserialize_with = "string_to_delay_source_enum",
+        default
+    )]
+    pub delay_source: DelaySource,
 
     /// The track's language ID. If this is not defined, or is specifically set to und (undefined) then it will default to English.
     #[serde(
@@ -753,19 +790,19 @@ where
     Ok(codec)
 }
 
-fn string_to_u32<'de, D>(deserializer: D) -> Result<u32, D::Error>
+fn string_to_delay_source_enum<'de, D>(deserializer: D) -> Result<DelaySource, D::Error>
 where
     D: Deserializer<'de>,
 {
     let string = String::deserialize(deserializer)?;
 
-    match string.parse::<u32>() {
-        Ok(n) => Ok(n),
-        Err(_) => Err(de::Error::invalid_value(
-            Unexpected::Str(&string),
-            &"expected an unsigned integer",
-        )),
-    }
+    let source = match string.as_str() {
+        "Container" => DelaySource::Container,
+        "Stream" => DelaySource::Stream,
+        _ => DelaySource::None,
+    };
+
+    Ok(source)
 }
 
 fn string_to_language_id<'de, D>(deserializer: D) -> Result<String, D::Error>
@@ -781,6 +818,42 @@ where
     }
 
     Ok(string)
+}
+
+fn second_string_to_ms<'de, D>(deserializer: D) -> Result<i32, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let string = String::deserialize(deserializer)?;
+
+    // The string is defined in terms of seconds.
+    // We will therefore first attempt to parse this value as a f32.
+    match string.parse::<f32>() {
+        Ok(n) => {
+            // The number must be multiplied by 1000 to give the delay in milliseconds.
+            let ms = n * 1000.0;
+            Ok(ms as i32)
+        }
+        Err(_) => Err(de::Error::invalid_value(
+            Unexpected::Str(&string),
+            &"expected an integer",
+        )),
+    }
+}
+
+fn string_to_u32<'de, D>(deserializer: D) -> Result<u32, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let string = String::deserialize(deserializer)?;
+
+    match string.parse::<u32>() {
+        Ok(n) => Ok(n),
+        Err(_) => Err(de::Error::invalid_value(
+            Unexpected::Str(&string),
+            &"expected an unsigned integer",
+        )),
+    }
 }
 
 fn yes_no_to_bool<'de, D>(deserializer: D) -> Result<bool, D::Error>

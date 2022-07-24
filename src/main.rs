@@ -35,7 +35,7 @@ fn main() {
         bitrate: Some(64),
         vbr: Some(VbrOptions::Opus(OpusVbrOptions::On)),
         compression_level: Some(10),
-        threads: Some(8),
+        threads: Some(12),
     };
 
     let params = UnifiedParams {
@@ -50,7 +50,7 @@ fn main() {
         video_conv_params: None,
         subtitle_conv_params: None,
         remove_original_file: false,
-        remove_temp_files: false,
+        remove_temp_files: true,
     };
 
     file_processor.process(&params);
