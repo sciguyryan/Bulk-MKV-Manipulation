@@ -222,7 +222,7 @@ impl MediaFile {
     pub(crate) fn dump_json(json: &str) {
         use std::{fs::File, io::Write};
 
-        let fp = utils::join_paths_to_string(&paths::PATHS.temp, &["output.json"]);
+        let fp = utils::join_path_segments(&paths::PATHS.temp, &["output.json"]);
         let mut file = File::create(fp).expect("create failed");
         Write::write_all(&mut file, json.as_bytes()).expect("write failed");
     }
@@ -469,7 +469,7 @@ impl MediaFile {
 
     /// Get the path to the temporary folder for this media file.
     fn get_temp_path(&self) -> String {
-        utils::join_paths_to_string(&paths::PATHS.temp, &[&self.id.to_string()])
+        utils::join_path_segments(&paths::PATHS.temp, &[&self.id.to_string()])
     }
 
     /// Get the path to the temporary folder for the given output type for this media file.
@@ -478,7 +478,7 @@ impl MediaFile {
     ///
     /// * `output_type` - The name of the subdirectory representing the output type.
     fn get_temp_for_output_type(&self, output_type: &str) -> String {
-        utils::join_paths_to_string(&self.get_temp_path(), &[output_type])
+        utils::join_path_segments(&self.get_temp_path(), &[output_type])
     }
 
     /// Initialize the temporary directory structure for the media file.
@@ -569,7 +569,7 @@ impl MediaFile {
 
         // Did we export an existing chapters file?
         let chapters_fp =
-            utils::join_paths_to_string(&self.get_temp_path(), &["chapters", "chapters.xml"]);
+            utils::join_path_segments(&self.get_temp_path(), &["chapters", "chapters.xml"]);
         if utils::file_exists(&chapters_fp) {
             // Yes, include that file.
             args.push("--chapters".to_string());

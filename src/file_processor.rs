@@ -48,21 +48,11 @@ impl FileProcessor {
         // Read all of the files within the input directory.
         let paths = fs::read_dir(in_dir).unwrap();
         for path in paths.flatten() {
-            if !path.path().is_file() {
+            if !path.path().is_file() || !path.path().ends_with("mkv") {
                 continue;
             }
 
-            let p = format!("{}", path.path().display());
-
-            // We currently only support the manipulation of MKV files.
-            // All other file types will be ignored.
-            if let Some(ext) = utils::get_file_extension(&p) {
-                if ext != *"mkv" {
-                    continue;
-                }
-            }
-
-            input_paths.push(p);
+            input_paths.push(format!("{}", path.path().display()));
         }
 
         // Read the file containing the output names.
@@ -109,7 +99,7 @@ impl FileProcessor {
             };
 
             // Add the file output path to the vector.
-            output_paths.push(utils::join_paths_to_string(&out_dir, &[&file_name]));
+            output_paths.push(utils::join_path_segments(&out_dir, &[&file_name]));
 
             // Add the title to the vector.
             titles.push(sanitized.to_string());
@@ -119,8 +109,7 @@ impl FileProcessor {
         }
 
         // We must now check that the number of files in the input
-        // directory is equal to the number of entries from the
-        // output file list.
+        // directory is equal to the number of entries from the output file list.
         if input_paths.len() != output_paths.len() {
             eprintln!("The number of files in the input directory is not equal to the number of files in the output directory");
             return None;

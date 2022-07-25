@@ -1,8 +1,8 @@
-use serde_derive::{Deserialize, Serialize};
+use serde_derive::Deserialize;
 
 use super::{audio::AudioParams, subtitle::SubtitleParams, video::VideoParams};
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize)]
 pub struct UnifiedParams {
     /// Parameters related to the audio tracks.
     pub audio_tracks: UnifiedAudioParams,
@@ -20,7 +20,7 @@ pub struct UnifiedParams {
     pub misc_params: MiscParams,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize)]
 pub struct AttachmentParams {
     /// Should attachments be included in the final file?
     /// Any existing attachments will be exported and included in the final file.
@@ -30,7 +30,7 @@ pub struct AttachmentParams {
     pub include_extensions: Vec<String>,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize)]
 pub struct ChapterParams {
     /// Should chapters be included in the final file?
     /// Any existing chapters will be exported and included in the final file.
@@ -42,7 +42,7 @@ pub struct ChapterParams {
     pub create_interval: Option<String>,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize)]
 pub struct MiscParams {
     /// Should the original media file be removed after processing?
     pub remove_original_file: bool,
@@ -55,7 +55,7 @@ pub struct MiscParams {
     pub tags_path: Option<String>,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize)]
 pub struct UnifiedAudioParams {
     /// The list of language codes that should be accepted.
     /// If this is empty then all languages will be accepted.
@@ -66,7 +66,7 @@ pub struct UnifiedAudioParams {
     pub conversion: Option<AudioParams>,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize)]
 pub struct UnifiedSubtitleParams {
     /// The list of language codes that should be accepted.
     /// If this is empty then all languages will be accepted.
@@ -77,14 +77,14 @@ pub struct UnifiedSubtitleParams {
     pub conversion: Option<SubtitleParams>,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize)]
 pub struct UnifiedOtherTrackParams {
     /// Should "other" be included in the final file?
     /// These are tracks that are not of type: audio, subtitle or video.
     pub include: bool,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize)]
 pub struct UnifiedVideoParams {
     /// The number of tracks of this type to retain, in total.
     pub total_to_retain: usize,

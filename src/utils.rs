@@ -32,7 +32,7 @@ pub fn get_file_extension(fp: &str) -> Option<String> {
 }
 
 #[inline]
-pub fn join_paths_to_string(base: &str, paths: &[&str]) -> String {
+pub fn join_path_segments(base: &str, paths: &[&str]) -> String {
     let mut p = Path::new(base).to_path_buf();
 
     for path in paths {

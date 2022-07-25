@@ -1,8 +1,8 @@
 use crate::{conversion_params::unified::UnifiedParams, file_processor::PadType};
 
-use serde_derive::{Deserialize, Serialize};
+use serde_derive::Deserialize;
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize)]
 pub struct InputProfile {
     pub input_dir: String,
     pub output_dir: String,
