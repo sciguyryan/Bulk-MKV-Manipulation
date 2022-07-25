@@ -253,9 +253,6 @@ impl MediaFile {
         if extract_attachments {
             self.extract_attachments();
         } else {
-            // In the instance where we -do not- want to keep attachments,
-            // we also need to clear the internal attachment list to avoid
-            // issues when remuxing the file later.
             self.attachments.clear();
         }
 
@@ -430,6 +427,12 @@ impl MediaFile {
         utils::join_paths_to_string(paths::TEMP_BASE, &[self.id.to_string().as_str()])
     }
 
+    /// Get the path to the temporary folder for the given output type.
+    ///
+    /// # Arguments
+    ///
+    /// * `output_type` - The name of the subdirectory representing the output type.
+    ///
     fn get_temp_dir_for_output_type(&self, output_type: &str) -> String {
         utils::join_paths_to_string(
             paths::TEMP_BASE,
@@ -437,6 +440,7 @@ impl MediaFile {
         )
     }
 
+    /// Initialize the temporary directory structure for the media file.
     fn init_temp_directory(&self) -> bool {
         let sub_dirs = vec!["attachments", "chapters", "tracks"];
 
@@ -450,6 +454,12 @@ impl MediaFile {
         result
     }
 
+    /// Process a media file, applying any conversions and filters before remuxing the file.
+    ///
+    /// # Arguments
+    ///
+    /// * `out_path` - The path of the output media file.
+    /// * `params` - The parameters to be used with the file processing.
     pub fn process(&mut self, out_path: &str, params: &UnifiedParams) {
         // Filter the tracks so that only the tracks
         // that match our parameters are kept.
@@ -458,15 +468,11 @@ impl MediaFile {
             params.audio_count,
             &params.subtitle_languages[..],
             params.subtitle_count,
-            params.include_other_tracks,
+            params.other_tracks.include,
         );
 
         // Extract the files.
-        self.extract(
-            true,
-            params.include_attachments,
-            params.chapters.include,
-        );
+        self.extract(true, params.attachments.include, params.chapters.include);
 
         // Convert the audio tracks.
         if let Some(ac) = &params.audio_conversion {
@@ -494,15 +500,62 @@ impl MediaFile {
         }
     }
 
-    /// Mux the attachments, chapters and tracks into a MKV file.
-    pub fn remux_file(&self, out_path: &str, params: &UnifiedParams) {
-        use std::fmt::Write;
+    fn apply_attachment_mux_params(&self, args: &mut Vec<String>) {
+        // Iterate over all of the attachments.
+        for attachment in &self.attachments {
+            let path = format!("./attachments/{}", attachment);
 
-        let mut args = Vec::with_capacity(100);
+            let ext = utils::get_file_extension(&path);
+            if ext.is_none() {
+                continue;
+            }
+            let mime = utils::guess_mime_from_extension(&ext.unwrap());
 
-        // The output file path.
-        args.extend_from_slice(&["-o".to_string(), out_path.to_string()]);
+            // Set the attachment name.
+            args.push("--attachment-name".to_string());
+            args.push(attachment.clone());
 
+            // Set the attachment mimetype.
+            args.push("--attachment-mime-type".to_string());
+            args.push(mime);
+
+            // Set the attachment file path.
+            args.push("--attach-file".to_string());
+            args.push(path);
+        }
+    }
+
+    fn apply_chapters_mux_params(&self, args: &mut Vec<String>, params: &UnifiedParams) {
+        args.push("--chapter-language".to_string());
+        args.push("en".to_string());
+
+        // Did we export an existing chapters file?
+        let chapters_fp =
+            utils::join_paths_to_string(&self.get_full_temp_path(), &["chapters", "chapters.xml"]);
+        if utils::file_exists(&chapters_fp) {
+            // Yes, include that file.
+            args.push("--chapters".to_string());
+            args.push(chapters_fp);
+        } else if params.chapters.create_if_not_present {
+            // No, we will have to create the chapters from scratch.
+            args.push("--generate-chapters-name-template".to_string());
+            args.push("Chapter <NUM:2>".to_string());
+
+            args.push("--generate-chapters".to_string());
+
+            // By default we will create chapters at intervals of
+            // 5 minutes, unless a different interval is specified.
+            let mut format = "00:05:00.000000000";
+            if let Some(interval) = &params.chapters.create_interval {
+                if !interval.is_empty() {
+                    format = interval;
+                }
+            }
+            args.push(format!("interval:{}", format));
+        }
+    }
+
+    fn apply_track_mux_params(&self, args: &mut Vec<String>) {
         // Iterate over all of the tracks.
         for track in &self.media.tracks {
             // Do we need to specify a delay for the track?
@@ -531,59 +584,29 @@ impl MediaFile {
             // Set the file path.
             args.push(format!("./tracks/{}", track.get_out_file_name()));
         }
+    }
 
-        // Iterate over all of the attachments.
-        for attachment in &self.attachments {
-            let path = format!("./attachments/{}", attachment);
+    /// Mux the attachments, chapters and tracks into a MKV file.
+    pub fn remux_file(&self, out_path: &str, params: &UnifiedParams) {
+        use std::fmt::Write;
 
-            let ext = utils::get_file_extension(&path);
-            if ext.is_none() {
-                continue;
-            }
-            let mime = utils::guess_mime_from_extension(&ext.unwrap());
+        let mut args = Vec::with_capacity(100);
 
-            // Set the attachment name.
-            args.push("--attachment-name".to_string());
-            args.push(attachment.clone());
+        // The output file path.
+        args.extend_from_slice(&["-o".to_string(), out_path.to_string()]);
 
-            // Set the attachment mimetype.
-            args.push("--attachment-mime-type".to_string());
-            args.push(mime);
+        // Apply the track muxing parameters.
+        self.apply_track_mux_params(&mut args);
 
-            // Set the attachment file path.
-            args.push("--attach-file".to_string());
-            args.push(path);
+        // Apply the attachment muxing parameters, is we need
+        // to include those in the final file.
+        if params.attachments.include {
+            self.apply_attachment_mux_params(&mut args);
         }
 
         // Do we need to include chapters?
         if params.chapters.include {
-            args.push("--chapter-language".to_string());
-            args.push("en".to_string());
-
-            // Did we export an existing chapters file?
-            let chapters_fp = utils::join_paths_to_string(
-                &self.get_full_temp_path(),
-                &["chapters", "chapters.xml"],
-            );
-            if utils::file_exists(&chapters_fp) {
-                // Yes, include that file.
-                args.push("--chapters".to_string());
-                args.push(chapters_fp);
-            } else if params.chapters.create_if_not_present {
-                // No, we will have to create the chapters from scratch.
-                args.push("--generate-chapters-name-template".to_string());
-                args.push("Chapter <NUM:2>".to_string());
-
-                args.push("--generate-chapters".to_string());
-
-                let mut format = "00:05:00.000000000";
-                if let Some(interval) = &params.chapters.create_interval {
-                    if !interval.is_empty() {
-                        format = interval;
-                    }
-                }
-                args.push(format!("interval:{}", format));
-            }
+            self.apply_chapters_mux_params(&mut args, params);
         }
 
         // Set the track order.
@@ -631,14 +654,12 @@ pub struct MediaFileTrack {
     /// The track type field.
     ///
     /// `Note:` The [`TrackType::General`] indicates general information about the file, rather than describing a specific track.
-    ///
     #[serde(rename = "@type")]
     pub track_type: TrackType,
 
     /// The index of the track.
     ///
     /// `Note:` [`TrackType::General`] tracks do not have an index, and so will be assigned a default value of -1.
-    ///
     #[serde(rename = "StreamOrder", deserialize_with = "string_to_u32", default)]
     pub id: u32,
 
@@ -673,7 +694,6 @@ pub struct MediaFileTrack {
     /// The additional track information.
     ///
     /// `Note:` This field will only contains meaningful data when the [`MediaInfoTrack::track_type`] is [`TrackType::General`].
-    ///
     #[serde(rename = "extra", default)]
     pub extra_info: MediaInfoExtra,
 }
