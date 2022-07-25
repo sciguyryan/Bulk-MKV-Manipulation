@@ -50,19 +50,30 @@ pub struct MiscParams {
     pub remove_temp_files: bool,
     // Should the title of the media file be set?
     pub set_file_title: bool,
+    /// The path to the tags file.
+    /// If the path is not specified, or is invalid, then no tags will be added.
+    pub tags_path: Option<String>,
 }
 
 #[derive(Deserialize, Serialize)]
 pub struct UnifiedAudioParams {
-    pub include_languages: Vec<String>,
-    pub track_count: usize,
+    /// The list of language codes that should be accepted.
+    /// If this is empty then all languages will be accepted.
+    pub language_codes: Vec<String>,
+    /// The number of tracks of this type to retain, in total.
+    pub total_to_retain: usize,
+    /// The conversion parameters for audio tracks.
     pub conversion: Option<AudioParams>,
 }
 
 #[derive(Deserialize, Serialize)]
 pub struct UnifiedSubtitleParams {
-    pub include_languages: Vec<String>,
-    pub track_count: usize,
+    /// The list of language codes that should be accepted.
+    /// If this is empty then all languages will be accepted.
+    pub language_codes: Vec<String>,
+    /// The number of tracks of this type to retain, in total.
+    pub total_to_retain: usize,
+    /// The conversion parameters for subtitle tracks.
     pub conversion: Option<SubtitleParams>,
 }
 
@@ -75,6 +86,8 @@ pub struct UnifiedOtherTrackParams {
 
 #[derive(Deserialize, Serialize)]
 pub struct UnifiedVideoParams {
-    pub track_count: usize,
+    /// The number of tracks of this type to retain, in total.
+    pub total_to_retain: usize,
+    /// The conversion parameters for subtitle tracks.
     pub conversion: Option<VideoParams>,
 }

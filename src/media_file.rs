@@ -319,7 +319,6 @@ impl MediaFile {
     /// # Arguments
     ///
     /// * `params` - The conversion parameters to be applied to the media file.
-    ///
     pub fn filter_attachments(&mut self, params: &UnifiedParams) {
         // If we have no attachments ot an empty filter, then we have
         // nothing to do here.
@@ -354,7 +353,21 @@ impl MediaFile {
         self.attachments = kept;
     }
 
+    /// Filter a track based on it's language.
+    ///
+    /// # Arguments
+    ///
+    /// * `lang` - The language of the track.
+    /// * `langs` - The list of accepted languages.
+    fn filter_by_language(lang: &str, langs: &[String]) -> bool {
+        langs.is_empty() || langs.iter().any(|l| l == lang)
+    }
+
     /// Filter the media file tracks based on the specified criteria.
+    ///
+    /// # Arguments
+    ///
+    /// * `params` - The conversion parameters to be applied to the media file.
     pub fn filter_tracks(&mut self, params: &UnifiedParams) {
         // Create a new vector to hold the tracks that we want to keep.
         let mut kept = Vec::new();
@@ -370,53 +383,53 @@ impl MediaFile {
         for track in &mut self.media.tracks {
             let keep = match track.track_type {
                 TrackType::Audio => {
-                    audio_kept < audio.track_count
-                        && audio
-                            .include_languages
-                            .contains(&track.language.to_string())
+                    audio_kept < audio.total_to_retain
+                        && MediaFile::filter_by_language(&track.language, &audio.language_codes)
                 }
                 TrackType::Button => params.other_tracks.include,
                 TrackType::General => false,
                 TrackType::Menu => false,
                 TrackType::Other => params.other_tracks.include,
                 TrackType::Subtitle => {
-                    subs_kept < subtitle.track_count
-                        && subtitle
-                            .include_languages
-                            .contains(&track.language.to_string())
+                    subs_kept < subtitle.total_to_retain
+                        && MediaFile::filter_by_language(&track.language, &subtitle.language_codes)
                 }
-                TrackType::Video => video_kept < video.track_count,
+                TrackType::Video => video_kept < video.total_to_retain,
             };
 
-            if keep {
-                // Add the track to the kept list.
-                kept.push(track.clone());
+            // If we do not need to keep this track, then
+            // skip to the next track.
+            if !keep {
+                continue;
+            }
 
-                // Update the relevant counters.
-                match track.track_type {
-                    TrackType::Audio => audio_kept += 1,
-                    TrackType::Subtitle => subs_kept += 1,
-                    TrackType::Video => video_kept += 1,
-                    _ => {}
-                }
+            // Add the track to the kept list.
+            kept.push(track.clone());
+
+            // Update the relevant counters.
+            match track.track_type {
+                TrackType::Audio => audio_kept += 1,
+                TrackType::Subtitle => subs_kept += 1,
+                TrackType::Video => video_kept += 1,
+                _ => {}
             }
         }
 
-        if audio_kept < audio.track_count {
+        if audio_kept < audio.total_to_retain {
             eprintln!(
                 "Fewer audio tracks than required for file {}.",
                 self.file_path
             );
         }
 
-        if subs_kept < subtitle.track_count {
+        if subs_kept < subtitle.total_to_retain {
             eprintln!(
                 "Fewer subtitle tracks than required for file {}.",
                 self.file_path
             );
         }
 
-        if video_kept < video.track_count {
+        if video_kept < video.total_to_retain {
             eprintln!(
                 "Fewer video tracks than required for file {}.",
                 self.file_path
@@ -577,6 +590,7 @@ impl MediaFile {
     /// # Arguments
     ///
     /// * `args` - A reference to the vector containing the argument list.
+    /// * `params` - The conversion parameters to be applied to the media file.
     fn apply_chapters_mux_params(&self, args: &mut Vec<String>, params: &UnifiedParams) {
         args.push("--chapter-language".to_string());
         args.push("en".to_string());
@@ -643,6 +657,24 @@ impl MediaFile {
         }
     }
 
+    /// Apply the parameters related the tags to be added to the media file.
+    ///
+    /// # Arguments
+    ///
+    /// * `args` - A reference to the vector containing the argument list.
+    /// * `params` - The conversion parameters to be applied to the media file.
+    fn apply_tag_mux_params(&self, args: &mut Vec<String>, params: &UnifiedParams) {
+        if let Some(tags) = &params.misc_params.tags_path {
+            if !utils::file_exists(tags) {
+                return;
+            }
+
+            // Set the global tags argument.
+            args.push("--global-tags".to_string());
+            args.push(tags.clone());
+        }
+    }
+
     /// Remux the attachments, chapters and tracks into a single file.
     ///
     /// # Arguments
@@ -656,26 +688,31 @@ impl MediaFile {
         let mut args = Vec::with_capacity(100);
 
         // The output file path.
-        args.extend_from_slice(&["-o".to_string(), out_path.to_string()]);
+        args.push("-o".to_string());
+        args.push(out_path.to_string());
 
-        // The title of the media file.
+        // The title of the media file, if needed.
         if params.misc_params.set_file_title {
-            // Get the name of the output file.
-            args.extend_from_slice(&["--title".to_string(), title.to_string()]);
+            args.push("--title".to_string());
+            args.push(title.to_string());
         }
 
-        // Apply the track muxing parameters.
+        // Apply the track muxing arguments.
         self.apply_track_mux_params(&mut args);
 
-        // Apply the attachment muxing parameters, is we need
-        // to include those in the final file.
+        // Apply the attachment muxing arguments, if needed.
         if params.attachments.include {
             self.apply_attachment_mux_params(&mut args);
         }
 
-        // Do we need to include chapters?
+        // Apply the chapter muxing arguments, if needed.
         if params.chapters.include {
             self.apply_chapters_mux_params(&mut args, params);
+        }
+
+        // Apply the tag muxing arguments, if needed.
+        if params.misc_params.tags_path.is_some() {
+            self.apply_tag_mux_params(&mut args, params);
         }
 
         // Set the track order.
