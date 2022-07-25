@@ -5,22 +5,13 @@ use crate::{
         unified::UnifiedParams,
         video::VideoParams,
     },
-    converters, mkvtoolnix,
-    paths::{self, Paths},
-    utils,
+    converters, mkvtoolnix, paths, utils,
 };
 
 use core::fmt;
 use serde::de::{self, Deserialize, Deserializer, Unexpected};
 use serde_derive::Deserialize;
-use std::{
-    fs,
-    process::Command,
-    sync::atomic::{AtomicUsize, Ordering},
-};
-
-/// This will generate sequential thread-global unique IDs for instances of this struct.
-static UNIQUE_ID: AtomicUsize = AtomicUsize::new(0);
+use std::{fs, process::Command};
 
 /// This will indicate whether the JSON MediaInfo output should be exported to a file.
 const EXPORT_JSON: bool = false;
@@ -133,7 +124,7 @@ pub enum DelaySource {
 pub struct MediaFile {
     /// The unique sequential ID for this file.
     #[serde(skip)]
-    id: usize,
+    id: u128,
 
     /// The path to the media file.
     #[serde(skip)]
@@ -145,10 +136,6 @@ pub struct MediaFile {
     /// Any attachments that might be present in the media file.
     #[serde(skip)]
     pub attachments: Vec<String>,
-
-    /// The paths to the various tools used.
-    #[serde(skip)]
-    pub tools: Paths,
 }
 
 impl MediaFile {
@@ -175,7 +162,7 @@ impl MediaFile {
             // Determine the output file name.
             let mut in_file_path = format!(
                 "{}\\tracks\\{}",
-                self.get_full_temp_path(),
+                self.get_temp_path(),
                 t.get_out_file_name()
             );
 
@@ -285,19 +272,14 @@ impl MediaFile {
             args.push(format!("{}:{}", i + 1, attachment));
         }
 
-        mkvtoolnix::run_mkv_extract(
-            &self.file_path,
-            &self.get_full_temp_path(),
-            "attachments",
-            &args,
-        );
+        mkvtoolnix::run_mkv_extract(&self.file_path, &self.get_temp_path(), "attachments", &args);
     }
 
     /// Extract the chapters from a MKV file, if present.
     pub fn extract_chapters(&self) {
         mkvtoolnix::run_mkv_extract(
             &self.file_path,
-            &self.get_full_temp_path(),
+            &self.get_temp_path(),
             "chapters",
             &["chapters.xml".to_string()],
         );
@@ -316,7 +298,7 @@ impl MediaFile {
             args.push(format!("{}:{}", track.id, track.get_out_file_name()));
         }
 
-        mkvtoolnix::run_mkv_extract(&self.file_path, &self.get_full_temp_path(), "tracks", &args);
+        mkvtoolnix::run_mkv_extract(&self.file_path, &self.get_temp_path(), "tracks", &args);
     }
 
     /// Filter the media file attachments based on the specified criteria.
@@ -467,7 +449,7 @@ impl MediaFile {
 
         // We we able to successfully parse the output?
         if let Some(mut mf) = MediaFile::parse_json(&json) {
-            mf.id = UNIQUE_ID.fetch_add(1, Ordering::SeqCst);
+            mf.id = mf.media.tracks[0].uid;
 
             // Set the media file path variable.
             mf.file_path = fp.to_string();
@@ -485,21 +467,18 @@ impl MediaFile {
         }
     }
 
-    fn get_full_temp_path(&self) -> String {
-        utils::join_paths_to_string(&paths::PATHS.temp, &[self.id.to_string().as_str()])
+    /// Get the path to the temporary folder for this media file.
+    fn get_temp_path(&self) -> String {
+        utils::join_paths_to_string(&paths::PATHS.temp, &[&self.id.to_string()])
     }
 
-    /// Get the path to the temporary folder for the given output type.
+    /// Get the path to the temporary folder for the given output type for this media file.
     ///
     /// # Arguments
     ///
     /// * `output_type` - The name of the subdirectory representing the output type.
-    ///
-    fn get_temp_dir_for_output_type(&self, output_type: &str) -> String {
-        utils::join_paths_to_string(
-            &paths::PATHS.temp,
-            &[self.id.to_string().as_str(), output_type],
-        )
+    fn get_temp_for_output_type(&self, output_type: &str) -> String {
+        utils::join_paths_to_string(&self.get_temp_path(), &[output_type])
     }
 
     /// Initialize the temporary directory structure for the media file.
@@ -509,7 +488,7 @@ impl MediaFile {
         // Create each subdirectory.
         let mut result = true;
         for dir in sub_dirs {
-            let p = self.get_temp_dir_for_output_type(dir);
+            let p = self.get_temp_for_output_type(dir);
             result &= fs::create_dir_all(p).is_ok();
         }
 
@@ -555,7 +534,7 @@ impl MediaFile {
 
         // Delete the temporary files.
         if params.misc_params.remove_temp_files {
-            utils::delete_directory(&self.get_full_temp_path());
+            utils::delete_directory(&self.get_temp_path());
         }
     }
 
@@ -590,7 +569,7 @@ impl MediaFile {
 
         // Did we export an existing chapters file?
         let chapters_fp =
-            utils::join_paths_to_string(&self.get_full_temp_path(), &["chapters", "chapters.xml"]);
+            utils::join_paths_to_string(&self.get_temp_path(), &["chapters", "chapters.xml"]);
         if utils::file_exists(&chapters_fp) {
             // Yes, include that file.
             args.push("--chapters".to_string());
@@ -727,7 +706,7 @@ impl MediaFile {
         }
 
         // Run the MKV merge process.
-        mkvtoolnix::run_mkv_merge(&self.get_full_temp_path(), &args);
+        mkvtoolnix::run_mkv_merge(&self.get_temp_path(), &args);
     }
 
     /// Parse the JSON output from MediaInfo.
@@ -764,6 +743,12 @@ pub struct MediaFileTrack {
     /// `Note:` The [`TrackType::General`] indicates general information about the file, rather than describing a specific track.
     #[serde(rename = "@type")]
     pub track_type: TrackType,
+
+    /// The UID of the track.
+    ///
+    /// `Note:` This field may be missing for pseudo-tracks, making default necessary.
+    #[serde(rename = "UniqueID", deserialize_with = "string_to_u128", default)]
+    pub uid: u128,
 
     /// The index of the track.
     ///
@@ -1005,6 +990,21 @@ where
     let string = String::deserialize(deserializer)?;
 
     match string.parse::<u32>() {
+        Ok(n) => Ok(n),
+        Err(_) => Err(de::Error::invalid_value(
+            Unexpected::Str(&string),
+            &"expected an unsigned integer",
+        )),
+    }
+}
+
+fn string_to_u128<'de, D>(deserializer: D) -> Result<u128, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let string = String::deserialize(deserializer)?;
+
+    match string.parse::<u128>() {
         Ok(n) => Ok(n),
         Err(_) => Err(de::Error::invalid_value(
             Unexpected::Str(&string),
