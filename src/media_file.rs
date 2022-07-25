@@ -568,20 +568,9 @@ impl MediaFile {
         // Iterate over all of the attachments.
         for attachment in &self.attachments {
             let path = format!("./attachments/{}", attachment);
-
-            let ext = utils::get_file_extension(&path);
-            if ext.is_none() {
-                continue;
-            }
-            let mime = utils::guess_mime_from_extension(&ext.unwrap());
-
             // Set the attachment name.
             args.push("--attachment-name".to_string());
             args.push(attachment.clone());
-
-            // Set the attachment mimetype.
-            args.push("--attachment-mime-type".to_string());
-            args.push(mime);
 
             // Set the attachment file path.
             args.push("--attach-file".to_string());

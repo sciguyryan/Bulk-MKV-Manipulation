@@ -27,22 +27,6 @@ pub fn get_file_extension(fp: &str) -> Option<String> {
     Some(ext.to_lowercase())
 }
 
-/// Attempt to guess the mimetype of a file from it's file extension.
-///
-/// # Arguments
-///
-/// * `ext` - The extension of the file.
-///
-pub fn guess_mime_from_extension(ext: &str) -> String {
-    match ext {
-        "otf" => "font/otf".to_string(),
-        "ttf" => "font/ttf".to_string(),
-        _ => {
-            panic!("Unrecognized file extension: {}", ext);
-        }
-    }
-}
-
 pub fn join_paths_to_string(base: &str, paths: &[&str]) -> String {
     let mut p = Path::new(base).to_path_buf();
 
