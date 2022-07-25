@@ -501,7 +501,7 @@ impl MediaFile {
     /// # Arguments
     ///
     /// * `out_path` - The path of the output media file.
-    /// * `set_title` - Should the title be set for the media file?
+    /// * `params` - The conversion parameters to be applied to the media file.
     pub fn process(&mut self, out_path: &str, params: &UnifiedParams) {
         // Filter the attachments based on the filter parameters.
         self.filter_attachments(params);
@@ -538,6 +538,11 @@ impl MediaFile {
         }
     }
 
+    /// Apply the parameters related the attachments to be added to the media file.
+    ///
+    /// # Arguments
+    ///
+    /// * `args` - A reference to the vector containing the argument list.
     fn apply_attachment_mux_params(&self, args: &mut Vec<String>) {
         // Iterate over all of the attachments.
         for attachment in &self.attachments {
@@ -563,6 +568,11 @@ impl MediaFile {
         }
     }
 
+    /// Apply the parameters related the chapters to be added to the media file.
+    ///
+    /// # Arguments
+    ///
+    /// * `args` - A reference to the vector containing the argument list.
     fn apply_chapters_mux_params(&self, args: &mut Vec<String>, params: &UnifiedParams) {
         args.push("--chapter-language".to_string());
         args.push("en".to_string());
@@ -593,6 +603,11 @@ impl MediaFile {
         }
     }
 
+    /// Apply the parameters related the tracks to be added to the media file.
+    ///
+    /// # Arguments
+    ///
+    /// * `args` - A reference to the vector containing the argument list.
     fn apply_track_mux_params(&self, args: &mut Vec<String>) {
         // Iterate over all of the tracks.
         for track in &self.media.tracks {
@@ -624,7 +639,12 @@ impl MediaFile {
         }
     }
 
-    /// Mux the attachments, chapters and tracks into a MKV file.
+    /// Remux the attachments, chapters and tracks into a single file.
+    ///
+    /// # Arguments
+    ///
+    /// * `out_path` - The path to the expected location of the output media file.
+    /// * `params` - The conversion parameters to be applied to the media file.
     pub fn remux_file(&self, out_path: &str, params: &UnifiedParams) {
         use std::{fmt::Write, path::Path};
 
@@ -673,6 +693,10 @@ impl MediaFile {
     }
 
     /// Parse the JSON output from MediaInfo.
+    ///
+    /// # Arguments
+    ///
+    /// * `json` - The JSON string to be parsed.
     fn parse_json(json: &str) -> Option<MediaFile> {
         if EXPORT_JSON {
             MediaFile::dump_json(json);

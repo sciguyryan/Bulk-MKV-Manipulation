@@ -4,14 +4,23 @@ use super::{audio::AudioParams, subtitle::SubtitleParams, video::VideoParams};
 
 #[derive(Deserialize, Serialize)]
 pub struct UnifiedParams {
+    /// Parameters related to the audio tracks.
     pub audio_tracks: UnifiedAudioParams,
+    /// Parameters related to the subtitle tracks.
     pub subtitle_tracks: UnifiedSubtitleParams,
+    /// Parameters related to the video tracks.
     pub video_tracks: UnifiedVideoParams,
+    /// Parameters related to any other type of track.
     pub other_tracks: UnifiedOtherTrackParams,
+    /// Parameters related to the attachments.
     pub attachments: AttachmentParams,
+    /// Parameters related to the chapters.
     pub chapters: ChapterParams,
+    /// Should the original media file be removed after processing?
     pub remove_original_file: bool,
+    /// Should the temporary files be removed after processing?
     pub remove_temp_files: bool,
+    // Should the title of the media file be set?
     pub set_file_title: bool,
 }
 
