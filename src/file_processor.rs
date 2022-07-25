@@ -158,7 +158,7 @@ impl FileProcessor {
             print!(" Done!\r\n");
 
             // Delete the original file, if required.
-            if params.remove_original_file {
+            if params.misc_params.remove_original_file {
                 let _ = trash::delete(&self.input_paths[i]);
             }
         }

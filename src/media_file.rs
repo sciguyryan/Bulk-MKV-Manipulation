@@ -23,6 +23,9 @@ static UNIQUE_ID: AtomicUsize = AtomicUsize::new(0);
 /// This will indicate whether the JSON MediaInfo output should be exported to a file.
 const EXPORT_JSON: bool = false;
 
+/// This will indicate whether to output the MKV Merge parameters.
+const DEBUG_PARAMS: bool = false;
+
 #[derive(Clone, Default)]
 pub enum Codec {
     Aac,
@@ -86,11 +89,11 @@ impl From<AudioCodec> for Codec {
 pub enum TrackType {
     /// An audio track.
     Audio,
-    /// A button track, not something that is useful here.
+    /// A button track.
     Button,
     /// A general data pseudo-track.
     General,
-    /// A menu track. This is how chapters are typically displayed.
+    /// A menu track. This is how chapters are typically displayed with MediaInfo.
     Menu,
     /// A track that does not fit into any of the other categories.
     #[default]
@@ -315,7 +318,7 @@ impl MediaFile {
     ///
     /// # Arguments
     ///
-    /// * `extensions` - A list of valid attachment file extensions to be included in the output file.
+    /// * `params` - The conversion parameters to be applied to the media file.
     ///
     pub fn filter_attachments(&mut self, params: &UnifiedParams) {
         // If we have no attachments ot an empty filter, then we have
@@ -325,8 +328,8 @@ impl MediaFile {
         }
 
         // File extension matches should be case insensitive.
-        // Clippy keeps flagging this, even though it is correct and more
-        // efficient than its suggestion.
+        // Info: Clippy keeps flagging this, even though it is
+        // correct and more efficient than its suggestion.
         #[allow(clippy::needless_collect)]
         let lower_exts: Vec<String> = params
             .attachments
@@ -534,7 +537,7 @@ impl MediaFile {
         self.remux_file(out_path, title, params);
 
         // Delete the temporary files.
-        if params.remove_temp_files {
+        if params.misc_params.remove_temp_files {
             utils::delete_directory(&self.get_full_temp_path());
         }
     }
@@ -656,7 +659,7 @@ impl MediaFile {
         args.extend_from_slice(&["-o".to_string(), out_path.to_string()]);
 
         // The title of the media file.
-        if params.set_file_title {
+        if params.misc_params.set_file_title {
             // Get the name of the output file.
             args.extend_from_slice(&["--title".to_string(), title.to_string()]);
         }
@@ -687,6 +690,11 @@ impl MediaFile {
         }
         args.push("--track-order".to_string());
         args.push(order);
+
+        // Output the MKV Merge parameters, if the debug flag is set.
+        if DEBUG_PARAMS {
+            println!("{}", args.join(" "));
+        }
 
         // Run the MKV merge process.
         mkvtoolnix::run_mkv_merge(&self.get_full_temp_path(), &args);

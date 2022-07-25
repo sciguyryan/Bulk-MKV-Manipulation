@@ -16,12 +16,8 @@ pub struct UnifiedParams {
     pub attachments: AttachmentParams,
     /// Parameters related to the chapters.
     pub chapters: ChapterParams,
-    /// Should the original media file be removed after processing?
-    pub remove_original_file: bool,
-    /// Should the temporary files be removed after processing?
-    pub remove_temp_files: bool,
-    // Should the title of the media file be set?
-    pub set_file_title: bool,
+    // Various other parameters that do not fit into another category.
+    pub misc_params: MiscParams,
 }
 
 #[derive(Deserialize, Serialize)]
@@ -44,6 +40,16 @@ pub struct ChapterParams {
     /// The interval for creating chapters, must be in the following format: HH:MM:SS.nnnnnnnnn.
     /// If `None` is specified then chapters will be created at 5 minute intervals.
     pub create_interval: Option<String>,
+}
+
+#[derive(Deserialize, Serialize)]
+pub struct MiscParams {
+    /// Should the original media file be removed after processing?
+    pub remove_original_file: bool,
+    /// Should the temporary files be removed after processing?
+    pub remove_temp_files: bool,
+    // Should the title of the media file be set?
+    pub set_file_title: bool,
 }
 
 #[derive(Deserialize, Serialize)]
