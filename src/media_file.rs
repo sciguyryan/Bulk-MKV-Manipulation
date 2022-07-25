@@ -5,7 +5,9 @@ use crate::{
         unified::UnifiedParams,
         video::VideoParams,
     },
-    converters, mkvtoolnix, paths, utils,
+    converters, mkvtoolnix,
+    paths::{self, Paths},
+    utils,
 };
 
 use core::fmt;
@@ -143,6 +145,10 @@ pub struct MediaFile {
     /// Any attachments that might be present in the media file.
     #[serde(skip)]
     pub attachments: Vec<String>,
+
+    /// The paths to the various tools used.
+    #[serde(skip)]
+    pub tools: Paths,
 }
 
 impl MediaFile {
@@ -229,8 +235,7 @@ impl MediaFile {
     pub(crate) fn dump_json(json: &str) {
         use std::{fs::File, io::Write};
 
-        let fp = utils::join_paths_to_string(paths::TEMP_BASE, &["output.json"]);
-
+        let fp = utils::join_paths_to_string(&paths::PATHS.temp, &["output.json"]);
         let mut file = File::create(fp).expect("create failed");
         Write::write_all(&mut file, json.as_bytes()).expect("write failed");
     }
@@ -445,14 +450,13 @@ impl MediaFile {
     /// # Arguments
     ///
     /// * `fp` - The path to the media file.
-    ///
     pub fn from_path(fp: &str) -> Option<Self> {
         if !utils::file_exists(fp) {
             return None;
         }
 
         // Run the MediaInfo CLI process and grab the JSON output.
-        let output = Command::new(paths::MEDIAINFO)
+        let output = Command::new(&paths::PATHS.mediainfo)
             .arg("--Output=JSON")
             .arg(fp)
             .output()
@@ -482,7 +486,7 @@ impl MediaFile {
     }
 
     fn get_full_temp_path(&self) -> String {
-        utils::join_paths_to_string(paths::TEMP_BASE, &[self.id.to_string().as_str()])
+        utils::join_paths_to_string(&paths::PATHS.temp, &[self.id.to_string().as_str()])
     }
 
     /// Get the path to the temporary folder for the given output type.
@@ -493,7 +497,7 @@ impl MediaFile {
     ///
     fn get_temp_dir_for_output_type(&self, output_type: &str) -> String {
         utils::join_paths_to_string(
-            paths::TEMP_BASE,
+            &paths::PATHS.temp,
             &[self.id.to_string().as_str(), output_type],
         )
     }

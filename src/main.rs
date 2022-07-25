@@ -12,31 +12,28 @@ use input_profile::InputProfile;
 use std::{env, fs};
 
 fn main() {
-    if !check_paths() {
-        return;
-    }
-
     let args: Vec<String> = env::args().collect();
     if args.len() < 2 {
         eprintln!("You must specify the path to the conversion profile data file.");
         return;
     }
 
-    let fp = &args[1];
-    if !utils::file_exists(fp) {
+    // Read and parse the conversion profile data file.
+    let profile_path = &args[1];
+    if !utils::file_exists(profile_path) {
         eprintln!("You must specify the path to the conversion profile data file.");
         return;
     }
 
-    // Read the contents of the conversion profile data file.
-    let json = fs::read_to_string(fp).expect("failed to open profile data file");
-
-    // Attempt to parse the conversion profile data file.
-    let result = serde_json::from_str::<InputProfile>(&json);
-    let profile = if let Ok(p) = result {
+    let profile_json = fs::read_to_string(profile_path).expect("failed to open profile data file");
+    let profile_result = serde_json::from_str::<InputProfile>(&profile_json);
+    let profile = if let Ok(p) = profile_result {
         p
     } else {
-        println!("Error attempting to parse JSON data: {:?}", result.err());
+        println!(
+            "Error attempting to parse JSON data: {:?}",
+            profile_result.err()
+        );
         return;
     };
 
@@ -54,45 +51,4 @@ fn main() {
 
     // Run the converter.
     file_processor.process(&profile.processing_params);
-}
-
-fn check_paths() -> bool {
-    use std::path::Path;
-
-    let mut check: bool = true;
-
-    if !utils::dir_exists(paths::MKVTOOLNIX_BASE) {
-        eprintln!("Failed to locate MkvToolNIX at {}", paths::MKVTOOLNIX_BASE);
-        check = false;
-    } else {
-        let path = Path::new(paths::MKVTOOLNIX_BASE);
-        let exes = vec!["mkvextract.exe", "mkvmerge.exe"];
-        for exe in exes {
-            let temp = path.join(exe);
-            if !temp.exists() {
-                eprintln!("Failed to MkvToolNIX EXE {} at {:?}", exe, temp);
-                check = false;
-            }
-        }
-    }
-
-    if !utils::dir_exists(paths::TEMP_BASE) {
-        eprintln!("Failed to locate temporary folder at {}", paths::TEMP_BASE);
-        check = false;
-    }
-
-    if !utils::file_exists(paths::FFMPEG) {
-        eprintln!("Failed to locate FFMPEG at {}", paths::FFMPEG);
-        check = false;
-    }
-
-    if !utils::file_exists(paths::MEDIAINFO) {
-        eprintln!(
-            "Failed to locate MediaInfo CLI executable at {}",
-            paths::MEDIAINFO
-        );
-        check = false;
-    }
-
-    check
 }

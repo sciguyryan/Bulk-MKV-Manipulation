@@ -60,14 +60,14 @@ pub fn convert_video_file(
     todo!("not yet implemented");
 }
 
-/// Run FMMPED to encode the media file, with the specified arguments.
+/// Run FMMPEG to encode the media file, with the specified arguments.
 ///
 /// # Arguments
 ///
 /// * `args` - A list of the command-line arguments to be passed to FFMPEG.
 ///
 fn run_ffmpeg(args: &[String]) {
-    let _r = Command::new(paths::FFMPEG)
+    let _r = Command::new(&paths::PATHS.ffmpeg)
         .args(args)
         .output()
         .expect("failed to run FFMPEG extract process");

@@ -3,7 +3,7 @@ use crate::paths;
 use std::{path::Path, process::Command};
 
 pub fn get_mkvtoolnix_exe(exe: &str) -> String {
-    Path::new(paths::MKVTOOLNIX_BASE)
+    Path::new(&paths::PATHS.mkvtoolnix)
         .join(exe)
         .to_string_lossy()
         .to_string()
