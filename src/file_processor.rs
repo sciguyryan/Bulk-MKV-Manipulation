@@ -18,6 +18,7 @@ pub enum PadType {
 pub struct FileProcessor {
     pub input_paths: Vec<String>,
     pub output_paths: Vec<String>,
+    pub titles: Vec<String>,
 }
 
 impl FileProcessor {
@@ -42,6 +43,7 @@ impl FileProcessor {
 
         let mut input_paths = Vec::new();
         let mut output_paths = Vec::new();
+        let mut titles = Vec::new();
 
         // Read all of the files within the input directory.
         let paths = fs::read_dir(in_dir).unwrap();
@@ -106,8 +108,11 @@ impl FileProcessor {
                 }
             };
 
-            // Add the fill output path to the vector.
+            // Add the file output path to the vector.
             output_paths.push(utils::join_paths_to_string(&out_dir, &[&file_name]));
+
+            // Add the title to the vector.
+            titles.push(sanitized.to_string());
 
             // Increment the index counter.
             index += 1;
@@ -124,6 +129,7 @@ impl FileProcessor {
         Some(Self {
             input_paths,
             output_paths,
+            titles,
         })
     }
 
@@ -148,7 +154,7 @@ impl FileProcessor {
         // Process each media file.
         for (i, m) in &mut media.iter_mut().enumerate() {
             print!("Processing media file {} of {}...", i + 1, media_len);
-            m.process(&self.output_paths[i], params);
+            m.process(&self.output_paths[i], &self.titles[i], params);
             print!(" Done!\r\n");
 
             // Delete the original file, if required.

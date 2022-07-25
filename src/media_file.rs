@@ -501,8 +501,9 @@ impl MediaFile {
     /// # Arguments
     ///
     /// * `out_path` - The path of the output media file.
+    /// * `title` - The title of the media file.
     /// * `params` - The conversion parameters to be applied to the media file.
-    pub fn process(&mut self, out_path: &str, params: &UnifiedParams) {
+    pub fn process(&mut self, out_path: &str, title: &str, params: &UnifiedParams) {
         // Filter the attachments based on the filter parameters.
         self.filter_attachments(params);
 
@@ -530,7 +531,7 @@ impl MediaFile {
         }
 
         // Remux the media file.
-        self.remux_file(out_path, params);
+        self.remux_file(out_path, title, params);
 
         // Delete the temporary files.
         if params.remove_temp_files {
@@ -644,9 +645,10 @@ impl MediaFile {
     /// # Arguments
     ///
     /// * `out_path` - The path to the expected location of the output media file.
+    /// * `title` - The title of the media file.
     /// * `params` - The conversion parameters to be applied to the media file.
-    pub fn remux_file(&self, out_path: &str, params: &UnifiedParams) {
-        use std::{fmt::Write, path::Path};
+    pub fn remux_file(&self, out_path: &str, title: &str, params: &UnifiedParams) {
+        use std::fmt::Write;
 
         let mut args = Vec::with_capacity(100);
 
@@ -656,9 +658,7 @@ impl MediaFile {
         // The title of the media file.
         if params.set_file_title {
             // Get the name of the output file.
-            if let Some(n) = Path::new(out_path).file_stem() {
-                args.extend_from_slice(&["--title".to_string(), n.to_string_lossy().to_string()]);
-            }
+            args.extend_from_slice(&["--title".to_string(), title.to_string()]);
         }
 
         // Apply the track muxing parameters.
