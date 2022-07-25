@@ -311,75 +311,117 @@ impl MediaFile {
         mkvtoolnix::run_mkv_extract(&self.file_path, &self.get_full_temp_path(), "tracks", &args);
     }
 
-    /// Filter the media file tracks based on the specified criteria.
+    /// Filter the media file attachments based on the specified criteria.
     ///
     /// # Arguments
     ///
-    /// * `audio_lang` - A list of language codes to be kept for audio files.
-    /// * `audio_count` - The total number of audio tracks to be kept.
-    /// * `subtitle_lang` - A list of language codes to be kept for subtitle files.
-    /// * `subtitle_count` - The total number of subtitle tracks to be kept.
-    /// * `keep_other` - A boolean indicating whether tracks other than video, audio and subtitle should be kept.
+    /// * `extensions` - A list of valid attachment file extensions to be included in the output file.
     ///
-    pub fn filter_tracks(
-        &mut self,
-        audio_lang: &[String],
-        audio_count: usize,
-        subtitle_lang: &[String],
-        subtitle_count: usize,
-        keep_other: bool,
-    ) {
-        // Create a new vector to hold the tracks that we want to keep.
-        let mut kept_tracks = Vec::new();
+    pub fn filter_attachments(&mut self, params: &UnifiedParams) {
+        // If we have no attachments ot an empty filter, then we have
+        // nothing to do here.
+        if self.attachments.is_empty() || params.attachments.include_extensions.is_empty() {
+            return;
+        }
 
-        let mut audio_kept = 0;
-        let mut subs_kept = 0;
+        // File extension matches should be case insensitive.
+        // Clippy keeps flagging this, even though it is correct and more
+        // efficient than its suggestion.
+        #[allow(clippy::needless_collect)]
+        let lower_exts: Vec<String> = params
+            .attachments
+            .include_extensions
+            .iter()
+            .map(|x| x.to_lowercase())
+            .collect();
 
-        for track in &mut self.media.tracks {
-            let keep = match track.track_type {
-                TrackType::Audio => {
-                    audio_kept < audio_count && audio_lang.contains(&track.language.to_string())
-                }
-                TrackType::Button => keep_other,
-                TrackType::General => false,
-                TrackType::Menu => false,
-                TrackType::Other => keep_other,
-                TrackType::Subtitle => {
-                    subs_kept < subtitle_count
-                        && subtitle_lang.contains(&track.language.to_string())
-                }
-                TrackType::Video => true,
-            };
-
-            if keep {
-                // Add the track to the kept list.
-                kept_tracks.push(track.clone());
-
-                // Update the relevant counters.
-                if track.track_type == TrackType::Audio {
-                    audio_kept += 1;
-                } else if track.track_type == TrackType::Subtitle {
-                    subs_kept += 1;
+        // Create a new vector to hold the attachments that we want to keep.
+        let mut kept = Vec::new();
+        for attachment in &self.attachments {
+            // Get the extension of the file.
+            if let Some(ext) = utils::get_file_extension(attachment) {
+                // Do we need to keep this file extension?
+                if lower_exts.contains(&ext) {
+                    kept.push(attachment.to_string());
                 }
             }
         }
 
-        if audio_kept < audio_count {
+        // Assign the kept attachments back into the container object.
+        self.attachments = kept;
+    }
+
+    /// Filter the media file tracks based on the specified criteria.
+    pub fn filter_tracks(&mut self, params: &UnifiedParams) {
+        // Create a new vector to hold the tracks that we want to keep.
+        let mut kept = Vec::new();
+
+        let mut audio_kept = 0;
+        let mut subs_kept = 0;
+        let mut video_kept = 0;
+
+        let audio = &params.audio_tracks;
+        let subtitle = &params.subtitle_tracks;
+        let video = &params.video_tracks;
+
+        for track in &mut self.media.tracks {
+            let keep = match track.track_type {
+                TrackType::Audio => {
+                    audio_kept < audio.track_count
+                        && audio
+                            .include_languages
+                            .contains(&track.language.to_string())
+                }
+                TrackType::Button => params.other_tracks.include,
+                TrackType::General => false,
+                TrackType::Menu => false,
+                TrackType::Other => params.other_tracks.include,
+                TrackType::Subtitle => {
+                    subs_kept < subtitle.track_count
+                        && subtitle
+                            .include_languages
+                            .contains(&track.language.to_string())
+                }
+                TrackType::Video => video_kept < video.track_count,
+            };
+
+            if keep {
+                // Add the track to the kept list.
+                kept.push(track.clone());
+
+                // Update the relevant counters.
+                match track.track_type {
+                    TrackType::Audio => audio_kept += 1,
+                    TrackType::Subtitle => subs_kept += 1,
+                    TrackType::Video => video_kept += 1,
+                    _ => {}
+                }
+            }
+        }
+
+        if audio_kept < audio.track_count {
             eprintln!(
                 "Fewer audio tracks than required for file {}.",
                 self.file_path
             );
         }
 
-        if subs_kept < subtitle_count {
+        if subs_kept < subtitle.track_count {
             eprintln!(
                 "Fewer subtitle tracks than required for file {}.",
                 self.file_path
             );
         }
 
+        if video_kept < video.track_count {
+            eprintln!(
+                "Fewer video tracks than required for file {}.",
+                self.file_path
+            );
+        }
+
         // Assign the kept tracks back into the container object.
-        self.media.tracks = kept_tracks;
+        self.media.tracks = kept;
     }
 
     /// Create a [`MediaFile] instance from a media file path.
@@ -459,35 +501,31 @@ impl MediaFile {
     /// # Arguments
     ///
     /// * `out_path` - The path of the output media file.
-    /// * `params` - The parameters to be used with the file processing.
+    /// * `set_title` - Should the title be set for the media file?
     pub fn process(&mut self, out_path: &str, params: &UnifiedParams) {
-        // Filter the tracks so that only the tracks
-        // that match our parameters are kept.
-        self.filter_tracks(
-            &params.audio_languages[..],
-            params.audio_count,
-            &params.subtitle_languages[..],
-            params.subtitle_count,
-            params.other_tracks.include,
-        );
+        // Filter the attachments based on the filter parameters.
+        self.filter_attachments(params);
+
+        // Filter the tracks based on the filter parameters.
+        self.filter_tracks(params);
 
         // Extract the files.
         self.extract(true, params.attachments.include, params.chapters.include);
 
         // Convert the audio tracks.
-        if let Some(ac) = &params.audio_conversion {
+        if let Some(ac) = &params.audio_tracks.conversion {
             if ac.codec.is_some() {
                 self.convert_all_audio(ac);
             }
         }
 
         // Convert the subtitle tracks.
-        if let Some(_sc) = &params.subtitle_conversion {
+        if let Some(_sc) = &params.subtitle_tracks.conversion {
             todo!("not yet implemented");
         }
 
         // Convert the video tracks.
-        if let Some(_vc) = &params.video_conversion {
+        if let Some(_vc) = &params.video_tracks.conversion {
             todo!("not yet implemented");
         }
 
@@ -588,12 +626,20 @@ impl MediaFile {
 
     /// Mux the attachments, chapters and tracks into a MKV file.
     pub fn remux_file(&self, out_path: &str, params: &UnifiedParams) {
-        use std::fmt::Write;
+        use std::{fmt::Write, path::Path};
 
         let mut args = Vec::with_capacity(100);
 
         // The output file path.
         args.extend_from_slice(&["-o".to_string(), out_path.to_string()]);
+
+        // The title of the media file.
+        if params.set_file_title {
+            // Get the name of the output file.
+            if let Some(n) = Path::new(out_path).file_stem() {
+                args.extend_from_slice(&["--title".to_string(), n.to_string_lossy().to_string()]);
+            }
+        }
 
         // Apply the track muxing parameters.
         self.apply_track_mux_params(&mut args);

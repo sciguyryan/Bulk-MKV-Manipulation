@@ -131,7 +131,7 @@ impl FileProcessor {
     ///
     /// # Arguments
     ///
-    /// * `props` - The [`MediaProcessParams`] to be used while processing the media files.
+    /// * `params` - The [`UnifiedParams`] to be used while processing the media files.
     ///
     pub fn process(&self, params: &UnifiedParams) {
         use crate::media_file::MediaFile;
