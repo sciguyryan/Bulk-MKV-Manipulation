@@ -1,7 +1,5 @@
 use std::{fs, path::Path};
 
-const BAD_NTFS_CHARS: [char; 9] = ['/', '?', '<', '>', '\\', ':', '*', '|', '"'];
-
 #[inline]
 pub fn dir_exists(path: &str) -> bool {
     let path = Path::new(path);
@@ -40,17 +38,6 @@ pub fn join_path_segments(base: &str, paths: &[&str]) -> String {
     }
 
     p.to_string_lossy().to_string()
-}
-
-/// Strip invalid NTFS characters from a path string.
-///
-/// # Arguments
-///
-/// * `str` - The string to be sanitized.
-///
-#[inline]
-pub fn sanitize_ntfs_name(str: &str) -> String {
-    str.replace(&BAD_NTFS_CHARS[..], "")
 }
 
 /// Swap the extensions of a specified file path.

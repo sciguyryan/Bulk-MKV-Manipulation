@@ -5,6 +5,7 @@ mod input_profile;
 mod media_file;
 mod mkvtoolnix;
 mod paths;
+mod substitutions;
 mod utils;
 
 use file_processor::FileProcessor;
@@ -44,6 +45,7 @@ fn main() {
         profile.output_names_file_path,
         profile.start_from,
         profile.index_pad_type,
+        profile.substitutions,
     ) {
         Some(p) => p,
         None => return,

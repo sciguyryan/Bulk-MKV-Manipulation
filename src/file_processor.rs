@@ -1,6 +1,6 @@
 use serde_derive::{Deserialize, Serialize};
 
-use crate::{conversion_params::unified::UnifiedParams, utils};
+use crate::{conversion_params::unified::UnifiedParams, substitutions::Substitutions, utils};
 
 use std::{
     fs::{self, File},
@@ -28,6 +28,7 @@ impl FileProcessor {
         out_names_path: String,
         out_name_start_from: usize,
         out_name_pad: PadType,
+        subs: Substitutions,
     ) -> Option<Self> {
         if !utils::dir_exists(&in_dir) {
             panic!("Input directory '{}' does not exist", in_dir);
@@ -48,11 +49,19 @@ impl FileProcessor {
         // Read all of the files within the input directory.
         let paths = fs::read_dir(in_dir).unwrap();
         for path in paths.flatten() {
-            if !path.path().is_file() || !path.path().ends_with("mkv") {
+            let p = path.path();
+            let ext = p.extension();
+            if ext.is_none() {
                 continue;
             }
 
-            input_paths.push(format!("{}", path.path().display()));
+            // We always want to check extensions in lowercase.
+            let ext = ext.unwrap().to_string_lossy().to_lowercase();
+            if ext != "mkv" {
+                continue;
+            }
+
+            input_paths.push(format!("{}", p.display()));
         }
 
         // Read the file containing the output names.
@@ -68,22 +77,19 @@ impl FileProcessor {
             }
         };
 
+        // Create a local copy of the substitution instance.
+        let mut substitutions = subs;
+
         // Iterate over each line of the file.
         for line in BufReader::new(file).lines().flatten() {
+            // Sanitize the title of the media file based on the supplied
+            // substitution parameters.
+            let sanitized = substitutions.apply(&line);
+
             // Skip empty lines.
-            if line.is_empty() {
+            if sanitized.is_empty() {
                 continue;
             }
-
-            // Question marks need to be handled slightly differently
-            // depending on context.
-            // We also want to remove various other characters that are
-            // invalid for use with NTFS filenames.
-            let sanitized = utils::sanitize_ntfs_name(&line.replace("? ", " - "));
-
-            // Ensure that there are no stray tabs and spaces at the start
-            // and end of the file name.
-            let sanitized = sanitized.trim();
 
             // Handle the number padding.
             let file_name = match out_name_pad {
@@ -111,7 +117,7 @@ impl FileProcessor {
         // We must now check that the number of files in the input
         // directory is equal to the number of entries from the output file list.
         if input_paths.len() != output_paths.len() {
-            eprintln!("The number of files in the input directory is not equal to the number of files in the output directory");
+            eprintln!("The number of files in the input directory {} is not equal to the number of files in the output file list {}", input_paths.len(), output_paths.len());
             return None;
         }
 

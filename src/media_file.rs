@@ -11,7 +11,14 @@ use crate::{
 use core::fmt;
 use serde::de::{self, Deserialize, Deserializer, Unexpected};
 use serde_derive::Deserialize;
-use std::{fs, process::Command};
+use std::{
+    fs,
+    process::Command,
+    sync::atomic::{AtomicUsize, Ordering},
+};
+
+/// This will generate sequential thread-global unique IDs for instances of this struct.
+static UNIQUE_ID: AtomicUsize = AtomicUsize::new(0);
 
 /// This will indicate whether the JSON MediaInfo output should be exported to a file.
 const EXPORT_JSON: bool = false;
@@ -124,7 +131,7 @@ pub enum DelaySource {
 pub struct MediaFile {
     /// The unique sequential ID for this file.
     #[serde(skip)]
-    id: u128,
+    id: usize,
 
     /// The path to the media file.
     #[serde(skip)]
@@ -449,7 +456,7 @@ impl MediaFile {
 
         // We we able to successfully parse the output?
         if let Some(mut mf) = MediaFile::parse_json(&json) {
-            mf.id = mf.media.tracks[0].uid;
+            mf.id = UNIQUE_ID.fetch_add(1, Ordering::SeqCst);
 
             // Set the media file path variable.
             mf.file_path = fp.to_string();
@@ -744,12 +751,6 @@ pub struct MediaFileTrack {
     #[serde(rename = "@type")]
     pub track_type: TrackType,
 
-    /// The UID of the track.
-    ///
-    /// `Note:` This field may be missing for pseudo-tracks, making default necessary.
-    #[serde(rename = "UniqueID", deserialize_with = "string_to_u128", default)]
-    pub uid: u128,
-
     /// The index of the track.
     ///
     /// `Note:` [`TrackType::General`] tracks do not have an index, and so will be assigned a default value of -1.
@@ -990,21 +991,6 @@ where
     let string = String::deserialize(deserializer)?;
 
     match string.parse::<u32>() {
-        Ok(n) => Ok(n),
-        Err(_) => Err(de::Error::invalid_value(
-            Unexpected::Str(&string),
-            &"expected an unsigned integer",
-        )),
-    }
-}
-
-fn string_to_u128<'de, D>(deserializer: D) -> Result<u128, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let string = String::deserialize(deserializer)?;
-
-    match string.parse::<u128>() {
         Ok(n) => Ok(n),
         Err(_) => Err(de::Error::invalid_value(
             Unexpected::Str(&string),
