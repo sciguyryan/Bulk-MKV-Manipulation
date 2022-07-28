@@ -1,13 +1,13 @@
-use serde_derive::{Deserialize, Serialize};
+use serde_derive::Deserialize;
 
-use crate::{conversion_params::unified::UnifiedParams, substitutions::Substitutions, utils};
+use crate::{conversion_params::unified::UnifiedParams, input_profile::InputProfile, utils};
 
 use std::{
     fs::{self, File},
     io::{BufRead, BufReader},
 };
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize)]
 #[allow(unused)]
 pub enum PadType {
     Ten,
@@ -22,24 +22,20 @@ pub struct FileProcessor {
 }
 
 impl FileProcessor {
-    pub fn new(
-        in_dir: String,
-        out_dir: String,
-        out_names_path: String,
-        out_name_start_from: usize,
-        out_name_pad: PadType,
-        subs: Substitutions,
-    ) -> Option<Self> {
-        if !utils::dir_exists(&in_dir) {
-            panic!("Input directory '{}' does not exist", in_dir);
+    pub fn new(profile: &InputProfile) -> Option<Self> {
+        if !utils::dir_exists(&profile.input_dir) {
+            panic!("Input directory '{}' does not exist", profile.input_dir);
         }
 
-        if !utils::dir_exists(&out_dir) {
-            panic!("Output directory '{}' does not exist", out_dir);
+        if !utils::dir_exists(&profile.output_dir) {
+            panic!("Output directory '{}' does not exist", profile.output_dir);
         }
 
-        if !utils::file_exists(&out_names_path) {
-            panic!("Output file names file '{}' does not exist", out_names_path);
+        if !utils::file_exists(&profile.output_names_file_path) {
+            panic!(
+                "Output file names file '{}' does not exist",
+                profile.output_names_file_path
+            );
         }
 
         let mut input_paths = Vec::new();
@@ -47,7 +43,7 @@ impl FileProcessor {
         let mut titles = Vec::new();
 
         // Read all of the files within the input directory.
-        let paths = fs::read_dir(in_dir).unwrap();
+        let paths = fs::read_dir(&profile.input_dir).unwrap();
         for path in paths.flatten() {
             let p = path.path();
             let ext = p.extension();
@@ -65,8 +61,8 @@ impl FileProcessor {
         }
 
         // Read the file containing the output names.
-        let mut index = out_name_start_from;
-        let file = match File::open(&out_names_path) {
+        let mut index = profile.start_from;
+        let file = match File::open(&profile.output_names_file_path) {
             Ok(f) => f,
             Err(e) => {
                 eprintln!(
@@ -78,7 +74,7 @@ impl FileProcessor {
         };
 
         // Create a local copy of the substitution instance.
-        let mut substitutions = subs;
+        let mut substitutions = profile.substitutions.clone();
 
         // Iterate over each line of the file.
         for line in BufReader::new(file).lines().flatten() {
@@ -92,7 +88,7 @@ impl FileProcessor {
             }
 
             // Handle the number padding.
-            let file_name = match out_name_pad {
+            let file_name = match &profile.index_pad_type {
                 PadType::Ten => {
                     format!("{:02} - {}.mkv", index, sanitized)
                 }
@@ -105,7 +101,10 @@ impl FileProcessor {
             };
 
             // Add the file output path to the vector.
-            output_paths.push(utils::join_path_segments(&out_dir, &[&file_name]));
+            output_paths.push(utils::join_path_segments(
+                &profile.output_dir,
+                &[&file_name],
+            ));
 
             // Add the title to the vector.
             titles.push(sanitized.to_string());
@@ -135,7 +134,8 @@ impl FileProcessor {
     /// * `params` - The [`UnifiedParams`] to be used while processing the media files.
     ///
     pub fn process(&self, params: &UnifiedParams) {
-        use crate::media_file::MediaFile;
+        use crate::{conversion_params::unified::DeletionOptions, media_file::MediaFile};
+        use system_shutdown::shutdown;
 
         // Process the data from each of the media files.
         let media_len = self.input_paths.len();
@@ -153,8 +153,24 @@ impl FileProcessor {
             print!(" Done!\r\n");
 
             // Delete the original file, if required.
-            if params.misc_params.remove_original_file {
-                let _ = trash::delete(&self.input_paths[i]);
+            if let Some(del) = &params.misc_params.remove_original_file {
+                match del {
+                    DeletionOptions::Delete => {
+                        let _ = fs::remove_file(&self.input_paths[i]);
+                    }
+                    DeletionOptions::Trash => {
+                        let _ = trash::delete(&self.input_paths[i]);
+                    }
+                    _ => {}
+                }
+            }
+        }
+
+        // Shutdown the computer after processing, if required.
+        if params.misc_params.shutdown_upon_completion {
+            match shutdown() {
+                Ok(_) => println!("Shutting down the computer..."),
+                Err(e) => eprintln!("Failed to shutdown the computer: {}", e),
             }
         }
     }

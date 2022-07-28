@@ -42,14 +42,27 @@ pub struct ChapterParams {
     pub create_interval: Option<String>,
 }
 
+#[derive(Clone, Default, Deserialize, PartialEq)]
+pub enum DeletionOptions {
+    /// Delete the file.
+    Delete,
+    /// Send the file to the trash, if possible.
+    Trash,
+    /// Do nothing.
+    #[default]
+    None,
+}
+
 #[derive(Deserialize)]
 pub struct MiscParams {
     /// Should the original media file be removed after processing?
-    pub remove_original_file: bool,
+    pub remove_original_file: Option<DeletionOptions>,
     /// Should the temporary files be removed after processing?
-    pub remove_temp_files: bool,
+    pub remove_temp_files: Option<DeletionOptions>,
     // Should the title of the media file be set?
     pub set_file_title: bool,
+    /// Should the computer be shutdown after the processing is complete?
+    pub shutdown_upon_completion: bool,
     /// The path to the tags file.
     /// If the path is not specified, or is invalid, then no tags will be added.
     pub tags_path: Option<String>,

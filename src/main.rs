@@ -39,14 +39,7 @@ fn main() {
     };
 
     // Create the file processor instance.
-    let file_processor = match FileProcessor::new(
-        profile.input_dir,
-        profile.output_dir,
-        profile.output_names_file_path,
-        profile.start_from,
-        profile.index_pad_type,
-        profile.substitutions,
-    ) {
+    let file_processor = match FileProcessor::new(&profile) {
         Some(p) => p,
         None => return,
     };

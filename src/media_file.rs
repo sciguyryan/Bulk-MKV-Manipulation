@@ -510,6 +510,8 @@ impl MediaFile {
     /// * `title` - The title of the media file.
     /// * `params` - The conversion parameters to be applied to the media file.
     pub fn process(&mut self, out_path: &str, title: &str, params: &UnifiedParams) {
+        use crate::conversion_params::unified::DeletionOptions;
+
         // Filter the attachments based on the filter parameters.
         self.filter_attachments(params);
 
@@ -540,8 +542,16 @@ impl MediaFile {
         self.remux_file(out_path, title, params);
 
         // Delete the temporary files.
-        if params.misc_params.remove_temp_files {
-            utils::delete_directory(&self.get_temp_path());
+        if let Some(del) = &params.misc_params.remove_original_file {
+            match del {
+                DeletionOptions::Delete => {
+                    utils::delete_directory(&self.get_temp_path());
+                }
+                DeletionOptions::Trash => {
+                    let _ = trash::delete(&self.get_temp_path());
+                }
+                _ => {}
+            }
         }
     }
 
