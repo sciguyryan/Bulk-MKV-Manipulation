@@ -2,7 +2,7 @@ use crate::{
     conversion_params::{
         audio::{AudioCodec, AudioParams},
         subtitle::SubtitleParams,
-        unified::UnifiedParams,
+        unified::{TrackFilterType, UnifiedParams},
         video::VideoParams,
     },
     converters, mkvtoolnix, paths, utils,
@@ -12,6 +12,7 @@ use core::fmt;
 use serde::de::{self, Deserialize, Deserializer, Unexpected};
 use serde_derive::Deserialize;
 use std::{
+    collections::HashMap,
     fs,
     process::Command,
     sync::atomic::{AtomicUsize, Ordering},
@@ -85,7 +86,7 @@ impl From<AudioCodec> for Codec {
     }
 }
 
-#[derive(Clone, Default, Deserialize, PartialEq)]
+#[derive(Clone, Default, Deserialize, Eq, Hash, PartialEq)]
 pub enum TrackType {
     /// An audio track.
     Audio,
@@ -119,7 +120,7 @@ impl fmt::Display for TrackType {
     }
 }
 
-#[derive(Clone, Default, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Default, Deserialize, PartialEq)]
 pub enum DelaySource {
     Container,
     #[default]
@@ -143,6 +144,10 @@ pub struct MediaFile {
     /// Any attachments that might be present in the media file.
     #[serde(skip)]
     pub attachments: Vec<String>,
+
+    /// A list of the track types and how many of each have been kept.
+    #[serde(skip)]
+    track_type_counter: HashMap<TrackType, usize>,
 }
 
 impl MediaFile {
@@ -362,34 +367,16 @@ impl MediaFile {
     /// # Arguments
     ///
     /// * `params` - The conversion parameters to be applied to the media file.
-    pub fn filter_tracks(&mut self, params: &UnifiedParams) {
+    pub fn filter_tracks(&mut self, params: &UnifiedParams) -> bool {
         // Create a new vector to hold the tracks that we want to keep.
         let mut kept = Vec::new();
-
-        let mut audio_kept = 0;
-        let mut subs_kept = 0;
-        let mut video_kept = 0;
 
         let audio = &params.audio_tracks;
         let subtitle = &params.subtitle_tracks;
         let video = &params.video_tracks;
 
-        for track in &mut self.media.tracks {
-            let keep = match track.track_type {
-                TrackType::Audio => {
-                    audio_kept < audio.total_to_retain
-                        && MediaFile::filter_by_language(&track.language, &audio.language_codes)
-                }
-                TrackType::Button => params.other_tracks.include,
-                TrackType::General => false,
-                TrackType::Menu => false,
-                TrackType::Other => params.other_tracks.include,
-                TrackType::Subtitle => {
-                    subs_kept < subtitle.total_to_retain
-                        && MediaFile::filter_by_language(&track.language, &subtitle.language_codes)
-                }
-                TrackType::Video => video_kept < video.total_to_retain,
-            };
+        for (i, track) in &mut self.media.tracks.iter().enumerate() {
+            let keep = self.should_keep_track(&track.track_type, i, params);
 
             // If we do not need to keep this track, then
             // skip to the next track.
@@ -401,37 +388,79 @@ impl MediaFile {
             kept.push(track.clone());
 
             // Update the relevant counters.
-            match track.track_type {
-                TrackType::Audio => audio_kept += 1,
-                TrackType::Subtitle => subs_kept += 1,
-                TrackType::Video => video_kept += 1,
-                _ => {}
+            *self
+                .track_type_counter
+                .entry(track.track_type.clone())
+                .or_default() += 1;
+        }
+
+        let mut success = true;
+        for tt in [TrackType::Audio, TrackType::Subtitle, TrackType::Video] {
+            let target = match tt {
+                TrackType::Audio => audio.filter_by.total_to_retain,
+                TrackType::Subtitle => subtitle.filter_by.total_to_retain,
+                TrackType::Video => video.filter_by.total_to_retain,
+                _ => None,
+            };
+
+            if let Some(t) = target {
+                if self.track_type_counter[&tt] != t {
+                    eprintln!(
+                        "Fewer tracks of type {} than required for file {}.",
+                        tt, self.file_path
+                    );
+                    success = false;
+                }
             }
-        }
-
-        if audio_kept < audio.total_to_retain {
-            eprintln!(
-                "Fewer audio tracks than required for file {}.",
-                self.file_path
-            );
-        }
-
-        if subs_kept < subtitle.total_to_retain {
-            eprintln!(
-                "Fewer subtitle tracks than required for file {}.",
-                self.file_path
-            );
-        }
-
-        if video_kept < video.total_to_retain {
-            eprintln!(
-                "Fewer video tracks than required for file {}.",
-                self.file_path
-            );
         }
 
         // Assign the kept tracks back into the container object.
         self.media.tracks = kept;
+
+        success
+    }
+
+    fn should_keep_track(&self, track_type: &TrackType, id: usize, params: &UnifiedParams) -> bool {
+        // These tracks will never be kept.
+        if matches!(track_type, TrackType::General | TrackType::Menu) {
+            return false;
+        }
+
+        // These tracks will only be kept is the relevant flag is set.
+        if matches!(track_type, TrackType::Button | TrackType::Other) {
+            return params.other_tracks.include;
+        }
+
+        // The panic should never happen since the cases are all dealt with above.
+        let filter = match track_type {
+            TrackType::Audio => &params.audio_tracks.filter_by,
+            TrackType::Subtitle => &params.subtitle_tracks.filter_by,
+            TrackType::Video => &params.video_tracks.filter_by,
+            _ => panic!(),
+        };
+
+        // Is a track limiter in place, and have we reached the target number of tracks?
+        if let Some(count) = filter.total_to_retain {
+            if let Some(c) = self.track_type_counter.get(track_type) {
+                if *c >= count {
+                    return false;
+                }
+            }
+        }
+
+        // Note: that the filters are validated so the unwraps are safe here.
+        match filter.filter_type {
+            TrackFilterType::Language => MediaFile::filter_by_language(
+                &self.media.tracks[id].language,
+                &filter.language_codes.clone().unwrap(),
+            ),
+            TrackFilterType::TrackId => {
+                // We need to subtract one here as the "general" track always appears first
+                // and normal indices exclude that pseudo-track.
+                (id - 1) == filter.track_index.unwrap()
+            }
+            _ => true,
+        }
     }
 
     /// Create a [`MediaFile] instance from a media file path.
@@ -509,14 +538,17 @@ impl MediaFile {
     /// * `out_path` - The path of the output media file.
     /// * `title` - The title of the media file.
     /// * `params` - The conversion parameters to be applied to the media file.
-    pub fn process(&mut self, out_path: &str, title: &str, params: &UnifiedParams) {
+    pub fn process(&mut self, out_path: &str, title: &str, params: &UnifiedParams) -> bool {
         use crate::conversion_params::unified::DeletionOptions;
 
         // Filter the attachments based on the filter parameters.
         self.filter_attachments(params);
 
         // Filter the tracks based on the filter parameters.
-        self.filter_tracks(params);
+        // If the filtering is unsuccessful then we can't continue.
+        if !self.filter_tracks(params) {
+            return false;
+        }
 
         // Extract the files.
         self.extract(true, params.attachments.include, params.chapters.include);
@@ -542,16 +574,14 @@ impl MediaFile {
         self.remux_file(out_path, title, params);
 
         // Delete the temporary files.
-        if let Some(del) = &params.misc_params.remove_original_file {
+        if let Some(del) = &params.misc_params.remove_temp_files {
             match del {
-                DeletionOptions::Delete => {
-                    utils::delete_directory(&self.get_temp_path());
-                }
-                DeletionOptions::Trash => {
-                    let _ = trash::delete(&self.get_temp_path());
-                }
-                _ => {}
+                DeletionOptions::Delete => utils::delete_directory(&self.get_temp_path()),
+                DeletionOptions::Trash => trash::delete(&self.get_temp_path()).is_ok(),
+                _ => true,
             }
+        } else {
+            true
         }
     }
 
@@ -563,14 +593,13 @@ impl MediaFile {
     fn apply_attachment_mux_params(&self, args: &mut Vec<String>) {
         // Iterate over all of the attachments.
         for attachment in &self.attachments {
-            let path = format!("./attachments/{}", attachment);
             // Set the attachment name.
             args.push("--attachment-name".to_string());
             args.push(attachment.clone());
 
             // Set the attachment file path.
             args.push("--attach-file".to_string());
-            args.push(path);
+            args.push(format!("./attachments/{}", attachment));
         }
     }
 
@@ -625,8 +654,9 @@ impl MediaFile {
                         args.push("--sync".to_string());
                         args.push(format!("0:{}", track.delay));
                     }
+                    DelaySource::None => {}
                     _ => {
-                        todo!("not yet implemented.");
+                        todo!("DelaySource {:?} not yet implemented.", track.delay_source);
                     }
                 }
             }

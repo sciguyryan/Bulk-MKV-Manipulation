@@ -38,6 +38,11 @@ fn main() {
         return;
     };
 
+    // Validate the track filter parameters.
+    if !profile.validate_filter_params() {
+        return;
+    }
+
     // Create the file processor instance.
     let file_processor = match FileProcessor::new(&profile) {
         Some(p) => p,

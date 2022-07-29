@@ -70,22 +70,16 @@ pub struct MiscParams {
 
 #[derive(Deserialize)]
 pub struct UnifiedAudioParams {
-    /// The list of language codes that should be accepted.
-    /// If this is empty then all languages will be accepted.
-    pub language_codes: Vec<String>,
-    /// The number of tracks of this type to retain, in total.
-    pub total_to_retain: usize,
+    /// How should the tracks be filtered?
+    pub filter_by: TrackFilterBy,
     /// The conversion parameters for audio tracks.
     pub conversion: Option<AudioParams>,
 }
 
 #[derive(Deserialize)]
 pub struct UnifiedSubtitleParams {
-    /// The list of language codes that should be accepted.
-    /// If this is empty then all languages will be accepted.
-    pub language_codes: Vec<String>,
-    /// The number of tracks of this type to retain, in total.
-    pub total_to_retain: usize,
+    /// How should the tracks be filtered?
+    pub filter_by: TrackFilterBy,
     /// The conversion parameters for subtitle tracks.
     pub conversion: Option<SubtitleParams>,
 }
@@ -99,8 +93,33 @@ pub struct UnifiedOtherTrackParams {
 
 #[derive(Deserialize)]
 pub struct UnifiedVideoParams {
-    /// The number of tracks of this type to retain, in total.
-    pub total_to_retain: usize,
+    /// How should the tracks be filtered?
+    pub filter_by: TrackFilterBy,
     /// The conversion parameters for subtitle tracks.
     pub conversion: Option<VideoParams>,
+}
+
+#[derive(Default, Deserialize)]
+pub enum TrackFilterType {
+    /// Filter by language code.
+    Language,
+    /// Filter by track ID.
+    TrackId,
+    /// No filter should be applied.
+    #[default]
+    None,
+}
+
+#[derive(Deserialize)]
+pub struct TrackFilterBy {
+    /// The type of filter that should be applied to this track.
+    pub filter_type: TrackFilterType,
+    /// The list of language codes that should be accepted.
+    /// If this is empty then all languages will be accepted.
+    /// Only applicable to [`FilterType::Language`].
+    pub language_codes: Option<Vec<String>>,
+    /// The track index to be selected.
+    pub track_index: Option<usize>,
+    /// The number of tracks of this type to retain, in total.
+    pub total_to_retain: Option<usize>,
 }

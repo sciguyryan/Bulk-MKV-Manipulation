@@ -17,7 +17,9 @@ lazy_static! {
 
 impl Paths {
     fn from_file() -> Paths {
-        let path = std::env::current_dir();
+        use std::{env, fs};
+
+        let path = env::current_dir();
         if path.is_err() {
             panic!("failed to get current directory");
         }
@@ -29,7 +31,7 @@ impl Paths {
             panic!("You must specify the path to the paths data file.");
         }
 
-        let json = std::fs::read_to_string(path).expect("failed to open paths data file");
+        let json = fs::read_to_string(path).expect("failed to open paths data file");
         let tools_result = serde_json::from_str::<Paths>(&json);
         let tools = if let Ok(p) = tools_result {
             p
