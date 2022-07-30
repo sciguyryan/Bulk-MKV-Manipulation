@@ -5,6 +5,7 @@ use crate::{conversion_params::unified::UnifiedParams, input_profile::InputProfi
 use std::{
     fs::{self, File},
     io::{BufRead, BufReader},
+    time::Instant,
 };
 
 #[derive(Deserialize)]
@@ -131,7 +132,7 @@ impl FileProcessor {
     ///
     /// # Arguments
     ///
-    /// * `params` - The [`UnifiedParams`] to be used while processing the media files.
+    /// * `params` - The parameters to be used while processing the media files.
     ///
     pub fn process(&self, params: &UnifiedParams) {
         use crate::{conversion_params::unified::DeletionOptions, media_file::MediaFile};
@@ -149,11 +150,12 @@ impl FileProcessor {
         // Process each media file.
         for (i, m) in &mut media.iter_mut().enumerate() {
             print!("Processing media file {} of {}...", i + 1, media_len);
+            let now = Instant::now();
             if !m.process(&self.output_paths[i], &self.titles[i], params) {
                 print!(" Error!\r\n");
                 break;
             }
-            print!(" Done!\r\n");
+            print!(" Done! ({}s)\r\n", now.elapsed().as_secs());
 
             // Delete the original file, if required.
             if let Some(del) = &params.misc_params.remove_original_file {

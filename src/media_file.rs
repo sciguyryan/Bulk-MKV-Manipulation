@@ -151,6 +151,11 @@ pub struct MediaFile {
 }
 
 impl MediaFile {
+    /// Apply default track languages.
+    ///
+    /// # Arguments
+    ///
+    /// * `params` - The conversion parameters.
     pub fn apply_track_language_defaults(&mut self, params: &UnifiedParams) {
         let mut defs = HashMap::new();
 
@@ -172,17 +177,24 @@ impl MediaFile {
         }
 
         for (tt, d) in defs {
-            // Iterate through all of the tracks of the specific type.
-            for track in
-                self.media.tracks.iter_mut().filter(|x| {
-                    x.track_type == tt && (x.language.is_empty() || x.language == "und")
-                })
+            // Iterate through all of the tracks of the specific type,
+            // where the track language is "und" (undefined).
+            for track in self
+                .media
+                .tracks
+                .iter_mut()
+                .filter(|x| x.track_type == tt && x.language == "und")
             {
                 track.language = d.clone();
             }
         }
     }
 
+    /// Convert each audio track found within the media file.
+    ///
+    /// # Arguments
+    ///
+    /// * `params` - The conversion parameters to be applied to the tracks.
     pub fn convert_all_audio(&mut self, params: &AudioParams) {
         if params.codec.is_none() {
             return;
@@ -244,6 +256,11 @@ impl MediaFile {
         }
     }
 
+    /// Convert each video track found within the media file.
+    ///
+    /// # Arguments
+    ///
+    /// * `params` - The conversion parameters to be applied to the subtitle tracks.
     #[allow(unused)]
     pub fn convert_all_subtitles(&mut self, params: &SubtitleParams) {
         if params.codec.is_none() {
@@ -253,6 +270,11 @@ impl MediaFile {
         todo!("not yet implemented");
     }
 
+    /// Convert each video tracks found within the media file.
+    ///
+    /// # Arguments
+    ///
+    /// * `params` - The conversion parameters to be applied to the video tracks.
     #[allow(unused)]
     pub fn convert_all_video(&mut self, params: &VideoParams) {
         if params.codec.is_none() {
@@ -262,6 +284,11 @@ impl MediaFile {
         todo!("not yet implemented");
     }
 
+    /// Dump the MediaInfo JSON output.
+    ///
+    /// # Arguments
+    ///
+    /// * `json`- The JSON string to be written to the file.
     #[allow(unused)]
     pub(crate) fn dump_json(json: &str) {
         use std::{fs::File, io::Write};
@@ -278,7 +305,6 @@ impl MediaFile {
     /// * `extract_tracks` - Should tracks be extracted?
     /// * `extract_attachments` - Should attachments be extracted?
     /// * `extract_chapters` - Should chapters be extracted?
-    ///
     pub fn extract(
         &mut self,
         extract_tracks: bool,
@@ -887,7 +913,7 @@ pub struct MediaFileTrack {
 
     /// The additional track information.
     ///
-    /// `Note:` This field will only contains meaningful data when the [`MediaInfoTrack::track_type`] is [`TrackType::General`].
+    /// `Note:` This field will only contains meaningful data when the track type is [`TrackType::General`].
     #[serde(rename = "extra", default)]
     pub extra_info: MediaInfoExtra,
 }
