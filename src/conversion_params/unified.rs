@@ -74,6 +74,9 @@ pub struct UnifiedAudioParams {
     pub filter_by: TrackFilterBy,
     /// The conversion parameters for audio tracks.
     pub conversion: Option<AudioParams>,
+    /// If the language is undefined, what should the language be
+    /// assumed as being?
+    pub language_if_undefined: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -82,6 +85,9 @@ pub struct UnifiedSubtitleParams {
     pub filter_by: TrackFilterBy,
     /// The conversion parameters for subtitle tracks.
     pub conversion: Option<SubtitleParams>,
+    /// If the language is undefined, what should the language be
+    /// assumed as being?
+    pub language_if_undefined: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -97,6 +103,9 @@ pub struct UnifiedVideoParams {
     pub filter_by: TrackFilterBy,
     /// The conversion parameters for subtitle tracks.
     pub conversion: Option<VideoParams>,
+    /// If the language is undefined, what should the language be
+    /// assumed as being?
+    pub language_if_undefined: Option<String>,
 }
 
 #[derive(Default, Deserialize)]

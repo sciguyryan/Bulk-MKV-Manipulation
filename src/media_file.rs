@@ -151,6 +151,38 @@ pub struct MediaFile {
 }
 
 impl MediaFile {
+    pub fn apply_track_language_defaults(&mut self, params: &UnifiedParams) {
+        let mut defs = HashMap::new();
+
+        if let Some(d) = &params.audio_tracks.language_if_undefined {
+            defs.insert(TrackType::Audio, d);
+        }
+
+        if let Some(d) = &params.subtitle_tracks.language_if_undefined {
+            defs.insert(TrackType::Subtitle, d);
+        }
+
+        if let Some(d) = &params.video_tracks.language_if_undefined {
+            defs.insert(TrackType::Video, d);
+        }
+
+        // Do we have anything to do here?
+        if defs.is_empty() {
+            return;
+        }
+
+        for (tt, d) in defs {
+            // Iterate through all of the tracks of the specific type.
+            for track in
+                self.media.tracks.iter_mut().filter(|x| {
+                    x.track_type == tt && (x.language.is_empty() || x.language == "und")
+                })
+            {
+                track.language = d.clone();
+            }
+        }
+    }
+
     pub fn convert_all_audio(&mut self, params: &AudioParams) {
         if params.codec.is_none() {
             return;
@@ -404,7 +436,7 @@ impl MediaFile {
             };
 
             if let Some(t) = target {
-                if self.track_type_counter[&tt] != t {
+                if self.track_type_counter.get(&tt).cloned().unwrap_or(0) != t {
                     eprintln!(
                         "Fewer tracks of type {} than required for file {}.",
                         tt, self.file_path
@@ -568,6 +600,9 @@ impl MediaFile {
 
         // Filter the attachments based on the filter parameters.
         self.filter_attachments(params);
+
+        // Apply the default languages to tracks.
+        self.apply_track_language_defaults(params);
 
         // Filter the tracks based on the filter parameters.
         // If the filtering is unsuccessful then we can't continue.
@@ -1019,9 +1054,9 @@ where
 {
     let string = String::deserialize(deserializer)?;
 
-    // We specifically want to map tracks with an undefined language (und)
-    // to "en" (English) to avoid them being missed.
-    if string == "und" {
+    // We specifically want to map tracks with an unspecified language
+    // to und, to avoid them being missed.
+    if string.is_empty() {
         return Ok(default_track_language());
     }
 
@@ -1081,5 +1116,5 @@ where
 }
 
 fn default_track_language() -> String {
-    "en".to_string()
+    "und".to_string()
 }
