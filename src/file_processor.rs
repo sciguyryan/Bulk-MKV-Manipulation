@@ -158,7 +158,7 @@ impl FileProcessor {
             print!(" Done! ({}s)\r\n", now.elapsed().as_secs());
 
             // Delete the original file, if required.
-            if let Some(del) = &params.misc_params.remove_original_file {
+            if let Some(del) = &params.misc_params.remove_original_file_method {
                 match del {
                     DeletionOptions::Delete => {
                         let _ = fs::remove_file(&self.input_paths[i]);

@@ -159,15 +159,15 @@ impl MediaFile {
     pub fn apply_track_language_defaults(&mut self, params: &UnifiedParams) {
         let mut defs = HashMap::new();
 
-        if let Some(d) = &params.audio_tracks.language_if_undefined {
+        if let Some(d) = &params.audio_tracks.default_language {
             defs.insert(TrackType::Audio, d);
         }
 
-        if let Some(d) = &params.subtitle_tracks.language_if_undefined {
+        if let Some(d) = &params.subtitle_tracks.default_language {
             defs.insert(TrackType::Subtitle, d);
         }
 
-        if let Some(d) = &params.video_tracks.language_if_undefined {
+        if let Some(d) = &params.video_tracks.default_language {
             defs.insert(TrackType::Video, d);
         }
 
@@ -660,7 +660,7 @@ impl MediaFile {
         self.remux_file(out_path, title, params);
 
         // Delete the temporary files.
-        if let Some(del) = &params.misc_params.remove_temp_files {
+        if let Some(del) = &params.misc_params.remove_temp_files_method {
             match del {
                 DeletionOptions::Delete => utils::delete_directory(&self.get_temp_path()),
                 DeletionOptions::Trash => trash::delete(&self.get_temp_path()).is_ok(),

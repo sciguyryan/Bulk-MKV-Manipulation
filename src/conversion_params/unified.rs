@@ -44,21 +44,21 @@ pub struct ChapterParams {
 
 #[derive(Clone, Default, Deserialize, PartialEq)]
 pub enum DeletionOptions {
-    /// Delete the file.
+    /// Delete the file using the default method.
     Delete,
-    /// Send the file to the trash, if possible.
+    /// Delete the file by sending it to the trash, if possible.
     Trash,
-    /// Do nothing.
+    /// Do not delete the file.
     #[default]
     None,
 }
 
 #[derive(Deserialize)]
 pub struct MiscParams {
-    /// Should the original media file be removed after processing?
-    pub remove_original_file: Option<DeletionOptions>,
-    /// Should the temporary files be removed after processing?
-    pub remove_temp_files: Option<DeletionOptions>,
+    /// The method to be used when removing the original files, if specified.
+    pub remove_original_file_method: Option<DeletionOptions>,
+    /// The method to be used when removing the temporary files, if specified.
+    pub remove_temp_files_method: Option<DeletionOptions>,
     // Should the title of the media file be set?
     pub set_file_title: bool,
     /// Should the computer be shutdown after the processing is complete?
@@ -76,7 +76,7 @@ pub struct UnifiedAudioParams {
     pub conversion: Option<AudioParams>,
     /// If the language is undefined, what should the language be
     /// assumed as being?
-    pub language_if_undefined: Option<String>,
+    pub default_language: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -87,7 +87,7 @@ pub struct UnifiedSubtitleParams {
     pub conversion: Option<SubtitleParams>,
     /// If the language is undefined, what should the language be
     /// assumed as being?
-    pub language_if_undefined: Option<String>,
+    pub default_language: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -105,7 +105,7 @@ pub struct UnifiedVideoParams {
     pub conversion: Option<VideoParams>,
     /// If the language is undefined, what should the language be
     /// assumed as being?
-    pub language_if_undefined: Option<String>,
+    pub default_language: Option<String>,
 }
 
 #[derive(Default, Deserialize)]
