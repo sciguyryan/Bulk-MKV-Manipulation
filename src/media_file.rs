@@ -420,14 +420,26 @@ impl MediaFile {
         success
     }
 
-    fn should_keep_track(&self, track_type: &TrackType, id: usize, params: &UnifiedParams) -> bool {
-        // These tracks will never be kept.
+    /// Check whether a given track should be kept in the final file.
+    ///
+    /// # Arguments
+    ///
+    /// * `track_type` - The type of track.
+    /// * `index` - The index of the track.
+    /// * `params` - The conversion parameters to be applied to the media file.
+    fn should_keep_track(
+        &self,
+        track_type: &TrackType,
+        index: usize,
+        params: &UnifiedParams,
+    ) -> bool {
+        // We can handle certain types of tracks by type, rather than by
+        // examining them in a more detailed way.
         if matches!(track_type, TrackType::General | TrackType::Menu) {
+            // These tracks will never be kept.
             return false;
-        }
-
-        // These tracks will only be kept is the relevant flag is set.
-        if matches!(track_type, TrackType::Button | TrackType::Other) {
+        } else if matches!(track_type, TrackType::Button | TrackType::Other) {
+            // These tracks will only be kept is the relevant flag is set.
             return params.other_tracks.include;
         }
 
@@ -450,14 +462,27 @@ impl MediaFile {
 
         // Note: that the filters are validated so the unwraps are safe here.
         match filter.filter_type {
-            TrackFilterType::Language => MediaFile::filter_by_language(
-                &self.media.tracks[id].language,
-                &filter.language_codes.clone().unwrap(),
-            ),
+            TrackFilterType::Language => {
+                if let Some(lang) = &filter.language_codes {
+                    MediaFile::filter_by_language(&self.media.tracks[index].language, lang)
+                } else {
+                    // This case can never occur. There will always be a
+                    // vector in this instance as the filters are validated
+                    // prior to this step.
+                    panic!();
+                }
+            }
             TrackFilterType::TrackId => {
                 // We need to subtract one here as the "general" track always appears first
                 // and normal indices exclude that pseudo-track.
-                (id - 1) == filter.track_index.unwrap()
+                if let Some(indices) = &filter.track_indices {
+                    indices.contains(&(index - 1))
+                } else {
+                    // This case can never occur. There will always be a
+                    // vector in this instance as the filters are validated
+                    // prior to this step.
+                    panic!();
+                }
             }
             _ => true,
         }

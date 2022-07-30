@@ -34,7 +34,7 @@ impl InputProfile {
         // Validate the audio filtering parameters.
         let audio_valid = match audio_filter.filter_type {
             TrackFilterType::Language => true,
-            TrackFilterType::TrackId => audio_filter.track_index.is_some(),
+            TrackFilterType::TrackId => audio_filter.track_indices.is_some(),
             TrackFilterType::None => true,
         };
         if !audio_valid {
@@ -44,7 +44,7 @@ impl InputProfile {
         // Validate the subtitle filtering parameters.
         let subtitle_valid = match subtitle_filter.filter_type {
             TrackFilterType::Language => true,
-            TrackFilterType::TrackId => subtitle_filter.track_index.is_some(),
+            TrackFilterType::TrackId => subtitle_filter.track_indices.is_some(),
             TrackFilterType::None => true,
         };
         if !subtitle_valid {
@@ -54,7 +54,7 @@ impl InputProfile {
         // Validate the video filtering parameters.
         let video_valid = match video_filter.filter_type {
             TrackFilterType::Language => true,
-            TrackFilterType::TrackId => video_filter.track_index.is_some(),
+            TrackFilterType::TrackId => video_filter.track_indices.is_some(),
             TrackFilterType::None => true,
         };
         if !video_valid {

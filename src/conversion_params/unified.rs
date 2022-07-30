@@ -118,8 +118,8 @@ pub struct TrackFilterBy {
     /// If this is empty then all languages will be accepted.
     /// Only applicable to [`FilterType::Language`].
     pub language_codes: Option<Vec<String>>,
-    /// The track index to be selected.
-    pub track_index: Option<usize>,
+    /// The track indices to be selected.
+    pub track_indices: Option<Vec<usize>>,
     /// The number of tracks of this type to retain, in total.
     pub total_to_retain: Option<usize>,
 }
