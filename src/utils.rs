@@ -85,7 +85,7 @@ pub fn join_path_segments(base: &str, paths: &[&str]) -> String {
 /// # Arguments
 ///
 /// * `fp` - The path to the file.
-/// * `ext` - The new extension to be applied.
+/// * `new_ext` - The new extension to be applied.
 ///
 #[inline]
 pub fn swap_file_extension(fp: &str, new_ext: &str) -> String {
