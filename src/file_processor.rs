@@ -138,6 +138,9 @@ impl FileProcessor {
         use crate::{conversion_params::unified::DeletionOptions, media_file::MediaFile};
         use system_shutdown::shutdown;
 
+        print!("Setting up temporary directory structure...");
+        let now = Instant::now();
+
         // Process the data from each of the media files.
         let media_len = self.input_paths.len();
         let mut media = Vec::with_capacity(media_len);
@@ -146,6 +149,9 @@ impl FileProcessor {
                 media.push(mf);
             }
         }
+
+        print!("Done! ({}s)\r\n", now.elapsed().as_secs());
+        println!("{}", "-".repeat(32));
 
         // Process each media file.
         for (i, m) in &mut media.iter_mut().enumerate() {
@@ -158,23 +164,26 @@ impl FileProcessor {
             print!(" Done! ({}s)\r\n", now.elapsed().as_secs());
 
             // Delete the original file, if required.
-            if let Some(del) = &params.misc_params.remove_original_file_method {
+            if let Some(del) = &params.misc_params.remove_original_file {
                 match del {
                     DeletionOptions::Delete => {
-                        let _ = fs::remove_file(&self.input_paths[i]);
+                        _ = fs::remove_file(&self.input_paths[i]);
                     }
                     DeletionOptions::Trash => {
-                        let _ = trash::delete(&self.input_paths[i]);
+                        _ = trash::delete(&self.input_paths[i]);
                     }
                     _ => {}
                 }
             }
         }
 
+        println!("{}", "-".repeat(32));
+        println!("Processing complete.");
+
         // Shutdown the computer after processing, if required.
         if params.misc_params.shutdown_upon_completion {
             match shutdown() {
-                Ok(_) => println!("Shutting down the computer..."),
+                Ok(_) => println!("Attempting to shutdown down the computer..."),
                 Err(e) => eprintln!("Failed to shutdown the computer: {}", e),
             }
         }

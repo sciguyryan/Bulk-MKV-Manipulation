@@ -82,9 +82,9 @@ pub enum DeletionOptions {
 #[derive(Deserialize)]
 pub struct MiscParams {
     /// The method to be used when removing the original files, if specified.
-    pub remove_original_file_method: Option<DeletionOptions>,
+    pub remove_original_file: Option<DeletionOptions>,
     /// The method to be used when removing the temporary files, if specified.
-    pub remove_temp_files_method: Option<DeletionOptions>,
+    pub remove_temp_files: Option<DeletionOptions>,
     // Should the title of the media file be set?
     pub set_file_title: bool,
     /// Should the computer be shutdown after the processing is complete?

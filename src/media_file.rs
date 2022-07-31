@@ -25,7 +25,7 @@ static UNIQUE_ID: AtomicUsize = AtomicUsize::new(0);
 const EXPORT_JSON: bool = false;
 
 /// This will indicate whether to output the MKV Merge parameters.
-const DEBUG_PARAMS: bool = true;
+const DEBUG_PARAMS: bool = false;
 
 #[derive(Clone, Default)]
 pub enum Codec {
@@ -660,7 +660,7 @@ impl MediaFile {
         self.remux_file(out_path, title, params);
 
         // Delete the temporary files.
-        if let Some(del) = &params.misc_params.remove_temp_files_method {
+        if let Some(del) = &params.misc_params.remove_temp_files {
             match del {
                 DeletionOptions::Delete => utils::delete_directory(&self.get_temp_path()),
                 DeletionOptions::Trash => trash::delete(&self.get_temp_path()).is_ok(),
