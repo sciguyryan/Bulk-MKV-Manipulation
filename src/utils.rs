@@ -1,5 +1,19 @@
 use std::{fs, path::Path};
 
+/// Convert a boolean value to yes or no.
+///
+/// # Arguments
+///
+/// * `b` - The boolean value to be converted.
+#[inline]
+pub fn bool_to_yes_no(b: bool) -> String {
+    if b {
+        "yes".to_string()
+    } else {
+        "no".to_string()
+    }
+}
+
 #[inline]
 pub fn dir_exists(path: &str) -> bool {
     let path = Path::new(path);

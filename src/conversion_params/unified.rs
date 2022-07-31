@@ -12,12 +12,38 @@ pub struct UnifiedParams {
     pub video_tracks: UnifiedVideoParams,
     /// Parameters related to any other type of track.
     pub other_tracks: UnifiedOtherTrackParams,
+    /// Parameters related to track ordering, forced tracks, etc.
+    pub track_params: Option<Vec<TrackParams>>,
     /// Parameters related to the attachments.
     pub attachments: AttachmentParams,
     /// Parameters related to the chapters.
     pub chapters: ChapterParams,
     // Various other parameters that do not fit into another category.
     pub misc_params: MiscParams,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct TrackParams {
+    /// The ID of the track to which these parameters should be applied.
+    pub id: usize,
+    /// Should the track be set as default?
+    pub default: Option<bool>,
+    /// Should the track be set as enabled? If unset, the track will be enabled by default.
+    pub enabled: Option<bool>,
+    /// Should the track be set as forced?
+    pub forced: Option<bool>,
+    /// Should the track be set as being for the hearing impaired?
+    pub hearing_impaired: Option<bool>,
+    /// Should the track be set as being for the visual impaired?
+    pub visual_impaired: Option<bool>,
+    /// Should the track be set being for text descriptions?
+    pub text_descriptions: Option<bool>,
+    /// Is the track in the original content's language?
+    pub original: Option<bool>,
+    /// Does the track contain commentary?
+    pub commentary: Option<bool>,
+    /// Should the delay be overridden for this track?
+    pub delay_override: Option<i32>,
 }
 
 #[derive(Deserialize)]

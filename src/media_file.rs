@@ -25,7 +25,7 @@ static UNIQUE_ID: AtomicUsize = AtomicUsize::new(0);
 const EXPORT_JSON: bool = false;
 
 /// This will indicate whether to output the MKV Merge parameters.
-const DEBUG_PARAMS: bool = false;
+const DEBUG_PARAMS: bool = true;
 
 #[derive(Clone, Default)]
 pub enum Codec {
@@ -627,7 +627,7 @@ impl MediaFile {
         // Filter the attachments based on the filter parameters.
         self.filter_attachments(params);
 
-        // Apply the default languages to tracks.
+        // Apply the default languages to tracks, if needed.
         self.apply_track_language_defaults(params);
 
         // Filter the tracks based on the filter parameters.
@@ -725,16 +725,106 @@ impl MediaFile {
         }
     }
 
+    /// Apply any additional track parameters, such as default, forced, etc.
+    ///
+    /// # Arguments
+    ///
+    /// * `args` - A reference to the vector containing the argument list.
+    /// * `track_id` - The ID of the track to which the parameters should be applied.
+    /// * `params` - The conversion parameters to be applied to the media file.
+    fn apply_additional_track_mux_params(
+        &self,
+        args: &mut Vec<String>,
+        track_id: usize,
+        params: &UnifiedParams,
+    ) {
+        if params.track_params.is_none() {
+            return;
+        }
+
+        let mut param_opts = HashMap::new();
+
+        // Do we have any parameters to apply to this track?
+        if let Some(tp) = &params.track_params {
+            if let Some(p) = tp.iter().find(|t| t.id == track_id) {
+                let track_type = &self.media.tracks[track_id].track_type;
+
+                if let Some(b) = p.default {
+                    param_opts.insert("default-track", b);
+                }
+                if let Some(b) = p.enabled {
+                    param_opts.insert("track-enabled", b);
+                }
+                if let Some(b) = p.forced {
+                    if *track_type == TrackType::Subtitle {
+                        param_opts.insert("forced-display", b);
+                    } else {
+                        eprintln!("The forced flag was set for track ID {}, but the track type does not support it.", track_id);
+                    }
+                }
+                if let Some(b) = p.hearing_impaired {
+                    if *track_type == TrackType::Audio {
+                        param_opts.insert("hearing-impaired", b);
+                    } else {
+                        eprintln!("The hearing impaired flag was set for track ID {}, but the track type does not support it.", track_id);
+                    }
+                }
+                if let Some(b) = p.hearing_impaired {
+                    if *track_type == TrackType::Audio {
+                        param_opts.insert("visual-impaired", b);
+                    } else {
+                        eprintln!("The visually impaired flag was set for track ID {}, but the track type does not support it.", track_id);
+                    }
+                }
+                if let Some(b) = p.text_descriptions {
+                    if *track_type == TrackType::Subtitle {
+                        param_opts.insert("text-descriptions", b);
+                    } else {
+                        eprintln!("The text descriptions flag was set for track ID {}, but the track type does not support it.", track_id);
+                    }
+                }
+                if let Some(b) = p.original {
+                    param_opts.insert("original", b);
+                }
+                if let Some(b) = p.commentary {
+                    if *track_type == TrackType::Audio || *track_type == TrackType::Subtitle {
+                        param_opts.insert("commentary", b);
+                    } else {
+                        eprintln!("The commentary flag was set for track ID {}, but the track type does not support it.", track_id);
+                    }
+                }
+            }
+        }
+
+        // Iterate over the specified parameters.
+        for (k, v) in param_opts {
+            args.push(format!("--{}-flag", k));
+            args.push(format!("0:{}", utils::bool_to_yes_no(v)));
+        }
+    }
+
     /// Apply the parameters related the tracks to be added to the media file.
     ///
     /// # Arguments
     ///
     /// * `args` - A reference to the vector containing the argument list.
-    fn apply_track_mux_params(&self, args: &mut Vec<String>) {
+    /// * `params` - The conversion parameters to be applied to the media file.
+    fn apply_track_mux_params(&self, args: &mut Vec<String>, params: &UnifiedParams) {
         // Iterate over all of the tracks.
-        for track in &self.media.tracks {
+        for (i, track) in self.media.tracks.iter().enumerate() {
+            let mut delay = track.delay;
+
+            // Do we have a delay override for this track?
+            if let Some(tp) = &params.track_params {
+                if let Some(params) = tp.iter().find(|t| t.id == i) {
+                    if let Some(d) = params.delay_override {
+                        delay = d;
+                    }
+                }
+            }
+
             // Do we need to specify a delay for the track?
-            if track.delay != 0 {
+            if delay != 0 {
                 match track.delay_source {
                     DelaySource::Container => {
                         args.push("--sync".to_string());
@@ -747,10 +837,11 @@ impl MediaFile {
                 }
             }
 
-            // Specify the track language.
-            args.push("--language".to_string());
+            // Apply any additional track parameters, if any were specified.
+            self.apply_additional_track_mux_params(args, i, params);
 
-            // Set the track language. We set undefined for any video tracks.
+            // Specify the track language. We set undefined for any video tracks.
+            args.push("--language".to_string());
             if track.track_type == TrackType::Video {
                 args.push("0:und".to_string());
             } else {
@@ -803,7 +894,7 @@ impl MediaFile {
         }
 
         // Apply the track muxing arguments.
-        self.apply_track_mux_params(&mut args);
+        self.apply_track_mux_params(&mut args, params);
 
         // Apply the attachment muxing arguments, if needed.
         if params.attachments.include {
