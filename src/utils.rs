@@ -14,12 +14,22 @@ pub fn bool_to_yes_no(b: bool) -> String {
     }
 }
 
+/// Return a boolean value indicating whether a given directory exists.
+///
+/// # Arguments
+///
+/// * `path` - The path to the directory.
 #[inline]
 pub fn dir_exists(path: &str) -> bool {
     let path = Path::new(path);
     path.exists() && path.is_dir()
 }
 
+/// Delete a directory, and all containing subdirectories and files.
+///
+/// # Arguments
+///
+/// * `path` - The path to the directory.
 #[inline]
 pub fn delete_directory(path: &str) -> bool {
     if !dir_exists(path) {
@@ -29,12 +39,22 @@ pub fn delete_directory(path: &str) -> bool {
     fs::remove_dir_all(path).is_ok()
 }
 
+/// Return a boolean value indicating whether a given file exists.
+///
+/// # Arguments
+///
+/// * `path` - The path to the file.
 #[inline]
 pub fn file_exists(path: &str) -> bool {
     let path = Path::new(path);
     path.exists() && path.is_file()
 }
 
+/// Get the extension of a given file path.
+///
+/// # Arguments
+///
+/// * `fp` - The path to the file.
 #[inline]
 pub fn get_file_extension(fp: &str) -> Option<String> {
     let index = fp.rfind('.')?;
@@ -43,6 +63,12 @@ pub fn get_file_extension(fp: &str) -> Option<String> {
     Some(ext.to_lowercase())
 }
 
+/// Join several path segments into a single path.
+///
+/// # Arguments
+///
+/// * `base` - The base (root) path.
+/// * `paths` - A slice of strings to be appended to the base path.
 #[inline]
 pub fn join_path_segments(base: &str, paths: &[&str]) -> String {
     let mut p = Path::new(base).to_path_buf();
