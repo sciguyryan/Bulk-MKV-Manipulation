@@ -837,6 +837,18 @@ impl MediaFile {
                 }
             }
 
+            // Do we need to set the width and height?
+            if track.width != 0 && track.height != 0 {
+                args.push("--display-dimensions".to_string());
+                args.push(format!("0:{}x{}", track.width, track.height));
+            }
+
+            // Do we need to set the bit depth.
+            if track.bit_depth != 0 {
+                args.push("--color-bits-per-channel".to_string());
+                args.push(format!("0:{}", track.bit_depth));
+            }
+
             // Apply any additional track parameters, if any were specified.
             self.apply_additional_track_mux_params(args, i, params);
 
@@ -1001,6 +1013,18 @@ pub struct MediaFileTrack {
     /// Is the track selected by default?
     #[serde(rename = "Default", deserialize_with = "yes_no_to_bool", default)]
     pub default: bool,
+
+    /// The width of the track, only applicable to video tracks.
+    #[serde(rename = "Width", deserialize_with = "string_to_u32", default)]
+    pub width: u32,
+
+    /// The height of the track, only applicable to video tracks.
+    #[serde(rename = "Height", deserialize_with = "string_to_u32", default)]
+    pub height: u32,
+
+    /// The height of the track, only applicable to video tracks.
+    #[serde(rename = "BitDepth", deserialize_with = "string_to_u32", default)]
+    pub bit_depth: u32,
 
     /// The additional track information.
     ///
