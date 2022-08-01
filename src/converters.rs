@@ -3,7 +3,7 @@ use crate::{
         audio::AudioParams, params_trait::ConversionParams, subtitle::SubtitleParams,
         video::VideoParams,
     },
-    paths,
+    logger, paths,
 };
 
 use std::process::Command;
@@ -24,9 +24,7 @@ pub fn convert_audio_file(file_in: &str, file_out: &str, params: &AudioParams) -
     }
 
     // Run FFMPEG with the specified parameters.
-    run_ffmpeg(&args.unwrap());
-
-    true
+    run_ffmpeg(&args.unwrap()) == 0
 }
 
 /// Convert a subtitle file, based on the specified conversion parameters.
@@ -65,10 +63,17 @@ pub fn convert_video_file(
 /// # Arguments
 ///
 /// * `args` - A list of the command-line arguments to be passed to FFMPEG.
-///
-fn run_ffmpeg(args: &[String]) {
-    let _r = Command::new(&paths::PATHS.ffmpeg)
-        .args(args)
-        .output()
-        .expect("failed to run FFMPEG extract process");
+fn run_ffmpeg(args: &[String]) -> i32 {
+    let r = Command::new(&paths::PATHS.ffmpeg).args(args).output();
+
+    if let Ok(exit) = r {
+        if let Some(code) = exit.status.code() {
+            code
+        } else {
+            logger::log(&format!("{:?}", exit.stderr), false);
+            1
+        }
+    } else {
+        1
+    }
 }

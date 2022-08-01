@@ -1,6 +1,7 @@
 use crate::{
     conversion_params::unified::{TrackFilterType, UnifiedParams},
     file_processor::PadType,
+    logger,
     substitutions::Substitutions,
 };
 
@@ -18,9 +19,6 @@ pub struct InputProfile {
     pub start_from: usize,
     /// The padding that should be applied to the index.
     pub index_pad_type: PadType,
-    /// Should logging be enabled?
-    #[serde(default)]
-    pub logging: bool,
     /// Any processing parameters that should be applied to the media file.
     pub processing_params: UnifiedParams,
     /// Substitutions to be applied when sanitizing the file titles.
@@ -41,7 +39,7 @@ impl InputProfile {
             TrackFilterType::None => true,
         };
         if !audio_valid {
-            eprintln!("Failed to validate the audio filter parameters.");
+            logger::log("Failed to validate the audio filter parameters", true);
         }
 
         // Validate the subtitle filtering parameters.
@@ -51,7 +49,7 @@ impl InputProfile {
             TrackFilterType::None => true,
         };
         if !subtitle_valid {
-            eprintln!("Failed to validate the subtitle filter parameters.");
+            logger::log("Failed to validate the subtitle filter parameters", true);
         }
 
         // Validate the video filtering parameters.
@@ -61,7 +59,7 @@ impl InputProfile {
             TrackFilterType::None => true,
         };
         if !video_valid {
-            eprintln!("Failed to validate the video filter parameters.");
+            logger::log("Failed to validate the subtitle filter parameters", true);
         }
 
         audio_valid && subtitle_valid && video_valid

@@ -1,11 +1,12 @@
 use crate::{
     conversion_params::{
         audio::{AudioCodec, AudioParams},
+        params_trait::ConversionParams,
         subtitle::SubtitleParams,
         unified::{TrackFilterType, UnifiedParams},
         video::VideoParams,
     },
-    converters, mkvtoolnix, paths, utils,
+    converters, logger, mkvtoolnix, paths, utils,
 };
 
 use core::fmt;
@@ -27,7 +28,7 @@ const EXPORT_JSON: bool = false;
 /// This will indicate whether to output the MKV Merge parameters.
 const DEBUG_PARAMS: bool = false;
 
-#[derive(Clone, Default)]
+#[derive(Clone, Debug, Default)]
 pub enum Codec {
     Aac,
     Ac3,
@@ -215,6 +216,14 @@ impl MediaFile {
             .enumerate()
             .filter(|(_, x)| x.track_type == TrackType::Audio)
         {
+            logger::log_inline(
+                &format!(
+                    "Converting audio track {} to format {:?}...",
+                    t.id, out_codec
+                ),
+                false,
+            );
+
             // Determine the output file name.
             let mut in_file_path = format!(
                 "{}\\tracks\\{}",
@@ -247,6 +256,18 @@ impl MediaFile {
             // so that the codec can be updated later.
             if converters::convert_audio_file(&in_file_path, &out_file_path, params) {
                 update_indices.push(i);
+
+                logger::log(" conversion successful.", false);
+            } else {
+                logger::log(" conversion failed.", false);
+            }
+
+            // Output the MKV Merge parameters, if the debug flag is set.
+            if DEBUG_PARAMS {
+                let args = params
+                    .as_ffmpeg_argument_list(&in_file_path, &out_file_path)
+                    .unwrap();
+                logger::log(&format!("ffmpeg parameters: {}", args.join(" ")), true);
             }
         }
 
@@ -310,30 +331,36 @@ impl MediaFile {
         extract_tracks: bool,
         extract_attachments: bool,
         extract_chapters: bool,
-    ) {
+    ) -> bool {
+        let mut success = true;
         if extract_tracks {
-            self.extract_tracks();
+            success = self.extract_tracks();
         }
 
-        if extract_attachments {
-            self.extract_attachments();
+        if success && extract_attachments {
+            success = self.extract_attachments();
         } else {
             self.attachments.clear();
         }
 
-        if extract_chapters {
-            self.extract_chapters();
+        if success && extract_chapters {
+            success = self.extract_chapters();
         }
+
+        success
     }
 
     /// Extract the attachments from a MKV file, if present.
-    pub fn extract_attachments(&self) {
+    pub fn extract_attachments(&self) -> bool {
         // Do we have any attachments to extract?
         // The attachments will always be found on the first
         // track of the file.
         if self.attachments.is_empty() {
-            return;
+            logger::log_inline("No attachments to extract.", false);
+            return true;
         }
+
+        logger::log_inline("Extracting attachments...", false);
 
         let mut args = Vec::new();
         for (i, attachment) in self.attachments.iter().enumerate() {
@@ -342,25 +369,69 @@ impl MediaFile {
             args.push(format!("{}:{}", i + 1, attachment));
         }
 
-        mkvtoolnix::run_mkv_extract(&self.file_path, &self.get_temp_path(), "attachments", &args);
+        let r = match mkvtoolnix::run_mkv_extract(
+            &self.file_path,
+            &self.get_temp_path(),
+            "attachments",
+            &args,
+        ) {
+            0 | 1 => {
+                logger::log(" extraction complete.", false);
+                true
+            }
+            2 => {
+                logger::log(" extraction failed.", false);
+                false
+            }
+            _ => true,
+        };
+
+        // Output the MKV Extract parameters, if the debug flag is set.
+        if DEBUG_PARAMS {
+            logger::log(&format!("mkvextract parameters: {}", &args.join(" ")), true);
+        }
+
+        r
     }
 
     /// Extract the chapters from a MKV file, if present.
-    pub fn extract_chapters(&self) {
-        mkvtoolnix::run_mkv_extract(
+    pub fn extract_chapters(&self) -> bool {
+        logger::log_inline("Extracting chapters...", false);
+
+        let r = match mkvtoolnix::run_mkv_extract(
             &self.file_path,
             &self.get_temp_path(),
             "chapters",
             &["chapters.xml".to_string()],
-        );
+        ) {
+            0 | 1 => {
+                logger::log(" extraction complete.", false);
+                true
+            }
+            2 => {
+                logger::log(" extraction failed.", false);
+                false
+            }
+            _ => true,
+        };
+
+        // Output the MKV Extract parameters, if the debug flag is set.
+        if DEBUG_PARAMS {
+            logger::log("mkvextract parameters: chapters.xml", true);
+        }
+
+        r
     }
 
     /// Extract the tracks from a MKV file.
-    pub fn extract_tracks(&self) {
+    pub fn extract_tracks(&self) -> bool {
         let tracks = &self.media.tracks;
         if tracks.is_empty() {
-            return;
+            logger::log("No tracks to extract.", false);
+            return true;
         }
+
+        logger::log_inline("Extracting tracks...", false);
 
         let mut args = Vec::new();
         for track in tracks {
@@ -368,7 +439,29 @@ impl MediaFile {
             args.push(format!("{}:{}", track.id, track.get_out_file_name()));
         }
 
-        mkvtoolnix::run_mkv_extract(&self.file_path, &self.get_temp_path(), "tracks", &args);
+        let r = match mkvtoolnix::run_mkv_extract(
+            &self.file_path,
+            &self.get_temp_path(),
+            "tracks",
+            &args,
+        ) {
+            0 | 1 => {
+                logger::log(" extraction complete.", false);
+                true
+            }
+            2 => {
+                logger::log(" extraction failed.", false);
+                false
+            }
+            _ => true,
+        };
+
+        // Output the MKV Extract parameters, if the debug flag is set.
+        if DEBUG_PARAMS {
+            logger::log(&format!("mkvextract parameters: {}", &args.join(" ")), true);
+        }
+
+        r
     }
 
     /// Filter the media file attachments based on the specified criteria.
@@ -380,6 +473,7 @@ impl MediaFile {
         // If we have no attachments ot an empty filter, then we have
         // nothing to do here.
         if self.attachments.is_empty() || params.attachments.include_extensions.is_empty() {
+            logger::log("No attachment selection filters applied.", false);
             return;
         }
 
@@ -405,6 +499,11 @@ impl MediaFile {
                 }
             }
         }
+
+        logger::log(
+            &format!("{} attachments kept after filtering.", kept.len()),
+            false,
+        );
 
         // Assign the kept attachments back into the container object.
         self.attachments = kept;
@@ -463,14 +562,22 @@ impl MediaFile {
 
             if let Some(t) = target {
                 if self.track_type_counter.get(&tt).cloned().unwrap_or(0) != t {
-                    eprintln!(
-                        "Fewer tracks of type {} than required for file {}.",
-                        tt, self.file_path
+                    logger::log(
+                        &format!(
+                            "Fewer tracks of type {} than required for file {}.",
+                            tt, self.file_path
+                        ),
+                        false,
                     );
                     success = false;
                 }
             }
         }
+
+        logger::log(
+            &format!("{} tracks kept after filtering.", kept.len()),
+            false,
+        );
 
         // Assign the kept tracks back into the container object.
         self.media.tracks = kept;
@@ -556,15 +663,31 @@ impl MediaFile {
             return None;
         }
 
+        logger::subsection(
+            &format!("File {}", UNIQUE_ID.fetch_add(0, Ordering::SeqCst) + 1),
+            false,
+        );
+        logger::log_inline(
+            &format!("Extracting MediaInfo JSON data for file '{}'...", fp),
+            false,
+        );
+
         // Run the MediaInfo CLI process and grab the JSON output.
         let output = Command::new(&paths::PATHS.mediainfo)
             .arg("--Output=JSON")
             .arg(fp)
-            .output()
-            .expect("failed to run MediaInfo process");
+            .output();
 
         // Attempt to parse the JSON output.
-        let json = String::from_utf8_lossy(&output.stdout).to_string();
+        let json = match output {
+            Ok(o) => String::from_utf8_lossy(&o.stdout).to_string(),
+            Err(e) => {
+                logger::log(&format!(" Error: {}", e), false);
+                return None;
+            }
+        };
+
+        logger::log(" Done.", false);
 
         // We we able to successfully parse the output?
         if let Some(mut mf) = MediaFile::parse_json(&json) {
@@ -578,6 +701,12 @@ impl MediaFile {
 
             // Set up the temporary directory structure for the file.
             mf.init_temp_directory();
+
+            logger::log(&format!("Total tracks: {}", mf.media.tracks.len()), false);
+            logger::log(
+                &format!("Total attachments: {}", mf.attachments.len()),
+                false,
+            );
 
             // Return the MediaFile object.
             Some(mf)
@@ -637,7 +766,9 @@ impl MediaFile {
         }
 
         // Extract the files.
-        self.extract(true, params.attachments.include, params.chapters.include);
+        if !self.extract(true, params.attachments.include, params.chapters.include) {
+            return false;
+        }
 
         // Convert the audio tracks.
         if let Some(ac) = &params.audio_tracks.conversion {
@@ -893,6 +1024,8 @@ impl MediaFile {
     pub fn remux_file(&self, out_path: &str, title: &str, params: &UnifiedParams) {
         use std::fmt::Write;
 
+        logger::log_inline("Remuxing media file...", false);
+
         let mut args = Vec::with_capacity(100);
 
         // The output file path.
@@ -936,13 +1069,23 @@ impl MediaFile {
         args.push("--track-order".to_string());
         args.push(order);
 
+        // Run the MKV merge process.
+        match mkvtoolnix::run_mkv_merge(&self.get_temp_path(), &args) {
+            0 | 1 => {
+                logger::log(" muxing complete.", false);
+                true
+            }
+            2 => {
+                logger::log(" extraction failed.", false);
+                false
+            }
+            _ => true,
+        };
+
         // Output the MKV Merge parameters, if the debug flag is set.
         if DEBUG_PARAMS {
-            println!("{}", args.join(" "));
+            logger::log(&format!("mkvmerge parameters: {}", &args.join(" ")), true);
         }
-
-        // Run the MKV merge process.
-        mkvtoolnix::run_mkv_merge(&self.get_temp_path(), &args);
     }
 
     /// Parse the JSON output from MediaInfo.
@@ -959,7 +1102,10 @@ impl MediaFile {
         if let Ok(mi) = result {
             Some(mi)
         } else {
-            println!("Error attempting to parse JSON data: {:?}", result.err());
+            logger::log(
+                &format!("Error attempting to parse JSON data: {:?}", result.err()),
+                true,
+            );
             None
         }
     }

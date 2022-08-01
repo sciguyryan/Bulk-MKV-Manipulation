@@ -1,3 +1,4 @@
+use lexical_sort::{natural_cmp, StringSort};
 use serde_derive::Deserialize;
 
 use crate::{
@@ -26,54 +27,96 @@ pub struct FileProcessor {
 
 impl FileProcessor {
     pub fn new(profile: &InputProfile) -> Option<Self> {
-        // Do we need to enable logging?
-        logger::set_enabled(profile.logging);
+        logger::section("File Processing Initialization", false);
 
         if !utils::dir_exists(&profile.input_dir) {
-            panic!("Input directory '{}' does not exist", profile.input_dir);
+            logger::log(
+                &format!("Input directory '{}' does not exist", profile.input_dir),
+                true,
+            );
+            return None;
         }
 
         if !utils::dir_exists(&profile.output_dir) {
-            panic!("Output directory '{}' does not exist", profile.output_dir);
+            logger::log(
+                &format!("Output directory '{}' does not exist", profile.output_dir),
+                true,
+            );
+            return None;
         }
 
         if !utils::file_exists(&profile.output_names_file_path) {
-            panic!(
-                "Output file names file '{}' does not exist",
-                profile.output_names_file_path
+            logger::log(
+                &format!(
+                    "Output file names file '{}' does not exist",
+                    profile.output_names_file_path
+                ),
+                true,
             );
+            return None;
         }
 
         let mut input_paths = Vec::new();
         let mut output_paths = Vec::new();
         let mut titles = Vec::new();
 
-        // Read all of the files within the input directory.
-        let paths = fs::read_dir(&profile.input_dir).unwrap();
-        for path in paths.flatten() {
-            let p = path.path();
-            let ext = p.extension();
-            if ext.is_none() {
-                continue;
-            }
+        // Build the list of input file paths.
+        let read = fs::read_dir(&profile.input_dir);
+        if let Ok(dir) = read {
+            for entry in dir.flatten() {
+                let path = entry.path();
+                let ext = path.extension();
+                if ext.is_none() {
+                    continue;
+                }
 
-            // We always want to check extensions in lowercase.
-            let ext = ext.unwrap().to_string_lossy().to_lowercase();
-            if ext != "mkv" {
-                continue;
-            }
+                // We always want to check extensions in lowercase.
+                let ext = ext.unwrap().to_string_lossy().to_lowercase();
+                if ext != "mkv" {
+                    continue;
+                }
 
-            input_paths.push(format!("{}", p.display()));
+                input_paths.push(path.display().to_string());
+            }
+        } else {
+            logger::log(
+                &format!("Failed to read input files directory: {:?}", read),
+                true,
+            );
+            panic!();
         }
+
+        // Do we have any files in the input directory?
+        if input_paths.is_empty() {
+            logger::log(
+                "There are no applicable files in the input directory.",
+                true,
+            );
+            return None;
+        }
+
+        // Sort the input file paths using a natural sorting algorithm.
+        input_paths.string_sort_unstable(natural_cmp);
+
+        logger::log(
+            &format!(
+                "{} applicable files are present in the input files directory",
+                input_paths.len()
+            ),
+            false,
+        );
 
         // Read the file containing the output names.
         let mut index = profile.start_from;
         let file = match File::open(&profile.output_names_file_path) {
             Ok(f) => f,
             Err(e) => {
-                eprintln!(
-                    "An error occurred while attempting to open the output names file: {:?}",
-                    e
+                logger::log(
+                    &format!(
+                        "An error occurred while attempting to open the output names file: {:?}",
+                        e
+                    ),
+                    true,
                 );
                 return None;
             }
@@ -119,12 +162,28 @@ impl FileProcessor {
             index += 1;
         }
 
+        logger::log(
+            &format!(
+                "{} file names are present in the output file name list",
+                output_paths.len()
+            ),
+            false,
+        );
+
         // We must now check that the number of files in the input
         // directory is equal to the number of entries from the output file list.
         if input_paths.len() != output_paths.len() {
-            eprintln!("The number of files in the input directory {} is not equal to the number of files in the output file list {}", input_paths.len(), output_paths.len());
+            logger::log(
+                &format!("The number of files in the input directory {} is not equal to the number of files in the output file list {}", input_paths.len(), output_paths.len()),
+                true,
+            );
             return None;
         }
+
+        logger::log(
+            "The number of files in the input directory and output list match.",
+            false,
+        );
 
         Some(Self {
             input_paths,
@@ -143,7 +202,8 @@ impl FileProcessor {
         use crate::{conversion_params::unified::DeletionOptions, media_file::MediaFile};
         use system_shutdown::shutdown;
 
-        print!("Setting up temporary directory structure...");
+        logger::section("Setup", false);
+
         let now = Instant::now();
 
         // Process the data from each of the media files.
@@ -155,18 +215,27 @@ impl FileProcessor {
             }
         }
 
-        print!("Done! ({}s)\r\n", now.elapsed().as_secs());
-        println!("{}", "-".repeat(32));
+        logger::log(&"-".repeat(logger::SPLITTER), true);
+        logger::log(
+            &format!("Setup complete. {}s", now.elapsed().as_secs()),
+            false,
+        );
+
+        logger::section("File Processing", true);
 
         // Process each media file.
         for (i, m) in &mut media.iter_mut().enumerate() {
-            print!("Processing media file {} of {}...", i + 1, media_len);
+            logger::subsection(&format!("File {} of {}", i + 1, media_len), true);
+
             let now = Instant::now();
             if !m.process(&self.output_paths[i], &self.titles[i], params) {
-                print!(" Error!\r\n");
                 break;
             }
-            print!(" Done! ({}s)\r\n", now.elapsed().as_secs());
+
+            logger::log(
+                &format!("Processing complete. ({}s)", now.elapsed().as_secs()),
+                true,
+            );
 
             // Delete the original file, if required.
             if let Some(del) = &params.misc_params.remove_original_file {
@@ -182,14 +251,14 @@ impl FileProcessor {
             }
         }
 
-        println!("{}", "-".repeat(32));
-        println!("Processing complete.");
+        logger::section("", true);
+        logger::log("All files have been successfully processed!", true);
 
         // Shutdown the computer after processing, if required.
         if params.misc_params.shutdown_upon_completion {
             match shutdown() {
-                Ok(_) => println!("Attempting to shutdown down the computer..."),
-                Err(e) => eprintln!("Failed to shutdown the computer: {}", e),
+                Ok(_) => logger::log("Attempting to shutdown down the computer...", true),
+                Err(e) => logger::log(&format!("Failed to shutdown the computer: {}", e), true),
             }
         }
     }

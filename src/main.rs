@@ -15,15 +15,31 @@ use std::{env, fs};
 
 fn main() {
     let args: Vec<String> = env::args().collect();
+
+    if args.len() == 3 {
+        // Do we need to enable logging?
+        if args[2].to_lowercase() == "--logging" {
+            logger::set_enabled(true);
+        }
+    }
+
+    logger::section("Initial Setup", false);
+
     if args.len() < 2 {
-        eprintln!("You must specify the path to the conversion profile data file.");
+        logger::log(
+            "No path to the conversion profile data file was specified.",
+            true,
+        );
         return;
     }
 
     // Read and parse the conversion profile data file.
     let profile_path = &args[1];
     if !utils::file_exists(profile_path) {
-        eprintln!("You must specify the path to the conversion profile data file.");
+        logger::log(
+            "The path to the conversion profile data file was invalid.",
+            true,
+        );
         return;
     }
 
@@ -32,17 +48,24 @@ fn main() {
     let profile = if let Ok(p) = profile_result {
         p
     } else {
-        println!(
-            "Error attempting to parse JSON data: {:?}",
-            profile_result.err()
+        logger::log(
+            &format!(
+                "An error occurred while attempting to parse the JSON data: {:?}.",
+                profile_result.err()
+            ),
+            true,
         );
         return;
     };
+
+    logger::log("Attempting to validate filter parameters...", false);
 
     // Validate the track filter parameters.
     if !profile.validate_filter_params() {
         return;
     }
+
+    logger::log("All parameters successfully validated.", false);
 
     // Create the file processor instance.
     let file_processor = match FileProcessor::new(&profile) {
