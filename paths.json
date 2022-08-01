@@ -2,5 +2,6 @@
   "mkvtoolnix": "D:\\Projects\\Video Encoding\\mkvtoolnix",
   "temp": "E:\\Temp",
   "ffmpeg": "D:\\Projects\\Video Encoding\\ffmpeg-5.1\\bin\\ffmpeg.exe",
-  "mediainfo": "D:\\Projects\\Video Encoding\\MediaInfo_CLI_22.06\\MediaInfo.exe"
+  "mediainfo": "D:\\Projects\\Video Encoding\\MediaInfo_CLI_22.06\\MediaInfo.exe",
+  "log": "E:\\Temp\\log.txt"
 }

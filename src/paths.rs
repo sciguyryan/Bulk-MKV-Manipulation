@@ -9,6 +9,7 @@ pub struct Paths {
     pub temp: String,
     pub ffmpeg: String,
     pub mediainfo: String,
+    pub log: String,
 }
 
 lazy_static! {
@@ -42,7 +43,9 @@ impl Paths {
             );
         };
 
-        tools.check_paths();
+        if !tools.check_paths() {
+            panic!("path checks failed");
+        }
 
         tools
     }
