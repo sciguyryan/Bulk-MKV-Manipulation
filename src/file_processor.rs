@@ -215,7 +215,7 @@ impl FileProcessor {
             }
         }
 
-        logger::log(&"-".repeat(logger::SPLITTER), true);
+        logger::log(&"-".repeat(logger::SPLITTER), false);
         logger::log(
             &format!("Setup complete, in {} seconds.", now.elapsed().as_secs()),
             false,

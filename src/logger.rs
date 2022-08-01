@@ -30,6 +30,7 @@ pub fn subsection(title: &str, console: bool) {
     log(&format!("[{}]", title), console);
 }
 
+#[allow(unused)]
 pub struct Logger {
     pub enabled: bool,
     file: Option<File>,
@@ -58,12 +59,15 @@ impl Logger {
             print!("{}", message);
         }
 
-        if !self.enabled {
-            return;
-        }
+        #[cfg(feature = "logging")]
+        {
+            if !self.enabled {
+                return;
+            }
 
-        if let Some(file) = &mut self.file {
-            _ = write!(file, "{}", message);
+            if let Some(file) = &mut self.file {
+                _ = write!(file, "{}", message);
+            }
         }
     }
 }
