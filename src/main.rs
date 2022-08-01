@@ -2,6 +2,7 @@ mod conversion_params;
 mod converters;
 mod file_processor;
 mod input_profile;
+mod logger;
 mod media_file;
 mod mkvtoolnix;
 mod paths;

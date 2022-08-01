@@ -1,6 +1,8 @@
 use serde_derive::Deserialize;
 
-use crate::{conversion_params::unified::UnifiedParams, input_profile::InputProfile, utils};
+use crate::{
+    conversion_params::unified::UnifiedParams, input_profile::InputProfile, logger, utils,
+};
 
 use std::{
     fs::{self, File},
@@ -24,6 +26,9 @@ pub struct FileProcessor {
 
 impl FileProcessor {
     pub fn new(profile: &InputProfile) -> Option<Self> {
+        // Do we need to enable logging?
+        logger::set_enabled(profile.logging);
+
         if !utils::dir_exists(&profile.input_dir) {
             panic!("Input directory '{}' does not exist", profile.input_dir);
         }

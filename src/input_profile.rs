@@ -18,6 +18,9 @@ pub struct InputProfile {
     pub start_from: usize,
     /// The padding that should be applied to the index.
     pub index_pad_type: PadType,
+    /// Should logging be enabled?
+    #[serde(default)]
+    pub logging: bool,
     /// Any processing parameters that should be applied to the media file.
     pub processing_params: UnifiedParams,
     /// Substitutions to be applied when sanitizing the file titles.
