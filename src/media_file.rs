@@ -793,8 +793,26 @@ impl MediaFile {
         // Delete the temporary files.
         if let Some(del) = &params.misc_params.remove_temp_files {
             match del {
-                DeletionOptions::Delete => utils::delete_directory(&self.get_temp_path()),
-                DeletionOptions::Trash => trash::delete(&self.get_temp_path()).is_ok(),
+                DeletionOptions::Delete => {
+                    logger::log_inline("Attempting to delete temporary files... ", false);
+                    if utils::delete_directory(&self.get_temp_path()) {
+                        logger::log(" files successfully deleted.", false);
+                        true
+                    } else {
+                        logger::log(" files could not be deleted.", false);
+                        false
+                    }
+                }
+                DeletionOptions::Trash => {
+                    logger::log_inline("Attempting to delete temporary files... ", false);
+                    if trash::delete(&self.get_temp_path()).is_ok() {
+                        logger::log(" files successfully sent to the trash.", false);
+                        true
+                    } else {
+                        logger::log(" files could not be sent to the trash.", false);
+                        false
+                    }
+                }
                 _ => true,
             }
         } else {

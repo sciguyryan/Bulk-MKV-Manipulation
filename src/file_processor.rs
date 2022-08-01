@@ -217,7 +217,7 @@ impl FileProcessor {
 
         logger::log(&"-".repeat(logger::SPLITTER), true);
         logger::log(
-            &format!("Setup complete. {}s", now.elapsed().as_secs()),
+            &format!("Setup complete, in {} seconds.", now.elapsed().as_secs()),
             false,
         );
 
@@ -233,7 +233,10 @@ impl FileProcessor {
             }
 
             logger::log(
-                &format!("Processing complete. ({}s)", now.elapsed().as_secs()),
+                &format!(
+                    "Processing complete, in {} seconds.",
+                    now.elapsed().as_secs()
+                ),
                 true,
             );
 
@@ -241,10 +244,20 @@ impl FileProcessor {
             if let Some(del) = &params.misc_params.remove_original_file {
                 match del {
                     DeletionOptions::Delete => {
-                        _ = fs::remove_file(&self.input_paths[i]);
+                        logger::log_inline("Attempting to delete original media file... ", false);
+                        if fs::remove_file(&self.input_paths[i]).is_ok() {
+                            logger::log(" file successfully deleted.", false);
+                        } else {
+                            logger::log(" file could not be deleted.", false);
+                        }
                     }
                     DeletionOptions::Trash => {
-                        _ = trash::delete(&self.input_paths[i]);
+                        logger::log_inline("Attempting to delete original media file... ", false);
+                        if trash::delete(&self.input_paths[i]).is_ok() {
+                            logger::log(" file successfully sent to the trash.", false);
+                        } else {
+                            logger::log(" file could not be sent to the trash.", false);
+                        }
                     }
                     _ => {}
                 }
