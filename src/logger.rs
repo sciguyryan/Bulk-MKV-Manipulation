@@ -1,8 +1,8 @@
 use crate::paths::PATHS;
 
 use lazy_static::lazy_static;
-use std::sync::Mutex;
-use std::{fs::File, io::prelude::*};
+#[allow(unused)]
+use std::{fs::File, io::prelude::*, sync::Mutex};
 
 pub const SPLITTER: usize = 20;
 
