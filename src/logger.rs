@@ -36,8 +36,10 @@ impl Logger {
     }
 
     pub fn log(&mut self, message: &str) {
-        if let Some(file) = &mut self.file {
-            _ = write!(file, "{}", message);
+        if self.enabled {
+            if let Some(file) = &mut self.file {
+                _ = write!(file, "{}", message);
+            }
         }
     }
 }
