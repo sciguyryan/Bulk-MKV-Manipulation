@@ -144,10 +144,7 @@ impl FileProcessor {
             );
 
             // Add the file output path to the vector.
-            output_paths.push(utils::join_path_segments(
-                &profile.output_dir,
-                &[file_name],
-            ));
+            output_paths.push(utils::join_path_segments(&profile.output_dir, &[file_name]));
 
             // Add the title to the vector.
             titles.push(sanitized.to_string());
@@ -246,12 +243,14 @@ impl FileProcessor {
         logger::section("File Processing", true);
 
         // Process each media file.
+        let mut success = true;
         for (i, m) in &mut media.iter_mut().enumerate() {
             logger::subsection(&format!("File {} of {}", i + 1, media_len), true);
 
             let now = Instant::now();
             if !m.process(&self.output_paths[i], &self.titles[i], params) {
                 logger::log("Processing failed.", true);
+                success = false;
                 break;
             }
 
@@ -288,7 +287,14 @@ impl FileProcessor {
         }
 
         logger::section("", true);
-        logger::log("All files have been successfully processed!", true);
+        if success {
+            logger::log("All files have been successfully processed!", true);
+        } else {
+            logger::log(
+                "One or more errors occurred and the files could not be processed.",
+                true,
+            );
+        }
 
         // Shutdown the computer after processing, if required.
         if params.misc_params.shutdown_upon_completion {

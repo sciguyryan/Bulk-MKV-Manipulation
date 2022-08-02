@@ -805,27 +805,23 @@ impl MediaFile {
                     logger::log_inline("Attempting to delete temporary files... ", false);
                     if utils::delete_directory(&self.get_temp_path()) {
                         logger::log(" files successfully deleted.", false);
-                        true
                     } else {
                         logger::log(" files could not be deleted.", false);
-                        false
                     }
                 }
                 DeletionOptions::Trash => {
                     logger::log_inline("Attempting to delete temporary files... ", false);
                     if trash::delete(&self.get_temp_path()).is_ok() {
                         logger::log(" files successfully sent to the trash.", false);
-                        true
                     } else {
                         logger::log(" files could not be sent to the trash.", false);
-                        false
                     }
                 }
-                _ => true,
+                _ => {}
             }
-        } else {
-            true
         }
+
+        true
     }
 
     /// Apply the parameters related the attachments to be added to the media file.
@@ -1161,6 +1157,10 @@ pub struct MediaFileTrack {
     /// The ID of the track's codec. This will be used to determine some additional information later.
     #[serde(rename = "CodecID", deserialize_with = "string_to_codec_enum", default)]
     pub codec: Codec,
+
+    /// The number of channels in the track. Only applicable to audio tracks.
+    #[serde(rename = "Channels", deserialize_with = "string_to_u32", default)]
+    pub channels: u32,
 
     /// The delay of the tracks, in milliseconds.
     #[serde(rename = "Delay", deserialize_with = "second_string_to_ms", default)]
