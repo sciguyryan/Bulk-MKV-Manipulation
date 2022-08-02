@@ -725,7 +725,7 @@ impl MediaFile {
 
     /// Get the path to the temporary folder for this media file.
     fn get_temp_path(&self) -> String {
-        utils::join_path_segments(&paths::PATHS.temp, &[&self.id.to_string()])
+        utils::join_path_segments(&paths::PATHS.temp, &[self.id.to_string()])
     }
 
     /// Get the path to the temporary folder for the given output type for this media file.

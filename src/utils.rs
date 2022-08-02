@@ -70,11 +70,11 @@ pub fn get_file_extension(fp: &str) -> Option<String> {
 /// * `base` - The base (root) path.
 /// * `paths` - A slice of strings to be appended to the base path.
 #[inline]
-pub fn join_path_segments(base: &str, paths: &[&str]) -> String {
+pub fn join_path_segments<S: AsRef<str>>(base: &str, paths: &[S]) -> String {
     let mut p = Path::new(base).to_path_buf();
 
     for path in paths {
-        p = p.join(path);
+        p = p.join(path.as_ref());
     }
 
     p.to_string_lossy().to_string()

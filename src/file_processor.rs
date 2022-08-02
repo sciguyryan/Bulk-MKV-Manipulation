@@ -146,7 +146,7 @@ impl FileProcessor {
             // Add the file output path to the vector.
             output_paths.push(utils::join_path_segments(
                 &profile.output_dir,
-                &[&file_name],
+                &[file_name],
             ));
 
             // Add the title to the vector.
