@@ -3,7 +3,9 @@ use crate::{
         audio::AudioParams, params_trait::ConversionParams, subtitle::SubtitleParams,
         video::VideoParams,
     },
-    logger, paths,
+    logger,
+    media_file::MediaFileTrack,
+    paths,
 };
 
 use std::process::Command;
@@ -12,13 +14,18 @@ use std::process::Command;
 ///
 /// # Arguments
 ///
+/// * `track` - A reference to the media file track instance.
 /// * `file_in` - The path to the input file.
 /// * `file_out` - The path to the output file.
 /// * `params` - The parameters to be used for encoding the output file.
-///
-pub fn convert_audio_file(file_in: &str, file_out: &str, params: &AudioParams) -> bool {
+pub fn convert_audio_file(
+    track: &MediaFileTrack,
+    file_in: &str,
+    file_out: &str,
+    params: &AudioParams,
+) -> bool {
     // If the arguments were not valid then None will be returned.
-    let args = params.as_ffmpeg_argument_list(file_in, file_out);
+    let args = params.as_ffmpeg_argument_list(track, file_in, file_out);
     if args == None {
         return false;
     }

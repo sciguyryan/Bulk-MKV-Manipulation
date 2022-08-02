@@ -1,3 +1,5 @@
+use crate::media_file::MediaFileTrack;
+
 use core::fmt;
 use serde_derive::Deserialize;
 
@@ -79,7 +81,7 @@ pub struct AudioParams {
     /// The audio codec to be used for the conversion.
     pub codec: Option<AudioCodec>,
     /// The number of channels to be used for the conversion. If None, the number will be the same as the source.
-    pub channels: Option<u16>,
+    pub channels: Option<u32>,
     /// The bitrate for the audio conversion, in kilobits per second.
     pub bitrate: Option<u32>,
     /// The variable bitrate (VBR) options to be used.
@@ -122,7 +124,12 @@ impl ConversionParams for AudioParams {
         }
     }
 
-    fn as_ffmpeg_argument_list(&self, file_in: &str, file_out: &str) -> Option<Vec<String>> {
+    fn as_ffmpeg_argument_list(
+        &self,
+        track: &MediaFileTrack,
+        file_in: &str,
+        file_out: &str,
+    ) -> Option<Vec<String>> {
         if !self.validate() {
             return None;
         }
@@ -176,8 +183,10 @@ impl ConversionParams for AudioParams {
 
         // The number of audio channels.
         if let Some(channels) = self.channels {
-            args.push("-ac".to_string());
-            args.push(channels.to_string());
+            if track.channels != channels {
+                args.push("-ac".to_string());
+                args.push(channels.to_string());
+            }
         }
 
         // The output file path should always go last.

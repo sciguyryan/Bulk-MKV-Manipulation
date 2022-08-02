@@ -226,39 +226,38 @@ impl MediaFile {
             );
 
             // Determine the output file name.
-            let mut in_file_path = format!(
-                "{}\\tracks\\{}",
-                self.get_temp_path(),
-                t.get_out_file_name()
-            );
+            let mut in_file_path = t.get_input_file_path();
+            let out_file_path = t.get_output_file_path(out_codec);
 
-            // Get the new file extension and set the output
-            // file extension to it.
-            let in_ext = MediaFileTrack::get_extension_from_codec(&t.codec);
-            let out_ext = MediaFileTrack::get_extension_from_codec(out_codec);
-            let out_file_path = utils::swap_file_extension(&in_file_path, &out_ext);
-
-            // In the case where the input and output files have the same
-            // name (by having the same codec type), we need to rename
-            // the original to avoid attempting to overwrite the original
-            // while also trying to convert it. Needless to say, that does not work.
-            if in_ext == out_ext {
+            let mut success = true;
+            if in_file_path == out_file_path {
+                // In the case where the input and output files have the same
+                // name (by having the same codec type), we need to rename
+                // the original to avoid attempting to overwrite the original
+                // while also trying to convert it. Needless to say, that does not work.
+                let out_ext = MediaFileTrack::get_extension_from_codec(out_codec);
                 let new_file_path = in_file_path.replace(
                     &t.get_out_file_name(),
                     &format!("moved{}.{}", t.id, out_ext),
                 );
-                let _ = fs::rename(&in_file_path, &new_file_path);
 
-                // Ensure that we work with the new path.
-                in_file_path = new_file_path;
+                if fs::rename(&in_file_path, &new_file_path).is_err() {
+                    logger::log(" unable to move input file, unable to encode .", false);
+                    success = false;
+                } else {
+                    in_file_path = new_file_path;
+                }
+            }
+
+            // Was the prior step successful before attempting to encode the track?
+            if success {
+                success = converters::convert_audio_file(t, &in_file_path, &out_file_path, params);
             }
 
             // Was the conversion successful? If so, add the index to the list
             // so that the codec can be updated later.
-            let success = converters::convert_audio_file(&in_file_path, &out_file_path, params);
             if success {
                 update_indices.push(i);
-
                 logger::log(" conversion successful.", false);
             } else {
                 logger::log(" conversion failed.", false);
@@ -267,7 +266,7 @@ impl MediaFile {
             // Output the MKV Merge parameters, if the debug flag is set.
             if DEBUG_PARAMS {
                 let args = params
-                    .as_ffmpeg_argument_list(&in_file_path, &out_file_path)
+                    .as_ffmpeg_argument_list(t, &in_file_path, &out_file_path)
                     .unwrap();
                 logger::log(format!("ffmpeg parameters: {}", args.join(" ")), true);
             }
@@ -761,6 +760,11 @@ impl MediaFile {
     pub fn process(&mut self, out_path: &str, title: &str, params: &UnifiedParams) -> bool {
         use crate::conversion_params::unified::DeletionOptions;
 
+        // Set the file IDs of all child tracks.
+        for track in &mut self.media.tracks {
+            track.file_id = self.id;
+        }
+
         // Filter the attachments based on the filter parameters.
         self.filter_attachments(params);
 
@@ -1203,6 +1207,10 @@ pub struct MediaFileTrack {
     /// `Note:` This field will only contains meaningful data when the track type is [`TrackType::General`].
     #[serde(rename = "extra", default)]
     pub extra_info: MediaInfoExtra,
+
+    /// The index of the file to which this track belongs.
+    #[serde(skip)]
+    pub file_id: usize,
 }
 
 impl MediaFileTrack {
@@ -1211,6 +1219,21 @@ impl MediaFileTrack {
         let ext = MediaFileTrack::get_extension_from_codec(&self.codec);
 
         format!("{}_{}_{}.{}", self.track_type, self.id, self.language, ext)
+    }
+
+    pub fn get_input_file_path(&self) -> String {
+        // Determine the output file name.
+        format!(
+            "{}\\tracks\\{}",
+            utils::join_path_segments(&paths::PATHS.temp, &[self.file_id.to_string()]),
+            self.get_out_file_name()
+        )
+    }
+
+    pub fn get_output_file_path(&self, out_codec: &Codec) -> String {
+        // Get the new file extension and set the output file extension to it.
+        let out_ext = MediaFileTrack::get_extension_from_codec(out_codec);
+        utils::swap_file_extension(&self.get_input_file_path(), &out_ext)
     }
 
     /// Get the file extension associated with a specific codec ID.
