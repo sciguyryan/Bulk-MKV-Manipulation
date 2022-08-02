@@ -16,9 +16,9 @@ pub struct InputProfile {
     /// The path to the output names file.
     pub output_names_file_path: String,
     /// The index that the names should start from.
-    pub start_from: usize,
+    pub start_from: Option<usize>,
     /// The padding that should be applied to the index.
-    pub index_pad_type: PadType,
+    pub index_pad_type: Option<PadType>,
     /// Any processing parameters that should be applied to the media file.
     pub processing_params: UnifiedParams,
     /// Substitutions to be applied when sanitizing the file titles.
@@ -26,6 +26,11 @@ pub struct InputProfile {
 }
 
 impl InputProfile {
+    pub fn validate_index_params(&self) -> bool {
+        self.start_from.is_some() && self.index_pad_type.is_some()
+            || self.start_from.is_none() && self.index_pad_type.is_none()
+    }
+
     pub fn validate_filter_params(&self) -> bool {
         let pp = &self.processing_params;
         let audio_filter = &pp.audio_tracks.filter_by;

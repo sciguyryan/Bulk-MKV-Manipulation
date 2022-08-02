@@ -26,7 +26,7 @@ static UNIQUE_ID: AtomicUsize = AtomicUsize::new(0);
 const EXPORT_JSON: bool = false;
 
 /// This will indicate whether to output the MKV Merge parameters.
-const DEBUG_PARAMS: bool = false;
+const DEBUG_PARAMS: bool = true;
 
 #[derive(Clone, Debug, Default)]
 pub enum Codec {
@@ -38,6 +38,7 @@ pub enum Codec {
     Avs,
     Dts,
     DvbSubtitle,
+    Eac3,
     FfV1,
     Flac,
     H264,
@@ -196,9 +197,9 @@ impl MediaFile {
     /// # Arguments
     ///
     /// * `params` - The conversion parameters to be applied to the tracks.
-    pub fn convert_all_audio(&mut self, params: &AudioParams) {
+    pub fn convert_all_audio(&mut self, params: &AudioParams) -> bool {
         if params.codec.is_none() {
-            return;
+            return true;
         };
 
         // This is the conversion codec type, converted into the
@@ -254,7 +255,8 @@ impl MediaFile {
 
             // Was the conversion successful? If so, add the index to the list
             // so that the codec can be updated later.
-            if converters::convert_audio_file(&in_file_path, &out_file_path, params) {
+            let success = converters::convert_audio_file(&in_file_path, &out_file_path, params);
+            if success {
                 update_indices.push(i);
 
                 logger::log(" conversion successful.", false);
@@ -269,12 +271,18 @@ impl MediaFile {
                     .unwrap();
                 logger::log(&format!("ffmpeg parameters: {}", args.join(" ")), true);
             }
+
+            if !success {
+                return false;
+            }
         }
 
         // Update the codecs of the converted tracks.
         for index in update_indices {
             self.media.tracks[index].codec = out_codec.clone();
         }
+
+        true
     }
 
     /// Convert each video track found within the media file.
@@ -772,8 +780,8 @@ impl MediaFile {
 
         // Convert the audio tracks.
         if let Some(ac) = &params.audio_tracks.conversion {
-            if ac.codec.is_some() {
-                self.convert_all_audio(ac);
+            if ac.codec.is_some() && !self.convert_all_audio(ac) {
+                return false;
             }
         }
 
@@ -1215,6 +1223,7 @@ impl MediaFileTrack {
             Codec::Alac => "m4a",
             Codec::Avs => "avs",
             Codec::Dts => "dts",
+            Codec::Eac3 => "eac3",
             Codec::FfV1 => "ffv1",
             Codec::Flac => "flac",
             Codec::H264 => "h264",
@@ -1316,6 +1325,7 @@ where
         "A_QUICKTIME" | "A_QUICKTIME/QDMC" | "A_QUICKTIME/QDM2" => Codec::QuickTime,
         "A_TTA1" => Codec::TheTrueAudio,
         "A_WAVPACK4" => Codec::WavPack4,
+        "A_EAC3" => Codec::Eac3,
 
         // Subtitle codecs.
         "S_TEXT/UTF8" => Codec::SubTextUtf8,

@@ -60,6 +60,11 @@ fn main() {
 
     logger::log("Attempting to validate filter parameters...", false);
 
+    // Validate the index processing parameters.
+    if !profile.validate_index_params() {
+        return;
+    }
+
     // Validate the track filter parameters.
     if !profile.validate_filter_params() {
         return;

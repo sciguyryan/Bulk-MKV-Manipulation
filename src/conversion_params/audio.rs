@@ -129,6 +129,15 @@ impl ConversionParams for AudioParams {
 
         let mut args = Vec::with_capacity(100);
 
+        // We always want to overwrite old files, if they exist.
+        args.push("-y".to_string());
+
+        // Number of threads to use when encoding.
+        if let Some(threads) = self.threads {
+            args.push("-threads".to_string());
+            args.push(threads.to_string());
+        }
+
         // If we do not have an output codec, no conversion will be performed.
         let codec = if let Some(c) = &self.codec {
             c
@@ -137,12 +146,6 @@ impl ConversionParams for AudioParams {
             args.push("copy".to_string());
             return Some(args);
         };
-
-        // Number of threads to use when encoding.
-        if let Some(threads) = self.threads {
-            args.push("-threads".to_string());
-            args.push(threads.to_string());
-        }
 
         // Input file.
         args.push("-i".to_string());

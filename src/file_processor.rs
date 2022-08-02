@@ -11,7 +11,7 @@ use std::{
     time::Instant,
 };
 
-#[derive(Deserialize)]
+#[derive(Clone, Copy, Deserialize)]
 #[allow(unused)]
 pub enum PadType {
     Ten,
@@ -107,7 +107,6 @@ impl FileProcessor {
         );
 
         // Read the file containing the output names.
-        let mut index = profile.start_from;
         let file = match File::open(&profile.output_names_file_path) {
             Ok(f) => f,
             Err(e) => {
@@ -126,6 +125,7 @@ impl FileProcessor {
         let mut substitutions = profile.substitutions.clone();
 
         // Iterate over each line of the file.
+        let mut index = profile.start_from.unwrap_or_default();
         for line in BufReader::new(file).lines().flatten() {
             // Sanitize the title of the media file based on the supplied
             // substitution parameters.
@@ -136,18 +136,12 @@ impl FileProcessor {
                 continue;
             }
 
-            // Handle the number padding.
-            let file_name = match &profile.index_pad_type {
-                PadType::Ten => {
-                    format!("{:02} - {}.mkv", index, sanitized)
-                }
-                PadType::Hundred => {
-                    format!("{:03} - {}.mkv", index, sanitized)
-                }
-                PadType::Thousand => {
-                    format!("{:04} - {}.mkv", index, sanitized)
-                }
-            };
+            // Handle the number padding, if required.
+            let file_name = FileProcessor::file_name_from_padded_index(
+                &sanitized,
+                index,
+                profile.index_pad_type,
+            );
 
             // Add the file output path to the vector.
             output_paths.push(utils::join_path_segments(
@@ -192,6 +186,34 @@ impl FileProcessor {
         })
     }
 
+    /// Build a filename from a name, an index (optional) and a pad type (optional).
+    ///
+    /// # Arguments
+    ///
+    /// * `name` - The name of the file.
+    /// * `index` - The index of the file, if applicable.
+    /// * `pad_type` - The pad type to be applied to the index, if applicable.
+    fn file_name_from_padded_index(name: &str, index: usize, pad_type: Option<PadType>) -> String {
+        let mut str = if let Some(pad) = pad_type {
+            match pad {
+                PadType::Ten => {
+                    format!("{:02} - {}", index, name)
+                }
+                PadType::Hundred => {
+                    format!("{:03} - {}", index, name)
+                }
+                PadType::Thousand => {
+                    format!("{:04} - {}", index, name)
+                }
+            }
+        } else {
+            name.to_string()
+        };
+
+        str.push_str(".mkv");
+        str
+    }
+
     /// Process each of the media files in the input directory.
     ///
     /// # Arguments
@@ -229,6 +251,7 @@ impl FileProcessor {
 
             let now = Instant::now();
             if !m.process(&self.output_paths[i], &self.titles[i], params) {
+                logger::log("Processing failed.", true);
                 break;
             }
 
