@@ -970,11 +970,15 @@ impl MediaFile {
         // Iterate over all of the tracks.
         for (i, track) in self.media.tracks.iter().enumerate() {
             let mut delay = track.delay;
+            let mut delay_source = track.delay_source.clone();
 
             // Do we have a delay override for this track?
             if let Some(tp) = &params.track_params {
                 if let Some(params) = tp.iter().find(|t| t.id == i) {
                     if let Some(d) = params.delay_override {
+                        if delay_source == DelaySource::None {
+                            delay_source = DelaySource::Container;
+                        }
                         delay = d;
                     }
                 }
@@ -982,14 +986,14 @@ impl MediaFile {
 
             // Do we need to specify a delay for the track?
             if delay != 0 {
-                match track.delay_source {
+                match delay_source {
                     DelaySource::Container => {
                         args.push("--sync".to_string());
                         args.push(format!("0:{}", track.delay));
                     }
                     DelaySource::None => {}
                     _ => {
-                        todo!("DelaySource {:?} not yet implemented.", track.delay_source);
+                        todo!("DelaySource {:?} not yet implemented.", delay_source);
                     }
                 }
             }
