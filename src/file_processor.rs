@@ -31,7 +31,7 @@ impl FileProcessor {
 
         if !utils::dir_exists(&profile.input_dir) {
             logger::log(
-                &format!("Input directory '{}' does not exist", profile.input_dir),
+                format!("Input directory '{}' does not exist", profile.input_dir),
                 true,
             );
             return None;
@@ -39,7 +39,7 @@ impl FileProcessor {
 
         if !utils::dir_exists(&profile.output_dir) {
             logger::log(
-                &format!("Output directory '{}' does not exist", profile.output_dir),
+                format!("Output directory '{}' does not exist", profile.output_dir),
                 true,
             );
             return None;
@@ -47,7 +47,7 @@ impl FileProcessor {
 
         if !utils::file_exists(&profile.output_names_file_path) {
             logger::log(
-                &format!(
+                format!(
                     "Output file names file '{}' does not exist",
                     profile.output_names_file_path
                 ),
@@ -80,7 +80,7 @@ impl FileProcessor {
             }
         } else {
             logger::log(
-                &format!("Failed to read input files directory: {:?}", read),
+                format!("Failed to read input files directory: {:?}", read),
                 true,
             );
             panic!();
@@ -99,7 +99,7 @@ impl FileProcessor {
         input_paths.string_sort_unstable(natural_cmp);
 
         logger::log(
-            &format!(
+            format!(
                 "{} applicable files are present in the input files directory",
                 input_paths.len()
             ),
@@ -111,7 +111,7 @@ impl FileProcessor {
             Ok(f) => f,
             Err(e) => {
                 logger::log(
-                    &format!(
+                    format!(
                         "An error occurred while attempting to open the output names file: {:?}",
                         e
                     ),
@@ -157,7 +157,7 @@ impl FileProcessor {
         }
 
         logger::log(
-            &format!(
+            format!(
                 "{} file names are present in the output file name list",
                 output_paths.len()
             ),
@@ -168,7 +168,7 @@ impl FileProcessor {
         // directory is equal to the number of entries from the output file list.
         if input_paths.len() != output_paths.len() {
             logger::log(
-                &format!("The number of files in the input directory {} is not equal to the number of files in the output file list {}", input_paths.len(), output_paths.len()),
+                format!("The number of files in the input directory {} is not equal to the number of files in the output file list {}", input_paths.len(), output_paths.len()),
                 true,
             );
             return None;
@@ -239,7 +239,7 @@ impl FileProcessor {
 
         logger::log(&"-".repeat(logger::SPLITTER), false);
         logger::log(
-            &format!("Setup complete, in {} seconds.", now.elapsed().as_secs()),
+            format!("Setup complete, in {} seconds.", now.elapsed().as_secs()),
             false,
         );
 
@@ -256,7 +256,7 @@ impl FileProcessor {
             }
 
             logger::log(
-                &format!(
+                format!(
                     "Processing complete, in {} seconds.",
                     now.elapsed().as_secs()
                 ),

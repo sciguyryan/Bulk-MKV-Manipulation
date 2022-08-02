@@ -70,7 +70,7 @@ fn run_ffmpeg(args: &[String]) -> i32 {
         if let Some(code) = exit.status.code() {
             code
         } else {
-            logger::log(&format!("{:?}", exit.stderr), false);
+            logger::log(format!("{:?}", exit.stderr), false);
             1
         }
     } else {

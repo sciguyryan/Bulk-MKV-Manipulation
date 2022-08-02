@@ -218,7 +218,7 @@ impl MediaFile {
             .filter(|(_, x)| x.track_type == TrackType::Audio)
         {
             logger::log_inline(
-                &format!(
+                format!(
                     "Converting audio track {} to format {:?}...",
                     t.id, out_codec
                 ),
@@ -269,7 +269,7 @@ impl MediaFile {
                 let args = params
                     .as_ffmpeg_argument_list(&in_file_path, &out_file_path)
                     .unwrap();
-                logger::log(&format!("ffmpeg parameters: {}", args.join(" ")), true);
+                logger::log(format!("ffmpeg parameters: {}", args.join(" ")), true);
             }
 
             if !success {
@@ -396,7 +396,7 @@ impl MediaFile {
 
         // Output the MKV Extract parameters, if the debug flag is set.
         if DEBUG_PARAMS {
-            logger::log(&format!("mkvextract parameters: {}", &args.join(" ")), true);
+            logger::log(format!("mkvextract parameters: {}", &args.join(" ")), true);
         }
 
         r
@@ -466,7 +466,7 @@ impl MediaFile {
 
         // Output the MKV Extract parameters, if the debug flag is set.
         if DEBUG_PARAMS {
-            logger::log(&format!("mkvextract parameters: {}", &args.join(" ")), true);
+            logger::log(format!("mkvextract parameters: {}", &args.join(" ")), true);
         }
 
         r
@@ -509,7 +509,7 @@ impl MediaFile {
         }
 
         logger::log(
-            &format!("{} attachments kept after filtering.", kept.len()),
+            format!("{} attachments kept after filtering.", kept.len()),
             false,
         );
 
@@ -571,7 +571,7 @@ impl MediaFile {
             if let Some(t) = target {
                 if self.track_type_counter.get(&tt).cloned().unwrap_or(0) != t {
                     logger::log(
-                        &format!(
+                        format!(
                             "Fewer tracks of type {} than required for file {}.",
                             tt, self.file_path
                         ),
@@ -583,7 +583,7 @@ impl MediaFile {
         }
 
         logger::log(
-            &format!("{} tracks kept after filtering.", kept.len()),
+            format!("{} tracks kept after filtering.", kept.len()),
             false,
         );
 
@@ -690,7 +690,7 @@ impl MediaFile {
         let json = match output {
             Ok(o) => String::from_utf8_lossy(&o.stdout).to_string(),
             Err(e) => {
-                logger::log(&format!(" Error: {}", e), false);
+                logger::log(format!(" Error: {}", e), false);
                 return None;
             }
         };
@@ -710,7 +710,7 @@ impl MediaFile {
             // Set up the temporary directory structure for the file.
             mf.init_temp_directory();
 
-            logger::log(&format!("Total tracks: {}", mf.media.tracks.len()), false);
+            logger::log(format!("Total tracks: {}", mf.media.tracks.len()), false);
             logger::log(
                 &format!("Total attachments: {}", mf.attachments.len()),
                 false,
@@ -1110,7 +1110,7 @@ impl MediaFile {
 
         // Output the MKV Merge parameters, if the debug flag is set.
         if DEBUG_PARAMS {
-            logger::log(&format!("mkvmerge parameters: {}", &args.join(" ")), true);
+            logger::log(format!("mkvmerge parameters: {}", &args.join(" ")), true);
         }
     }
 
@@ -1129,7 +1129,7 @@ impl MediaFile {
             Some(mi)
         } else {
             logger::log(
-                &format!("Error attempting to parse JSON data: {:?}", result.err()),
+                format!("Error attempting to parse JSON data: {:?}", result.err()),
                 true,
             );
             None

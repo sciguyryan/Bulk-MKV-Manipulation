@@ -1,6 +1,7 @@
 use crate::paths::PATHS;
 
 use lazy_static::lazy_static;
+use std::fmt::Display;
 #[allow(unused)]
 use std::{fs::File, io::prelude::*, sync::Mutex};
 
@@ -14,20 +15,32 @@ pub fn set_enabled(enabled: bool) {
     LOGGER.lock().unwrap().enabled = enabled;
 }
 
-pub fn log(message: &str, console: bool) {
-    LOGGER.lock().unwrap().log(message, console);
+pub fn log<S: AsRef<str>>(message: S, console: bool)
+where
+    S: Display,
+{
+    LOGGER.lock().unwrap().log(message.as_ref(), console);
 }
 
-pub fn log_inline(message: &str, console: bool) {
-    LOGGER.lock().unwrap().log_inline(message, console);
+pub fn log_inline<S: AsRef<str>>(message: S, console: bool)
+where
+    S: Display,
+{
+    LOGGER.lock().unwrap().log_inline(message.as_ref(), console);
 }
 
-pub fn section(title: &str, console: bool) {
-    log(&format!("{:-^1$}", title, 60), console);
+pub fn section<S: AsRef<str>>(title: S, console: bool)
+where
+    S: Display,
+{
+    log(format!("{:-^1$}", title, 60), console);
 }
 
-pub fn subsection(title: &str, console: bool) {
-    log(&format!("[{}]", title), console);
+pub fn subsection<S: AsRef<str>>(title: S, console: bool)
+where
+    S: Display,
+{
+    log(format!("[{}]", title), console);
 }
 
 #[allow(unused)]

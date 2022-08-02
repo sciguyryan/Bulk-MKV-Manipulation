@@ -49,7 +49,7 @@ fn main() {
         p
     } else {
         logger::log(
-            &format!(
+            format!(
                 "An error occurred while attempting to parse the JSON data: {:?}.",
                 profile_result.err()
             ),
