@@ -1225,6 +1225,7 @@ impl MediaFileTrack {
         format!("{}_{}_{}.{}", self.track_type, self.id, self.language, ext)
     }
 
+    /// Get the path to the extracted (original) media file.
     pub fn get_input_file_path(&self) -> String {
         // Determine the output file name.
         format!(
@@ -1234,6 +1235,11 @@ impl MediaFileTrack {
         )
     }
 
+    /// Get the expected path to the reencoded media file.
+    ///
+    /// # Arguments
+    ///
+    /// * `out_codec` - The requested output codec.
     pub fn get_output_file_path(&self, out_codec: &Codec) -> String {
         // Get the new file extension and set the output file extension to it.
         let out_ext = MediaFileTrack::get_extension_from_codec(out_codec);
