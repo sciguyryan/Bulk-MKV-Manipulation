@@ -26,7 +26,7 @@ static UNIQUE_ID: AtomicUsize = AtomicUsize::new(0);
 const EXPORT_JSON: bool = false;
 
 /// This will indicate whether to output the MKV Merge parameters.
-const DEBUG_PARAMS: bool = true;
+const DEBUG_PARAMS: bool = false;
 
 #[derive(Clone, Debug, Default)]
 pub enum Codec {

@@ -1,10 +1,16 @@
 use regex::Regex;
 use serde_derive::Deserialize;
+use titlecase::titlecase;
 
 const BAD_NTFS_CHARS: [char; 9] = ['/', '?', '<', '>', '\\', ':', '*', '|', '"'];
 
 #[derive(Clone, Deserialize)]
 pub struct Substitutions {
+    /// This will indicate whether we should convert titles into correct title case.
+    /// If unspecified the value will default to true.
+    #[serde(default = "default_title_case")]
+    pub convert_to_proper_title_case: bool,
+
     /// A list of regex substitutions to be applied when sanitizing a string.
     pub regular_expressions: Vec<[String; 2]>,
 
@@ -48,6 +54,11 @@ impl Substitutions {
             line = line.replace(&BAD_NTFS_CHARS[..], "");
         }
 
+        // This should be the last action to be performed.
+        if self.convert_to_proper_title_case {
+            line = titlecase(&line);
+        }
+
         line
     }
 
@@ -67,5 +78,9 @@ impl Substitutions {
 }
 
 fn default_strip_ntfs() -> bool {
+    true
+}
+
+fn default_title_case() -> bool {
     true
 }
