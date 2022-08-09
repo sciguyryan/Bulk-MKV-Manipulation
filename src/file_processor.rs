@@ -14,6 +14,7 @@ use std::{
 #[derive(Clone, Copy, Deserialize)]
 #[allow(unused)]
 pub enum PadType {
+    One,
     Ten,
     Hundred,
     Thousand,
@@ -193,6 +194,9 @@ impl FileProcessor {
     fn file_name_from_padded_index(name: &str, index: usize, pad_type: Option<PadType>) -> String {
         let mut str = if let Some(pad) = pad_type {
             match pad {
+                PadType::One => {
+                    format!("{} - {}", index, name)
+                }
                 PadType::Ten => {
                     format!("{:02} - {}", index, name)
                 }
