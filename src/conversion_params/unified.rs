@@ -68,7 +68,7 @@ pub struct ChapterParams {
     pub create_interval: Option<String>,
 }
 
-#[derive(Default, Deserialize, PartialEq)]
+#[derive(Default, Deserialize, PartialEq, Eq)]
 pub enum DeletionOptions {
     /// Delete the file using the default method.
     Delete,

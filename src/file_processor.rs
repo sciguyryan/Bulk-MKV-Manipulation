@@ -11,6 +11,8 @@ use std::{
     time::Instant,
 };
 
+const VALID_EXTENSIONS: [&str; 1] = ["mkv"];
+
 #[derive(Clone, Copy, Deserialize)]
 #[allow(unused)]
 pub enum PadType {
@@ -73,7 +75,7 @@ impl FileProcessor {
 
                 // We always want to check extensions in lowercase.
                 let ext = ext.unwrap().to_string_lossy().to_lowercase();
-                if ext != "mkv" {
+                if !VALID_EXTENSIONS.contains(&ext.as_str()) {
                     continue;
                 }
 
@@ -127,7 +129,16 @@ impl FileProcessor {
 
         // Iterate over each line of the file.
         let mut index = profile.start_from.unwrap_or_default();
-        for line in BufReader::new(file).lines().flatten() {
+        for line in BufReader::new(file).lines() {
+            // This can occur if the line does not contain valid UTF-8
+            // sequences.
+            if let Err(e) = line {
+                logger::log(format!("Error parsing input names file: {}", e), false);
+                continue;
+            }
+
+            let line = line.unwrap();
+
             // Sanitize the title of the media file based on the supplied
             // substitution parameters.
             let sanitized = substitutions.apply(&line);

@@ -122,7 +122,7 @@ impl fmt::Display for TrackType {
     }
 }
 
-#[derive(Clone, Debug, Default, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Eq)]
 pub enum DelaySource {
     Container,
     #[default]
