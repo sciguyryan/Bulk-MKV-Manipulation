@@ -92,6 +92,8 @@ pub struct AudioParams {
     pub compression_level: Option<u8>,
     /// The number of threads to be used for the conversion.
     pub threads: Option<u8>,
+    /// Should an adjustment be applied to the audio volume?
+    pub volume_adjustment: Option<String>,
 }
 
 impl ConversionParams for AudioParams {
@@ -157,6 +159,12 @@ impl ConversionParams for AudioParams {
         // Input file.
         args.push("-i".to_string());
         args.push(file_in.to_string());
+
+        // Volume adjustment, if specified.
+        if let Some(vol) = &self.volume_adjustment {
+            args.push("-filter:a".to_string());
+            args.push(format!("volume={}", vol));
+        }
 
         // Codec type.
         args.push("-c:a".to_string());
