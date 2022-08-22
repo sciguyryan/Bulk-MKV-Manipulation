@@ -1354,7 +1354,7 @@ where
         "A_MS/ACM" => Codec::Acm,
         "A_AAC/MPEG2/MAIN" | "A_AAC/MPEG2/LC" | "A_AAC/MPEG2/LC/SBR" | "A_AAC/MPEG2/SSR"
         | "A_AAC/MPEG4/MAIN" | "A_AAC/MPEG4/LC" | "A_AAC/MPEG4/LC/SBR" | "A_AAC/MPEG4/SSR"
-        | "A_AAC/MPEG4/LTP" | "A_AAC-2" => Codec::Aac,
+        | "A_AAC/MPEG4/LTP" | "A_AAC-1" | "A_AAC-2" => Codec::Aac,
         "A_QUICKTIME" | "A_QUICKTIME/QDMC" | "A_QUICKTIME/QDM2" => Codec::QuickTime,
         "A_TTA1" => Codec::TheTrueAudio,
         "A_WAVPACK4" => Codec::WavPack4,
