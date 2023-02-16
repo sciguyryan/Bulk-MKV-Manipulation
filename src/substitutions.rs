@@ -68,7 +68,7 @@ impl Substitutions {
             if let Ok(re) = r {
                 self.regex_internal.push((re, entry[1].clone()));
             } else {
-                eprintln!("An error occurred while initializing regex: {:?}", r);
+                eprintln!("An error occurred while initializing regex: {r:?}");
                 return false;
             }
         }

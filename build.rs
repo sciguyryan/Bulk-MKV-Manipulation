@@ -9,7 +9,7 @@ fn main() {
     };
 
     // Copy the paths.json file to the correct build directory.
-    if std::fs::copy("paths.json", format!("target/{}/paths.json", sub_dir)).is_err() {
+    if std::fs::copy("paths.json", format!("target/{sub_dir}/paths.json")).is_err() {
         eprintln!("Error attempting to copy the paths JSON file.");
     }
 

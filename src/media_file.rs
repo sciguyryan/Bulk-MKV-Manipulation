@@ -671,11 +671,11 @@ impl MediaFile {
         }
 
         logger::subsection(
-            &format!("File {}", UNIQUE_ID.fetch_add(0, Ordering::SeqCst) + 1),
+            format!("File {}", UNIQUE_ID.fetch_add(0, Ordering::SeqCst) + 1),
             false,
         );
         logger::log_inline(
-            &format!("Extracting MediaInfo JSON data for file '{}'...", fp),
+            format!("Extracting MediaInfo JSON data for file '{fp}'..."),
             false,
         );
 
@@ -689,7 +689,7 @@ impl MediaFile {
         let json = match output {
             Ok(o) => String::from_utf8_lossy(&o.stdout).to_string(),
             Err(e) => {
-                logger::log(format!(" Error: {}", e), false);
+                logger::log(format!(" Error: {e}"), false);
                 return None;
             }
         };
@@ -711,7 +711,7 @@ impl MediaFile {
 
             logger::log(format!("Total tracks: {}", mf.media.tracks.len()), false);
             logger::log(
-                &format!("Total attachments: {}", mf.attachments.len()),
+                format!("Total attachments: {}", mf.attachments.len()),
                 false,
             );
 
@@ -815,7 +815,7 @@ impl MediaFile {
                 }
                 DeletionOptions::Trash => {
                     logger::log_inline("Attempting to delete temporary files... ", false);
-                    if trash::delete(&self.get_temp_path()).is_ok() {
+                    if trash::delete(self.get_temp_path()).is_ok() {
                         logger::log(" files successfully sent to the trash.", false);
                     } else {
                         logger::log(" files could not be sent to the trash.", false);
@@ -842,7 +842,7 @@ impl MediaFile {
 
             // Set the attachment file path.
             args.push("--attach-file".to_string());
-            args.push(format!("./attachments/{}", attachment));
+            args.push(format!("./attachments/{attachment}"));
         }
     }
 
@@ -878,7 +878,7 @@ impl MediaFile {
                     format = interval;
                 }
             }
-            args.push(format!("interval:{}", format));
+            args.push(format!("interval:{format}"));
         }
     }
 
@@ -916,28 +916,28 @@ impl MediaFile {
                     if *track_type == TrackType::Subtitle {
                         param_opts.insert("forced-display", b);
                     } else {
-                        eprintln!("The forced flag was set for track ID {}, but the track type does not support it.", track_id);
+                        eprintln!("The forced flag was set for track ID {track_id}, but the track type does not support it.");
                     }
                 }
                 if let Some(b) = p.hearing_impaired {
                     if *track_type == TrackType::Audio {
                         param_opts.insert("hearing-impaired", b);
                     } else {
-                        eprintln!("The hearing impaired flag was set for track ID {}, but the track type does not support it.", track_id);
+                        eprintln!("The hearing impaired flag was set for track ID {track_id}, but the track type does not support it.");
                     }
                 }
                 if let Some(b) = p.hearing_impaired {
                     if *track_type == TrackType::Audio {
                         param_opts.insert("visual-impaired", b);
                     } else {
-                        eprintln!("The visually impaired flag was set for track ID {}, but the track type does not support it.", track_id);
+                        eprintln!("The visually impaired flag was set for track ID {track_id}, but the track type does not support it.");
                     }
                 }
                 if let Some(b) = p.text_descriptions {
                     if *track_type == TrackType::Subtitle {
                         param_opts.insert("text-descriptions", b);
                     } else {
-                        eprintln!("The text descriptions flag was set for track ID {}, but the track type does not support it.", track_id);
+                        eprintln!("The text descriptions flag was set for track ID {track_id}, but the track type does not support it.");
                     }
                 }
                 if let Some(b) = p.original {
@@ -947,7 +947,7 @@ impl MediaFile {
                     if *track_type == TrackType::Audio || *track_type == TrackType::Subtitle {
                         param_opts.insert("commentary", b);
                     } else {
-                        eprintln!("The commentary flag was set for track ID {}, but the track type does not support it.", track_id);
+                        eprintln!("The commentary flag was set for track ID {track_id}, but the track type does not support it.");
                     }
                 }
             }
@@ -955,7 +955,7 @@ impl MediaFile {
 
         // Iterate over the specified parameters.
         for (k, v) in param_opts {
-            args.push(format!("--{}-flag", k));
+            args.push(format!("--{k}-flag"));
             args.push(format!("0:{}", utils::bool_to_yes_no(v)));
         }
     }
@@ -1089,7 +1089,7 @@ impl MediaFile {
         // Set the track order.
         let mut order = String::new();
         for i in 0..self.media.tracks.len() {
-            let _r = write!(&mut order, "{}:0", i);
+            let _r = write!(&mut order, "{i}:0");
 
             // A comma at the end would be considered malformed.
             if i < self.media.tracks.len() - 1 {
@@ -1373,7 +1373,7 @@ where
 
         // Other codecs.
         _ => {
-            println!("Unexpected codec ID when parsing MKV file: {}", string);
+            println!("Unexpected codec ID when parsing MKV file: {string}");
             Codec::default()
         }
     };

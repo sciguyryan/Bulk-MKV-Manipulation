@@ -38,8 +38,8 @@ pub enum VbrOptions {
 impl fmt::Display for VbrOptions {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            VbrOptions::Opus(opt) => write!(f, "{}", opt),
-            VbrOptions::AacLibfdk(opt) => write!(f, "{}", opt),
+            VbrOptions::Opus(opt) => write!(f, "{opt}"),
+            VbrOptions::AacLibfdk(opt) => write!(f, "{opt}"),
         }
     }
 }
@@ -163,24 +163,24 @@ impl ConversionParams for AudioParams {
         // Volume adjustment, if specified.
         if let Some(vol) = &self.volume_adjustment {
             args.push("-filter:a".to_string());
-            args.push(format!("volume={}", vol));
+            args.push(format!("volume={vol}"));
         }
 
         // Codec type.
         args.push("-c:a".to_string());
-        args.push(format!("{}", codec));
+        args.push(format!("{codec}"));
 
         // Bitrate.
         if let Some(bitrate) = self.bitrate {
             args.push("-b:a".to_string());
-            args.push(format!("{}k", bitrate));
+            args.push(format!("{bitrate}k"));
         }
 
         if let Some(vbr) = &self.vbr {
             // Opus defaults to a variable bitrate, so this parameter will be ignored
             // if set to on.
             args.push("-vbr".to_string());
-            args.push(format!("{}", vbr));
+            args.push(format!("{vbr}"));
         }
 
         // Compression level. Only applied to audio tracks.

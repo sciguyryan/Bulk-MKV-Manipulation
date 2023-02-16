@@ -16,7 +16,7 @@ pub fn run_mkv_extract(in_path: &str, out_path: &str, arg_type: &str, args: &[St
         .arg(in_path)
         .arg(arg_type)
         .args(args)
-        .current_dir(format!("{}/{}", out_path, arg_type))
+        .current_dir(format!("{out_path}/{arg_type}"))
         .output();
 
     if let Ok(exit) = r {

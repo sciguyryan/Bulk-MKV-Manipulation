@@ -26,7 +26,7 @@ pub fn convert_audio_file(
 ) -> bool {
     // If the arguments were not valid then None will be returned.
     let args = params.as_ffmpeg_argument_list(track, file_in, file_out);
-    if args == None {
+    if args.is_none() {
         return false;
     }
 
@@ -65,7 +65,7 @@ pub fn convert_video_file(
     todo!("not yet implemented");
 }
 
-/// Run FMMPEG to encode the media file, with the specified arguments.
+/// Run FFMPEG to encode the media file, with the specified arguments.
 ///
 /// # Arguments
 ///

@@ -64,7 +64,7 @@ impl Paths {
             for exe in exes {
                 let temp = path.join(exe);
                 if !temp.exists() {
-                    eprintln!("Failed to MkvToolNix EXE {} at {:?}", exe, temp);
+                    eprintln!("Failed to MkvToolNix EXE {exe} at {temp:?}");
                     check = false;
                 }
             }

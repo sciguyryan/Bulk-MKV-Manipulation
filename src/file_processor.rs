@@ -7,8 +7,7 @@ use crate::{
 
 use std::{
     fs::{self, File},
-    io::{BufRead, BufReader},
-    time::Instant,
+    io::{BufRead, BufReader}, time::Instant,
 };
 
 const VALID_EXTENSIONS: [&str; 1] = ["mkv"];
@@ -83,7 +82,7 @@ impl FileProcessor {
             }
         } else {
             logger::log(
-                format!("Failed to read input files directory: {:?}", read),
+                format!("Failed to read input files directory: {read:?}"),
                 true,
             );
             panic!();
@@ -115,8 +114,7 @@ impl FileProcessor {
             Err(e) => {
                 logger::log(
                     format!(
-                        "An error occurred while attempting to open the output names file: {:?}",
-                        e
+                        "An error occurred while attempting to open the output names file: {e:?}"
                     ),
                     true,
                 );
@@ -133,7 +131,7 @@ impl FileProcessor {
             // This can occur if the line does not contain valid UTF-8
             // sequences.
             if let Err(e) = line {
-                logger::log(format!("Error parsing input names file: {}", e), false);
+                logger::log(format!("Error parsing input names file: {e}"), false);
                 continue;
             }
 
@@ -206,16 +204,16 @@ impl FileProcessor {
         let mut str = if let Some(pad) = pad_type {
             match pad {
                 PadType::One => {
-                    format!("{} - {}", index, name)
+                    format!("{index} - {name}")
                 }
                 PadType::Ten => {
-                    format!("{:02} - {}", index, name)
+                    format!("{index:02} - {name}")
                 }
                 PadType::Hundred => {
-                    format!("{:03} - {}", index, name)
+                    format!("{index:03} - {name}")
                 }
                 PadType::Thousand => {
-                    format!("{:04} - {}", index, name)
+                    format!("{index:04} - {name}")
                 }
             }
         } else {
@@ -262,7 +260,7 @@ impl FileProcessor {
         for (i, m) in &mut media.iter_mut().enumerate() {
             logger::subsection(&format!("File {} of {}", i + 1, media_len), true);
 
-            let now = Instant::now();
+            let start = Instant::now();
             if !m.process(&self.output_paths[i], &self.titles[i], params) {
                 logger::log("Processing failed.", true);
                 success = false;
@@ -272,7 +270,7 @@ impl FileProcessor {
             logger::log(
                 format!(
                     "Processing complete, in {} seconds.",
-                    now.elapsed().as_secs()
+                    start.elapsed().as_secs()
                 ),
                 true,
             );
@@ -315,7 +313,7 @@ impl FileProcessor {
         if params.misc_params.shutdown_upon_completion {
             match shutdown() {
                 Ok(_) => logger::log("Attempting to shutdown down the computer...", true),
-                Err(e) => logger::log(&format!("Failed to shutdown the computer: {}", e), true),
+                Err(e) => logger::log(format!("Failed to shutdown the computer: {e}"), true),
             }
         }
     }

@@ -40,7 +40,7 @@ pub fn subsection<S: AsRef<str>>(title: S, console: bool)
 where
     S: Display,
 {
-    log(format!("[{}]", title), console);
+    log(format!("[{title}]"), console);
 }
 
 #[allow(unused)]
@@ -64,12 +64,12 @@ impl Logger {
     }
 
     pub fn log(&mut self, message: &str, console: bool) {
-        self.log_inline(&format!("{}\r\n", message), console);
+        self.log_inline(&format!("{message}\r\n"), console);
     }
 
     pub fn log_inline(&mut self, message: &str, console: bool) {
         if console {
-            print!("{}", message);
+            print!("{message}");
         }
 
         #[cfg(feature = "logging")]
@@ -79,7 +79,7 @@ impl Logger {
             }
 
             if let Some(file) = &mut self.file {
-                _ = write!(file, "{}", message);
+                _ = write!(file, "{message}");
             }
         }
     }
