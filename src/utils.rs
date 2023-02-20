@@ -50,18 +50,18 @@ pub fn file_exists(path: &str) -> bool {
     path.exists() && path.is_file()
 }
 
-struct Durations<'a> {
+struct DurationUnit<'a> {
     amount: u64,
     unit: &'a str,
 }
 
-impl<'a> Durations<'a> {
+impl<'a> DurationUnit<'a> {
     pub fn new(amount: u64, unit: &'a str) -> Self {
         Self { amount, unit }
     }
 }
 
-impl<'a> Display for Durations<'a> {
+impl<'a> Display for DurationUnit<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut r = write!(f, "{} {}", self.amount, self.unit);
         if self.amount != 1 {
@@ -86,34 +86,35 @@ pub fn format_duration(seconds: u64) -> String {
     let seconds_in_day = seconds_in_hour * 24;
 
     if seconds >= seconds_in_day {
-        let days = seconds / seconds_in_day;
-        seconds -= days * seconds_in_day;
+        let d = seconds / seconds_in_day;
+        seconds -= d * seconds_in_day;
 
-        units.push(Durations::new(days, "day"));
+        units.push(DurationUnit::new(d, "day"));
     }
 
     if seconds >= seconds_in_hour {
-        let hours = seconds / seconds_in_hour;
-        seconds -= hours * seconds_in_hour;
+        let h = seconds / seconds_in_hour;
+        seconds -= h * seconds_in_hour;
 
-        units.push(Durations::new(hours, "hour"));
+        units.push(DurationUnit::new(h, "hour"));
     }
 
     if seconds >= seconds_in_minute {
-        let minutes = seconds / seconds_in_minute;
-        seconds -= minutes * seconds_in_minute;
+        let m = seconds / seconds_in_minute;
+        seconds -= m * seconds_in_minute;
 
-        units.push(Durations::new(minutes, "minute"));
+        units.push(DurationUnit::new(m, "minute"));
     }
 
     if seconds > 0 {
-        units.push(Durations::new(seconds, "second"));
+        units.push(DurationUnit::new(seconds, "second"));
     }
 
     let mut formatted = String::new();
+    let is_single = units.len() == 1;
     let last = units.len() - 1;
     for (i, unit) in units.into_iter().enumerate() {
-        if i == last {
+        if i == last && !is_single {
             formatted.push_str("and ");
         }
 
