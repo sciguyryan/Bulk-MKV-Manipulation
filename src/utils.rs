@@ -1,4 +1,4 @@
-use std::{fs, path::Path};
+use std::{fmt::Display, fs, path::Path};
 
 /// Convert a boolean value to yes or no.
 ///
@@ -48,6 +48,83 @@ pub fn delete_directory(path: &str) -> bool {
 pub fn file_exists(path: &str) -> bool {
     let path = Path::new(path);
     path.exists() && path.is_file()
+}
+
+struct Durations<'a> {
+    amount: u64,
+    unit: &'a str,
+}
+
+impl<'a> Durations<'a> {
+    pub fn new(amount: u64, unit: &'a str) -> Self {
+        Self { amount, unit }
+    }
+}
+
+impl<'a> Display for Durations<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut r = write!(f, "{} {}", self.amount, self.unit);
+        if self.amount != 1 {
+            r = write!(f, "s");
+        }
+        r
+    }
+}
+
+/// Convert a duration (in seconds) into days, hours, minutes and seconds.
+///
+/// # Arguments
+///
+/// * `seconds` - The duration, in seconds.
+pub fn format_duration(seconds: u64) -> String {
+    let mut units = vec![];
+
+    let mut seconds = seconds;
+
+    let seconds_in_minute = 60;
+    let seconds_in_hour = seconds_in_minute * 60;
+    let seconds_in_day = seconds_in_hour * 24;
+
+    if seconds >= seconds_in_day {
+        let days = seconds / seconds_in_day;
+        seconds -= days * seconds_in_day;
+
+        units.push(Durations::new(days, "day"));
+    }
+
+    if seconds >= seconds_in_hour {
+        let hours = seconds / seconds_in_hour;
+        seconds -= hours * seconds_in_hour;
+
+        units.push(Durations::new(hours, "hour"));
+    }
+
+    if seconds >= seconds_in_minute {
+        let minutes = seconds / seconds_in_minute;
+        seconds -= minutes * seconds_in_minute;
+
+        units.push(Durations::new(minutes, "minute"));
+    }
+
+    if seconds > 0 {
+        units.push(Durations::new(seconds, "second"));
+    }
+
+    let mut formatted = String::new();
+    let last = units.len() - 1;
+    for (i, unit) in units.into_iter().enumerate() {
+        if i == last {
+            formatted.push_str("and ");
+        }
+
+        formatted.push_str(&format!("{unit}"));
+
+        if i < last {
+            formatted.push_str(", ");
+        }
+    }
+
+    formatted
 }
 
 /// Get the extension of a given file path.

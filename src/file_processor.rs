@@ -7,7 +7,8 @@ use crate::{
 
 use std::{
     fs::{self, File},
-    io::{BufRead, BufReader}, time::Instant,
+    io::{BufRead, BufReader},
+    time::Instant,
 };
 
 const VALID_EXTENSIONS: [&str; 1] = ["mkv"];
@@ -249,7 +250,10 @@ impl FileProcessor {
 
         logger::log(&"-".repeat(logger::SPLITTER), false);
         logger::log(
-            format!("Setup complete, in {} seconds.", now.elapsed().as_secs()),
+            format!(
+                "Setup complete, in {}.",
+                utils::format_duration(now.elapsed().as_secs())
+            ),
             false,
         );
 
@@ -269,8 +273,8 @@ impl FileProcessor {
 
             logger::log(
                 format!(
-                    "Processing complete, in {} seconds.",
-                    start.elapsed().as_secs()
+                    "Processing complete, in {}.",
+                    utils::format_duration(start.elapsed().as_secs())
                 ),
                 true,
             );
