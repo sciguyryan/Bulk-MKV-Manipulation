@@ -7,11 +7,7 @@ use std::{fmt::Display, fs, path::Path};
 /// * `b` - The boolean value to be converted.
 #[inline]
 pub fn bool_to_yes_no(b: bool) -> String {
-    if b {
-        "yes".to_string()
-    } else {
-        "no".to_string()
-    }
+    (if b { "yes" } else { "no" }).to_string()
 }
 
 /// Return a boolean value indicating whether a given directory exists.
@@ -21,8 +17,7 @@ pub fn bool_to_yes_no(b: bool) -> String {
 /// * `path` - The path to the directory.
 #[inline]
 pub fn dir_exists(path: &str) -> bool {
-    let path = Path::new(path);
-    path.exists() && path.is_dir()
+    Path::new(path).is_dir()
 }
 
 /// Delete a directory, and all containing subdirectories and files.
@@ -46,8 +41,7 @@ pub fn delete_directory(path: &str) -> bool {
 /// * `path` - The path to the file.
 #[inline]
 pub fn file_exists(path: &str) -> bool {
-    let path = Path::new(path);
-    path.exists() && path.is_file()
+    Path::new(path).is_file()
 }
 
 struct DurationUnit<'a> {
@@ -65,6 +59,8 @@ impl<'a> Display for DurationUnit<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut r = write!(f, "{} {}", self.amount, self.unit);
         if self.amount != 1 {
+            // Because English is very odd... 0 would also have an "s" at the end.
+            // For example, 0 seconds as opposed to 0 second.
             r = write!(f, "s");
         }
         r

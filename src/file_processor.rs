@@ -176,7 +176,11 @@ impl FileProcessor {
         // directory is equal to the number of entries from the output file list.
         if input_paths.len() != output_paths.len() {
             logger::log(
-                format!("The number of files in the input directory {} is not equal to the number of files in the output file list {}", input_paths.len(), output_paths.len()),
+                format!(
+                    "The number of files in the input directory {} is not equal to the number of files in the output file list {}",
+                    input_paths.len(),
+                    output_paths.len()
+                ),
                 true,
             );
             return None;
