@@ -2,6 +2,8 @@ use crate::paths;
 
 use std::{path::Path, process::Command};
 
+const FAIL_ERROR_CODE: i32 = 2;
+
 pub fn get_mkvtoolnix_exe(exe: &str) -> String {
     Path::new(&paths::PATHS.mkvtoolnix)
         .join(exe)
@@ -23,10 +25,10 @@ pub fn run_mkv_extract(in_path: &str, out_path: &str, arg_type: &str, args: &[St
         if let Some(code) = exit.status.code() {
             code
         } else {
-            2
+            FAIL_ERROR_CODE
         }
     } else {
-        2
+        FAIL_ERROR_CODE
     }
 }
 
@@ -39,9 +41,9 @@ pub fn run_mkv_merge(base_dir: &str, args: &[String]) -> i32 {
         if let Some(code) = exit.status.code() {
             code
         } else {
-            2
+            FAIL_ERROR_CODE
         }
     } else {
-        2
+        FAIL_ERROR_CODE
     }
 }
