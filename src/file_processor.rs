@@ -14,7 +14,6 @@ use std::{
 const VALID_EXTENSIONS: [&str; 1] = ["mkv"];
 
 #[derive(Clone, Copy, Deserialize)]
-#[allow(unused)]
 pub enum PadType {
     One,
     Ten,
@@ -32,12 +31,13 @@ impl FileProcessor {
     pub fn new(profile: &InputProfile) -> Option<Self> {
         logger::section("File Processing Initialization", false);
 
+        let mut invalid_path = false;
         if !utils::dir_exists(&profile.input_dir) {
             logger::log(
                 format!("Input directory '{}' does not exist", profile.input_dir),
                 true,
             );
-            return None;
+            invalid_path = true;
         }
 
         if !utils::dir_exists(&profile.output_dir) {
@@ -45,7 +45,7 @@ impl FileProcessor {
                 format!("Output directory '{}' does not exist", profile.output_dir),
                 true,
             );
-            return None;
+            invalid_path = true;
         }
 
         if !utils::file_exists(&profile.output_names_file_path) {
@@ -56,6 +56,11 @@ impl FileProcessor {
                 ),
                 true,
             );
+            invalid_path = true;
+        }
+
+        // If one or more required paths were invalid then we can't continue.
+        if invalid_path {
             return None;
         }
 
@@ -136,11 +141,9 @@ impl FileProcessor {
                 continue;
             }
 
-            let line = line.unwrap();
-
             // Sanitize the title of the media file based on the supplied
             // substitution parameters.
-            let sanitized = substitutions.apply(&line);
+            let sanitized = substitutions.apply(&line.unwrap());
 
             // Skip empty lines.
             if sanitized.is_empty() {
@@ -252,7 +255,7 @@ impl FileProcessor {
             }
         }
 
-        logger::log(&"-".repeat(logger::SPLITTER), false);
+        logger::splitter(false);
         logger::log(
             format!(
                 "Setup complete, in {}.",

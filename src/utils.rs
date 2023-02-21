@@ -67,6 +67,10 @@ impl<'a> Display for DurationUnit<'a> {
     }
 }
 
+const SECONDS_IN_MINUTE: u64 = 60;
+const SECONDS_IN_HOUR: u64 = SECONDS_IN_MINUTE * 60;
+const SECONDS_IN_DAY: u64 = SECONDS_IN_HOUR * 24;
+
 /// Convert a duration (in seconds) into days, hours, minutes and seconds.
 ///
 /// # Arguments
@@ -77,27 +81,23 @@ pub fn format_duration(seconds: u64) -> String {
 
     let mut seconds = seconds;
 
-    let seconds_in_minute = 60;
-    let seconds_in_hour = seconds_in_minute * 60;
-    let seconds_in_day = seconds_in_hour * 24;
-
-    if seconds >= seconds_in_day {
-        let d = seconds / seconds_in_day;
-        seconds -= d * seconds_in_day;
+    if seconds >= SECONDS_IN_DAY {
+        let d = seconds / SECONDS_IN_DAY;
+        seconds -= d * SECONDS_IN_DAY;
 
         units.push(DurationUnit::new(d, "day"));
     }
 
-    if seconds >= seconds_in_hour {
-        let h = seconds / seconds_in_hour;
-        seconds -= h * seconds_in_hour;
+    if seconds >= SECONDS_IN_HOUR {
+        let h = seconds / SECONDS_IN_HOUR;
+        seconds -= h * SECONDS_IN_HOUR;
 
         units.push(DurationUnit::new(h, "hour"));
     }
 
-    if seconds >= seconds_in_minute {
-        let m = seconds / seconds_in_minute;
-        seconds -= m * seconds_in_minute;
+    if seconds >= SECONDS_IN_MINUTE {
+        let m = seconds / SECONDS_IN_MINUTE;
+        seconds -= m * SECONDS_IN_MINUTE;
 
         units.push(DurationUnit::new(m, "minute"));
     }
@@ -148,7 +148,7 @@ pub fn join_path_segments<S: AsRef<str>>(base: &str, paths: &[S]) -> String {
     let mut p = Path::new(base).to_path_buf();
 
     for path in paths {
-        p = p.join(path.as_ref());
+        p.push(path.as_ref());
     }
 
     p.to_string_lossy().to_string()
