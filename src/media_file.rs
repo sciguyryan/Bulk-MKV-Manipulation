@@ -232,9 +232,9 @@ impl MediaFile {
             let mut success = true;
             if in_file_path == out_file_path {
                 // In the case where the input and output files have the same
-                // name (by having the same codec type), we need to rename
-                // the original to avoid attempting to overwrite the original
-                // while also trying to convert it. Needless to say, that does not work.
+                //   name (by having the same codec type), we need to rename
+                //   the original to avoid attempting to overwrite the original
+                //   while also trying to convert it. Needless to say, that does not work.
                 let out_ext = MediaFileTrack::get_extension_from_codec(out_codec);
                 let new_file_path = in_file_path.replace(
                     &t.get_out_file_name(),
@@ -738,11 +738,9 @@ impl MediaFile {
 
     /// Initialize the temporary directory structure for the media file.
     fn init_temp_directory(&self) -> bool {
-        let sub_dirs = vec!["attachments", "chapters", "tracks"];
-
         // Create each subdirectory.
         let mut result = true;
-        for dir in sub_dirs {
+        for dir in ["attachments", "chapters", "tracks"] {
             let p = self.get_temp_for_output_type(dir);
             result &= fs::create_dir_all(p).is_ok();
         }

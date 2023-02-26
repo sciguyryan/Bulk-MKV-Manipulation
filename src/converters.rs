@@ -10,6 +10,8 @@ use crate::{
 
 use std::process::Command;
 
+const FAIL_ERROR_CODE: i32 = 1;
+
 /// Convert an audio file, based on the specified conversion parameters.
 ///
 /// # Arguments
@@ -78,9 +80,9 @@ fn run_ffmpeg(args: &[String]) -> i32 {
             code
         } else {
             logger::log(format!("{:?}", exit.stderr), false);
-            1
+            FAIL_ERROR_CODE
         }
     } else {
-        1
+        FAIL_ERROR_CODE
     }
 }

@@ -31,13 +31,13 @@ impl FileProcessor {
     pub fn new(profile: &InputProfile) -> Option<Self> {
         logger::section("File Processing Initialization", false);
 
-        let mut invalid_path = false;
+        let mut check = true;
         if !utils::dir_exists(&profile.input_dir) {
             logger::log(
                 format!("Input directory '{}' does not exist", profile.input_dir),
                 true,
             );
-            invalid_path = true;
+            check = false;
         }
 
         if !utils::dir_exists(&profile.output_dir) {
@@ -45,7 +45,7 @@ impl FileProcessor {
                 format!("Output directory '{}' does not exist", profile.output_dir),
                 true,
             );
-            invalid_path = true;
+            check = false;
         }
 
         if !utils::file_exists(&profile.output_names_file_path) {
@@ -56,11 +56,11 @@ impl FileProcessor {
                 ),
                 true,
             );
-            invalid_path = true;
+            check = false;
         }
 
         // If one or more required paths were invalid then we can't continue.
-        if invalid_path {
+        if !check {
             return None;
         }
 

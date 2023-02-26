@@ -39,7 +39,7 @@ impl Substitutions {
 
         // If the input string is empty, there is nothing to do here.
         if line.is_empty() {
-            return "".to_string();
+            return String::new();
         }
 
         for (re, sub) in &self.regex_internal {

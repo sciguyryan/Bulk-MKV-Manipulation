@@ -60,16 +60,25 @@ impl<'a> Display for DurationUnit<'a> {
         let mut r = write!(f, "{} {}", self.amount, self.unit);
         if self.amount != 1 {
             // Because English is very odd... 0 would also have an "s" at the end.
-            // For example, 0 seconds as opposed to 0 second.
+            // For example, "0 seconds" as opposed to "0 second".
+            // Even though 0 wouldn't appear in our implementation of the code here,
+            // I'm adding this for posterity.
             r = write!(f, "s");
         }
         r
     }
 }
 
+/// The number of seconds in a minute.
 const SECONDS_IN_MINUTE: u64 = 60;
+/// The number of seconds in an hour.
 const SECONDS_IN_HOUR: u64 = SECONDS_IN_MINUTE * 60;
+/// The number of seconds in a day,
 const SECONDS_IN_DAY: u64 = SECONDS_IN_HOUR * 24;
+/// The textual terms for various supported durations.
+const DURATION_TERMS: [&str; 4] = ["day", "hour", "minute", "second"];
+/// The length of various durations in seconds.
+const DURATIONS: [u64; 4] = [SECONDS_IN_DAY, SECONDS_IN_HOUR, SECONDS_IN_MINUTE, 1];
 
 /// Convert a duration (in seconds) into days, hours, minutes and seconds.
 ///
@@ -80,30 +89,13 @@ pub fn format_duration(seconds: u64) -> String {
     let mut units = vec![];
 
     let mut seconds = seconds;
+    for (divisor, term) in DURATIONS.iter().zip(DURATION_TERMS) {
+        if seconds >= *divisor {
+            let v = seconds / divisor;
+            seconds -= v * divisor;
 
-    if seconds >= SECONDS_IN_DAY {
-        let d = seconds / SECONDS_IN_DAY;
-        seconds -= d * SECONDS_IN_DAY;
-
-        units.push(DurationUnit::new(d, "day"));
-    }
-
-    if seconds >= SECONDS_IN_HOUR {
-        let h = seconds / SECONDS_IN_HOUR;
-        seconds -= h * SECONDS_IN_HOUR;
-
-        units.push(DurationUnit::new(h, "hour"));
-    }
-
-    if seconds >= SECONDS_IN_MINUTE {
-        let m = seconds / SECONDS_IN_MINUTE;
-        seconds -= m * SECONDS_IN_MINUTE;
-
-        units.push(DurationUnit::new(m, "minute"));
-    }
-
-    if seconds > 0 {
-        units.push(DurationUnit::new(seconds, "second"));
+            units.push(DurationUnit::new(v, term));
+        }
     }
 
     let mut formatted = String::new();
