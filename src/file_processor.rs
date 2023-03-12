@@ -145,8 +145,8 @@ impl FileProcessor {
             // substitution parameters.
             let sanitized = substitutions.apply(&line.unwrap());
 
-            // Skip empty lines.
-            if sanitized.is_empty() {
+            // Skip empty lines and comments.
+            if sanitized.is_empty() || sanitized.starts_with('#') {
                 continue;
             }
 
