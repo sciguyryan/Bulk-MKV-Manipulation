@@ -1,13 +1,20 @@
-use crate::media_file::MediaFileTrack;
+use crate::{logger, media_file::MediaFileTrack};
 
 use core::fmt;
 use serde_derive::Deserialize;
 
 use super::params_trait::ConversionParams;
 
+/// Features supported by the audio codec.
+enum CodecFeatures {
+    /// Compression.
+    Compression,
+    /// Variable bitrate.
+    Vbr,
+}
+
 /// Variable bitrate options applicable to the Opus codec.
 #[derive(Clone, Deserialize)]
-#[allow(unused)]
 pub enum OpusVbrOptions {
     /// Disable variable bitrate, enabling constant bitrate.
     Off,
@@ -28,7 +35,6 @@ impl fmt::Display for OpusVbrOptions {
 }
 
 #[derive(Clone, Deserialize)]
-#[allow(unused)]
 pub enum VbrOptions {
     Opus(OpusVbrOptions),
     // TODO: validate that this is in the range of 1 to 5.
@@ -45,7 +51,6 @@ impl fmt::Display for VbrOptions {
 }
 
 #[derive(Clone, Deserialize)]
-#[allow(unused)]
 pub enum AudioCodec {
     Aac,
     AacLibfdk,
@@ -105,11 +110,11 @@ impl ConversionParams for AudioParams {
             return true;
         };
 
+        let mut valid = true;
+
         match codec {
             // Validate the Opus audio conversion parameters.
             AudioCodec::Opus => {
-                let mut valid = true;
-
                 if let Some(v) = &self.vbr {
                     valid &= matches!(v, VbrOptions::Opus(_));
                 }
@@ -176,17 +181,29 @@ impl ConversionParams for AudioParams {
             args.push(format!("{bitrate}k"));
         }
 
+        // Variable bitrate (VBR).
         if let Some(vbr) = &self.vbr {
-            // Opus defaults to a variable bitrate, so this parameter will be ignored
-            // if set to on.
-            args.push("-vbr".to_string());
-            args.push(format!("{vbr}"));
+            if codec.supports_feature(CodecFeatures::Vbr) {
+                // Opus defaults to a variable bitrate, so this parameter will be ignored
+                // if set to on.
+                args.push("-vbr".to_string());
+                args.push(format!("{vbr}"));
+            } else {
+                logger::log(format!("The codec {codec} does not support VBR."), true);
+            }
         }
 
-        // Compression level. Only applied to audio tracks.
+        // Compression level.
         if let Some(level) = self.compression_level {
-            args.push("-compression_level".to_string());
-            args.push(level.to_string());
+            if codec.supports_feature(CodecFeatures::Compression) {
+                args.push("-compression_level".to_string());
+                args.push(level.to_string());
+            } else {
+                logger::log(
+                    format!("The codec {codec} does not support compression."),
+                    true,
+                );
+            }
         }
 
         // The number of audio channels.
@@ -201,5 +218,17 @@ impl ConversionParams for AudioParams {
         args.push(file_out.to_string());
 
         Some(args)
+    }
+}
+
+impl AudioCodec {
+    fn supports_feature(&self, feature: CodecFeatures) -> bool {
+        match &feature {
+            CodecFeatures::Compression => matches!(
+                self,
+                AudioCodec::Flac | AudioCodec::Mp3Lame | AudioCodec::Opus | AudioCodec::WavPack
+            ),
+            CodecFeatures::Vbr => matches!(self, AudioCodec::AacLibfdk | AudioCodec::Opus),
+        }
     }
 }
