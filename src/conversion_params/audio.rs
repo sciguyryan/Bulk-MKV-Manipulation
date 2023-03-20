@@ -222,6 +222,11 @@ impl ConversionParams for AudioParams {
 }
 
 impl AudioCodec {
+    /// Indicates whether the codec supports a specific codec feature.
+    ///
+    /// # Arguments
+    ///
+    /// * `feature` - The specific codec feature that we want to know about.
     fn supports_feature(&self, feature: CodecFeatures) -> bool {
         match &feature {
             CodecFeatures::Compression => matches!(

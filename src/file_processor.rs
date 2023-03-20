@@ -68,6 +68,80 @@ impl FileProcessor {
         let mut output_paths = Vec::new();
         let mut titles = Vec::new();
 
+        // Read the file containing the output names.
+        let file = match File::open(&profile.output_names_file_path) {
+            Ok(f) => f,
+            Err(e) => {
+                logger::log(
+                    format!(
+                        "An error occurred while attempting to open the output names file: {e:?}"
+                    ),
+                    true,
+                );
+                return None;
+            }
+        };
+
+        // Create a local copy of the substitution instance.
+        let mut substitutions = profile.substitutions.clone();
+
+        // If we have a stop clause then we are permitted to have
+        // less files than specified in the final list, but not more.
+        let mut has_stop_clause = false;
+
+        // Iterate over each line of the file.
+        let mut index = profile.start_from.unwrap_or_default();
+        for line in BufReader::new(file).lines() {
+            // This can occur if the line does not contain valid UTF-8
+            // sequences.
+            if let Err(e) = line {
+                logger::log(format!("Error parsing input names file: {e}"), false);
+                continue;
+            }
+
+            let line = &line.unwrap();
+
+            // If the STOP clause is present then we should stop reading
+            // the file name lines.
+            if line == "###STOP###" {
+                has_stop_clause = true;
+                break;
+            }
+
+            // Sanitize the title of the media file based on the supplied
+            // substitution parameters.
+            let sanitized = substitutions.apply(line);
+
+            // Skip empty lines and comment lines.
+            if sanitized.is_empty() || sanitized.starts_with('#') {
+                continue;
+            }
+
+            // Handle the number padding, if required.
+            let file_name = FileProcessor::file_name_from_padded_index(
+                &sanitized,
+                index,
+                profile.index_pad_type,
+            );
+
+            // Add the file output path to the vector.
+            output_paths.push(utils::join_path_segments(&profile.output_dir, &[file_name]));
+
+            // Add the title to the vector.
+            titles.push(sanitized.to_string());
+
+            // Increment the index counter.
+            index += 1;
+        }
+
+        logger::log(
+            format!(
+                "{} file names are present in the output file name list",
+                output_paths.len()
+            ),
+            false,
+        );
+
         // Build the list of input file paths.
         let read = fs::read_dir(&profile.input_dir);
         if let Ok(dir) = read {
@@ -114,66 +188,11 @@ impl FileProcessor {
             false,
         );
 
-        // Read the file containing the output names.
-        let file = match File::open(&profile.output_names_file_path) {
-            Ok(f) => f,
-            Err(e) => {
-                logger::log(
-                    format!(
-                        "An error occurred while attempting to open the output names file: {e:?}"
-                    ),
-                    true,
-                );
-                return None;
-            }
-        };
-
-        // Create a local copy of the substitution instance.
-        let mut substitutions = profile.substitutions.clone();
-
-        // Iterate over each line of the file.
-        let mut index = profile.start_from.unwrap_or_default();
-        for line in BufReader::new(file).lines() {
-            // This can occur if the line does not contain valid UTF-8
-            // sequences.
-            if let Err(e) = line {
-                logger::log(format!("Error parsing input names file: {e}"), false);
-                continue;
-            }
-
-            // Sanitize the title of the media file based on the supplied
-            // substitution parameters.
-            let sanitized = substitutions.apply(&line.unwrap());
-
-            // Skip empty lines and comments.
-            if sanitized.is_empty() || sanitized.starts_with('#') {
-                continue;
-            }
-
-            // Handle the number padding, if required.
-            let file_name = FileProcessor::file_name_from_padded_index(
-                &sanitized,
-                index,
-                profile.index_pad_type,
-            );
-
-            // Add the file output path to the vector.
-            output_paths.push(utils::join_path_segments(&profile.output_dir, &[file_name]));
-
-            // Add the title to the vector.
-            titles.push(sanitized.to_string());
-
-            // Increment the index counter.
-            index += 1;
+        // If the stop clause has been specified then we need to truncate
+        // the input file list to be the same length as the output file list.
+        if has_stop_clause {
+            input_paths.truncate(output_paths.len());
         }
-
-        logger::log(
-            format!(
-                "{} file names are present in the output file name list",
-                output_paths.len()
-            ),
-            false,
-        );
 
         // We must now check that the number of files in the input
         // directory is equal to the number of entries from the output file list.
