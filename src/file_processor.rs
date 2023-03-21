@@ -147,14 +147,13 @@ impl FileProcessor {
         if let Ok(dir) = read {
             for entry in dir.flatten() {
                 let path = entry.path();
-                let ext = path.extension();
-                if ext.is_none() {
-                    continue;
-                }
 
-                // We always want to check extensions in lowercase.
-                let ext = ext.unwrap().to_string_lossy().to_lowercase();
-                if !VALID_EXTENSIONS.contains(&ext.as_str()) {
+                if let Some(ext) = path.extension() {
+                    // We always want to check extensions in lowercase.
+                    if !VALID_EXTENSIONS.contains(&ext.to_string_lossy().to_lowercase().as_str()) {
+                        continue;
+                    }
+                } else {
                     continue;
                 }
 
