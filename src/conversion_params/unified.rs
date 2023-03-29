@@ -48,9 +48,9 @@ pub struct TrackParams {
 
 #[derive(Deserialize)]
 pub struct AttachmentParams {
-    /// Should attachments be included in the final file?
+    /// Should attachments be imported from the original file?
     /// Any existing attachments will be exported and included in the final file.
-    pub include: bool,
+    pub import_from_original: bool,
     /// The list of file extensions to be included in the final file.
     /// An empty list will indicate that all files should be included.
     pub include_extensions: Vec<String>,
@@ -58,9 +58,9 @@ pub struct AttachmentParams {
 
 #[derive(Deserialize)]
 pub struct ChapterParams {
-    /// Should chapters be included in the final file?
+    /// Should chapters be imported from the original file?
     /// Any existing chapters will be exported and included in the final file.
-    pub include: bool,
+    pub import_from_original: bool,
     /// Should chapters be created, if no chapters are present?
     pub create_if_not_present: bool,
     /// The interval for creating chapters, must be in the following format: HH:MM:SS.nnnnnnnnn.
@@ -118,9 +118,9 @@ pub struct UnifiedSubtitleParams {
 
 #[derive(Deserialize)]
 pub struct UnifiedOtherTrackParams {
-    /// Should "other" be included in the final file?
+    /// Should "other" be imported from the original file?
     /// These are tracks that are not of type: audio, subtitle or video.
-    pub include: bool,
+    pub import_from_original: bool,
 }
 
 #[derive(Deserialize)]

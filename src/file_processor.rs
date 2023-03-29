@@ -1,10 +1,9 @@
-use lexical_sort::{natural_cmp, StringSort};
-use serde_derive::Deserialize;
-
 use crate::{
     conversion_params::unified::UnifiedParams, input_profile::InputProfile, logger, utils,
 };
 
+use lexical_sort::{natural_cmp, StringSort};
+use serde_derive::Deserialize;
 use std::{
     fs::{self, File},
     io::{BufRead, BufReader},
@@ -150,14 +149,10 @@ impl FileProcessor {
 
                 if let Some(ext) = path.extension() {
                     // We always want to check extensions in lowercase.
-                    if !VALID_EXTENSIONS.contains(&ext.to_string_lossy().to_lowercase().as_str()) {
-                        continue;
+                    if VALID_EXTENSIONS.contains(&ext.to_string_lossy().to_lowercase().as_str()) {
+                        input_paths.push(path.display().to_string());
                     }
-                } else {
-                    continue;
                 }
-
-                input_paths.push(path.display().to_string());
             }
         } else {
             logger::log(

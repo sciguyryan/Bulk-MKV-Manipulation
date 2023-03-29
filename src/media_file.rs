@@ -363,7 +363,7 @@ impl MediaFile {
         // The attachments will always be found on the first
         // track of the file.
         if self.attachments.is_empty() {
-            logger::log_inline("No attachments to extract.", false);
+            logger::log("No attachments to extract.", false);
             return true;
         }
 
@@ -485,9 +485,6 @@ impl MediaFile {
         }
 
         // File extension matches should be case insensitive.
-        // Info: Clippy keeps flagging this, even though it is
-        // correct and more efficient than its suggestion.
-        #[allow(clippy::needless_collect)]
         let lower_exts: Vec<String> = params
             .attachments
             .include_extensions
@@ -612,7 +609,7 @@ impl MediaFile {
             return false;
         } else if matches!(track_type, TrackType::Button | TrackType::Other) {
             // These tracks will only be kept is the relevant flag is set.
-            return params.other_tracks.include;
+            return params.other_tracks.import_from_original;
         }
 
         // The panic should never happen since the cases are all dealt with above.
@@ -776,7 +773,11 @@ impl MediaFile {
         }
 
         // Extract the files.
-        if !self.extract(true, params.attachments.include, params.chapters.include) {
+        if !self.extract(
+            true,
+            params.attachments.import_from_original,
+            params.chapters.import_from_original,
+        ) {
             return false;
         }
 
@@ -1070,12 +1071,13 @@ impl MediaFile {
         self.apply_track_mux_params(&mut args, params);
 
         // Apply the attachment muxing arguments, if needed.
-        if params.attachments.include {
+        // TODO: transform this into a variable if we also want to import attachments from a directory.
+        if params.attachments.import_from_original {
             self.apply_attachment_mux_params(&mut args);
         }
 
         // Apply the chapter muxing arguments, if needed.
-        if params.chapters.include {
+        if params.chapters.import_from_original || params.chapters.create_if_not_present {
             self.apply_chapters_mux_params(&mut args, params);
         }
 
