@@ -136,8 +136,7 @@ pub fn get_file_extension(fp: &str) -> Option<String> {
 /// * `fp` - The path to the file.
 #[inline]
 pub fn get_file_name(fp: &str) -> Option<String> {
-    let path = Path::new(fp);
-    let file_name = path.file_name()?.to_str()?;
+    let file_name = Path::new(fp).file_name()?.to_str()?;
 
     Some(file_name.to_string())
 }
