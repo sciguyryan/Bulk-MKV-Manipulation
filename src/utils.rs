@@ -129,6 +129,19 @@ pub fn get_file_extension(fp: &str) -> Option<String> {
     Some(ext.to_lowercase())
 }
 
+/// Get the name and extension of a given file path.
+///
+/// # Arguments
+///
+/// * `fp` - The path to the file.
+#[inline]
+pub fn get_file_name(fp: &str) -> Option<String> {
+    let path = Path::new(fp);
+    let file_name = path.file_name()?.to_str()?;
+
+    Some(file_name.to_string())
+}
+
 /// Join several path segments into a single path.
 ///
 /// # Arguments

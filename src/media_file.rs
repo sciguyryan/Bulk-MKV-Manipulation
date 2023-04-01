@@ -479,7 +479,7 @@ impl MediaFile {
     pub fn filter_attachments(&mut self, params: &UnifiedParams) {
         // If we have no attachments ot an empty filter, then we have
         // nothing to do here.
-        if self.attachments.is_empty() || params.attachments.include_extensions.is_empty() {
+        if self.attachments.is_empty() || params.attachments.import_original_extensions.is_empty() {
             logger::log("No attachment selection filters applied.", false);
             return;
         }
@@ -487,7 +487,7 @@ impl MediaFile {
         // File extension matches should be case insensitive.
         let lower_exts: Vec<String> = params
             .attachments
-            .include_extensions
+            .import_original_extensions
             .iter()
             .map(|x| x.to_lowercase())
             .collect();
@@ -827,6 +827,24 @@ impl MediaFile {
         true
     }
 
+    /// Add an attachment to the argument list.
+    ///
+    /// # Arguments
+    ///
+    /// * `args` - A reference to the vector containing the argument list.
+    /// * `path` - A string slice representing the path to the attachment file.
+    fn add_attachment(&self, args: &mut Vec<String>, path: &str) {
+        if let Some(file_name) = utils::get_file_name(path) {
+            // Set the attachment name.
+            args.push("--attachment-name".to_string());
+            args.push(file_name);
+
+            // Set the attachment file path.
+            args.push("--attach-file".to_string());
+            args.push(path.to_string());
+        }
+    }
+
     /// Apply the parameters related the attachments to be added to the media file.
     ///
     /// # Arguments
@@ -835,13 +853,41 @@ impl MediaFile {
     fn apply_attachment_mux_params(&self, args: &mut Vec<String>) {
         // Iterate over all of the attachments.
         for attachment in &self.attachments {
-            // Set the attachment name.
-            args.push("--attachment-name".to_string());
-            args.push(attachment.clone());
+            self.add_attachment(args, &format!("./attachments/{attachment}"));
+        }
+    }
 
-            // Set the attachment file path.
-            args.push("--attach-file".to_string());
-            args.push(format!("./attachments/{attachment}"));
+    /// Apply any external attachments that need to be added to the media file.
+    ///
+    /// # Arguments
+    ///
+    /// * `args` - A reference to the vector containing the argument list.
+    /// * `directory` - An option indicating the directory from which the files should be imported.
+    fn apply_external_attachment_mux_params(
+        &self,
+        args: &mut Vec<String>,
+        directory: &Option<String>,
+    ) {
+        // Do we need to import attachments from a folder?
+        if let Some(import_dir) = directory {
+            // Read the contents of the import attachments folder.
+            let read = fs::read_dir(import_dir);
+            if let Ok(dir) = read {
+                // Iterate over each entry within the folder.
+                for entry in dir.flatten() {
+                    // If the path is valid, add it to the kept attachments list.
+                    if let Some(path) = entry.path().to_str() {
+                        self.add_attachment(args, path);
+                    }
+                }
+            } else {
+                logger::log(
+                    format!("Failed to read import attachments folder: {read:?}"),
+                    true,
+                );
+            }
+        } else {
+            logger::log("No attachment import folder was specified.", false);
         }
     }
 
@@ -1071,10 +1117,15 @@ impl MediaFile {
         self.apply_track_mux_params(&mut args, params);
 
         // Apply the attachment muxing arguments, if needed.
-        // TODO: transform this into a variable if we also want to import attachments from a directory.
         if params.attachments.import_from_original {
             self.apply_attachment_mux_params(&mut args);
         }
+
+        // Add any external attachments (from a specified folder), if needed.
+        self.apply_external_attachment_mux_params(
+            &mut args,
+            &params.attachments.import_from_folder,
+        );
 
         // Apply the chapter muxing arguments, if needed.
         if params.chapters.import_from_original || params.chapters.create_if_not_present {

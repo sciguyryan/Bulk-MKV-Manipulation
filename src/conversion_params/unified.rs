@@ -53,7 +53,10 @@ pub struct AttachmentParams {
     pub import_from_original: bool,
     /// The list of file extensions to be included in the final file.
     /// An empty list will indicate that all files should be included.
-    pub include_extensions: Vec<String>,
+    pub import_original_extensions: Vec<String>,
+    /// The path to a folder from which all files should be imported
+    /// as attachments.
+    pub import_from_folder: Option<String>,
 }
 
 #[derive(Deserialize)]
