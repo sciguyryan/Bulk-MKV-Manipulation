@@ -113,6 +113,10 @@ pub fn format_duration(seconds: u64) -> String {
         }
     }
 
+    if formatted.is_empty() {
+        formatted.push_str("< 1 second");
+    }
+
     formatted
 }
 
