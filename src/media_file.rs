@@ -856,6 +856,10 @@ impl MediaFile {
     /// * `args` - A reference to the vector containing the argument list.
     /// * `directory` - An option indicating the directory from which the files should be imported.
     fn apply_external_attachment_mux_params(&self, args: &mut Vec<String>, directory: &String) {
+        if !utils::dir_exists(directory) {
+            return;
+        }
+
         // Read the contents of the import attachments folder.
         let read = fs::read_dir(directory);
         if let Ok(dir) = read {
