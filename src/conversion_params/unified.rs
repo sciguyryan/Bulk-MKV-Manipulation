@@ -52,13 +52,17 @@ pub struct AttachmentParams {
     /// Should attachments be imported from the original file?
     /// Any existing attachments will be exported and included in the final file.
     pub import_from_original: bool,
-    /// The list of file extensions to be included in the final file.
+    /// The list of attachment extensions to be included from the original file.
     /// An empty list will indicate that all files should be included.
     #[serde(deserialize_with = "array_to_lowercase_string_vec")]
-    pub import_original_extensions: Vec<String>,
+    pub import_original_extensions: Option<Vec<String>>,
     /// The path to a folder from which all files should be imported
     /// as attachments.
     pub import_from_folder: Option<String>,
+    /// The list of attachment extensions to be included from the folder.
+    /// An empty list will indicate that all files should be included.
+    #[serde(deserialize_with = "array_to_lowercase_string_vec")]
+    pub import_folder_extensions: Option<Vec<String>>,
 }
 
 #[derive(Deserialize)]
@@ -164,7 +168,7 @@ pub struct TrackFilterBy {
     pub total_to_retain: Option<usize>,
 }
 
-fn array_to_lowercase_string_vec<'de, D>(deserializer: D) -> Result<Vec<String>, D::Error>
+fn array_to_lowercase_string_vec<'de, D>(deserializer: D) -> Result<Option<Vec<String>>, D::Error>
 where
     D: Deserializer<'de>,
 {
@@ -174,5 +178,5 @@ where
         *v = v.to_lowercase()
     }
 
-    Ok(vec)
+    Ok(Some(vec))
 }

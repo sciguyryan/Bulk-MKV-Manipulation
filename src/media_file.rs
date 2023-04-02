@@ -471,38 +471,52 @@ impl MediaFile {
         r
     }
 
-    /// Filter the media file attachments based on the specified criteria.
+    /// Filter the attachments from the original input file based on the specified criteria.
     ///
     /// # Arguments
     ///
     /// * `params` - The conversion parameters to be applied to the media file.
-    pub fn filter_attachments(&mut self, params: &UnifiedParams) {
-        // If we have no attachments or an empty filter, then we have
-        // nothing to do here.
-        if self.attachments.is_empty() || params.attachments.import_original_extensions.is_empty() {
-            logger::log("No attachment selection filters applied.", false);
+    pub fn filter_internal_attachments(&mut self, params: &UnifiedParams) {
+        // If we have no attachments we can exit early.
+        if self.attachments.is_empty() {
+            logger::log("No attachments in original file.", false);
             return;
         }
 
-        // Create a new vector to hold the attachments that we want to keep.
-        let mut keep = Vec::new();
-        self.attachments.iter().for_each(|attachment| {
-            // Get the extension of the file.
-            if let Some(ext) = utils::get_file_extension(attachment) {
-                // Do we need to keep this file extension?
-                if params.attachments.import_original_extensions.contains(&ext) {
-                    keep.push(attachment.to_string());
+        // If the attachment filter list is empty, we will allow all attachments
+        // to be imported from the original file.
+        let import_ext = match &params.attachments.import_original_extensions {
+            Some(exts) => {
+                if exts.is_empty() {
+                    return;
+                } else {
+                    exts
                 }
             }
-        });
+            None => return,
+        };
 
-        logger::log(
-            format!("{} attachments kept after filtering.", keep.len()),
-            false,
-        );
+        self.attachments = self
+            .attachments
+            .iter()
+            .filter_map(|path| {
+                let ext = utils::get_file_extension(path)?;
+                if import_ext.contains(&ext) {
+                    Some(path.clone())
+                } else {
+                    None
+                }
+            })
+            .collect();
 
         // Assign the kept attachments back into the container object.
-        self.attachments = keep;
+        logger::log(
+            format!(
+                "{} internal attachments kept after filtering.",
+                self.attachments.len()
+            ),
+            false,
+        );
     }
 
     /// Filter a track based on it's language.
@@ -753,7 +767,7 @@ impl MediaFile {
         }
 
         // Filter the attachments based on the filter parameters.
-        self.filter_attachments(params);
+        self.filter_internal_attachments(params);
 
         // Apply the default languages to tracks, if needed.
         self.apply_track_language_defaults(params);
@@ -825,8 +839,26 @@ impl MediaFile {
     ///
     /// * `args` - A reference to the vector containing the argument list.
     /// * `path` - A string slice representing the path to the attachment file.
-    fn add_attachment(&self, args: &mut Vec<String>, path: &str) {
+    /// * `accepted_extensions` - A string slice containing the supported file extensions.
+    fn add_attachment_if_matching(
+        &self,
+        args: &mut Vec<String>,
+        path: &str,
+        accepted_extensions: &[String],
+    ) {
         if let Some(file_name) = utils::get_file_name(path) {
+            let is_match = if accepted_extensions.is_empty() {
+                true
+            } else if let Some(ext) = utils::get_file_extension(&file_name) {
+                accepted_extensions.contains(&ext)
+            } else {
+                false
+            };
+
+            if !is_match {
+                return;
+            }
+
             // Set the attachment name.
             args.push("--attachment-name".to_string());
             args.push(file_name);
@@ -837,28 +869,51 @@ impl MediaFile {
         }
     }
 
-    /// Apply the parameters related the attachments to be added to the media file.
+    /// Apply the parameters related to any internal attachments to be added to the media file.
     ///
     /// # Arguments
     ///
     /// * `args` - A reference to the vector containing the argument list.
-    fn apply_attachment_mux_params(&self, args: &mut Vec<String>) {
+    /// * `params` - The conversion parameters to be applied to the media file.
+    fn apply_internal_attachment_mux_params(&self, args: &mut Vec<String>, params: &UnifiedParams) {
+        // Get a list of the valid attachment extensions.
+        let valid_extensions = match &params.attachments.import_original_extensions {
+            Some(exts) => exts.clone(),
+            None => Vec::new(),
+        };
+
         // Iterate over all of the attachments.
         self.attachments.iter().for_each(|attachment| {
-            self.add_attachment(args, &format!("./attachments/{attachment}"));
+            self.add_attachment_if_matching(
+                args,
+                &format!("./attachments/{attachment}"),
+                &valid_extensions,
+            );
         });
     }
 
-    /// Apply any external attachments that need to be added to the media file.
+    /// Apply the parameters related to any external attachments to be added to the media file.
     ///
     /// # Arguments
     ///
     /// * `args` - A reference to the vector containing the argument list.
     /// * `directory` - An option indicating the directory from which the files should be imported.
-    fn apply_external_attachment_mux_params(&self, args: &mut Vec<String>, directory: &String) {
+    /// * `params` - The conversion parameters to be applied to the media file.
+    fn apply_external_attachment_mux_params(
+        &self,
+        args: &mut Vec<String>,
+        directory: &String,
+        params: &UnifiedParams,
+    ) {
         if !utils::dir_exists(directory) {
             return;
         }
+
+        // Get a list of the valid attachment extensions.
+        let valid_extensions = match &params.attachments.import_folder_extensions {
+            Some(exts) => exts.clone(),
+            None => Vec::new(),
+        };
 
         // Read the contents of the import attachments folder.
         let read = fs::read_dir(directory);
@@ -867,7 +922,7 @@ impl MediaFile {
             for entry in dir.flatten() {
                 // If the path is valid, add it to the kept attachments list.
                 if let Some(path) = entry.path().to_str() {
-                    self.add_attachment(args, path);
+                    self.add_attachment_if_matching(args, path, &valid_extensions);
                 }
             }
         } else {
@@ -1105,7 +1160,7 @@ impl MediaFile {
 
         // Apply the attachment muxing arguments, if needed.
         if params.attachments.import_from_original {
-            self.apply_attachment_mux_params(&mut args);
+            self.apply_internal_attachment_mux_params(&mut args, params);
         }
 
         // Add any external attachments from a specified folder, if needed.
@@ -1113,7 +1168,7 @@ impl MediaFile {
             // We don't want to add any attachments if the directory is empty
             // since doing so will cause unintended files to be added.
             if !import_dir.is_empty() {
-                self.apply_external_attachment_mux_params(&mut args, import_dir);
+                self.apply_external_attachment_mux_params(&mut args, import_dir, params);
             }
         }
 
