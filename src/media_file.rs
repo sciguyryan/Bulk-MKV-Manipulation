@@ -263,7 +263,7 @@ impl MediaFile {
                 logger::log(" conversion failed.", false);
             }
 
-            // Output the MKV Merge parameters, if the debug flag is set.
+            // Output the FFmpeg parameters, if the debug flag is set.
             if DEBUG_PARAMS {
                 let args = params
                     .as_ffmpeg_argument_list(t, &in_file_path, &out_file_path)
@@ -1082,7 +1082,7 @@ impl MediaFile {
     pub fn remux_file(&self, out_path: &str, title: &str, params: &UnifiedParams) {
         use std::fmt::Write;
 
-        logger::log_inline("Remuxing media file...", false);
+        logger::log_inline("Remuxing media file... ", false);
 
         let mut args = Vec::with_capacity(100);
 
@@ -1106,9 +1106,11 @@ impl MediaFile {
 
         // Add any external attachments from a specified folder, if needed.
         if let Some(import_dir) = &params.attachments.import_from_folder {
-            self.apply_external_attachment_mux_params(&mut args, import_dir);
-        } else {
-            logger::log("No attachment import folder was specified.", false);
+            // We don't want to add any attachments if the directory is empty
+            // since doing so will cause unintended files to be added.
+            if !import_dir.is_empty() {
+                self.apply_external_attachment_mux_params(&mut args, import_dir);
+            }
         }
 
         // Apply the chapter muxing arguments, if needed.
@@ -1137,11 +1139,11 @@ impl MediaFile {
         // Run the MKV merge process.
         match mkvtoolnix::run_mkv_merge(&self.get_temp_path(), &args) {
             0 | 1 => {
-                logger::log(" muxing complete.", false);
+                logger::log("muxing complete.", false);
                 true
             }
             2 => {
-                logger::log(" extraction failed.", false);
+                logger::log("muxing failed.", false);
                 false
             }
             _ => true,
