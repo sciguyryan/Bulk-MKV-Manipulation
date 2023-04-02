@@ -477,40 +477,32 @@ impl MediaFile {
     ///
     /// * `params` - The conversion parameters to be applied to the media file.
     pub fn filter_attachments(&mut self, params: &UnifiedParams) {
-        // If we have no attachments ot an empty filter, then we have
+        // If we have no attachments or an empty filter, then we have
         // nothing to do here.
         if self.attachments.is_empty() || params.attachments.import_original_extensions.is_empty() {
             logger::log("No attachment selection filters applied.", false);
             return;
         }
 
-        // File extension matches should be case insensitive.
-        let lower_exts: Vec<String> = params
-            .attachments
-            .import_original_extensions
-            .iter()
-            .map(|x| x.to_lowercase())
-            .collect();
-
         // Create a new vector to hold the attachments that we want to keep.
-        let mut kept = Vec::new();
-        for attachment in &self.attachments {
+        let mut keep = Vec::new();
+        self.attachments.iter().for_each(|attachment| {
             // Get the extension of the file.
             if let Some(ext) = utils::get_file_extension(attachment) {
                 // Do we need to keep this file extension?
-                if lower_exts.contains(&ext) {
-                    kept.push(attachment.to_string());
+                if params.attachments.import_original_extensions.contains(&ext) {
+                    keep.push(attachment.to_string());
                 }
             }
-        }
+        });
 
         logger::log(
-            format!("{} attachments kept after filtering.", kept.len()),
+            format!("{} attachments kept after filtering.", keep.len()),
             false,
         );
 
         // Assign the kept attachments back into the container object.
-        self.attachments = kept;
+        self.attachments = keep;
     }
 
     /// Filter a track based on it's language.
@@ -852,9 +844,9 @@ impl MediaFile {
     /// * `args` - A reference to the vector containing the argument list.
     fn apply_attachment_mux_params(&self, args: &mut Vec<String>) {
         // Iterate over all of the attachments.
-        for attachment in &self.attachments {
+        self.attachments.iter().for_each(|attachment| {
             self.add_attachment(args, &format!("./attachments/{attachment}"));
-        }
+        });
     }
 
     /// Apply any external attachments that need to be added to the media file.
