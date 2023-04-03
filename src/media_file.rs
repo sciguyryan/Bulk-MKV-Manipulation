@@ -26,7 +26,7 @@ static UNIQUE_ID: AtomicUsize = AtomicUsize::new(0);
 /// This will indicate whether the JSON MediaInfo output should be exported to a file.
 const EXPORT_JSON: bool = false;
 
-/// This will indicate whether to output the MKV Merge parameters.
+/// This will indicate whether to output the command line parameters used.
 const DEBUG_PARAMS: bool = false;
 
 #[derive(Clone, Debug, Default)]
@@ -401,7 +401,7 @@ impl MediaFile {
             _ => true,
         };
 
-        // Output the MKV Extract parameters, if the debug flag is set.
+        // Output the mkvextract parameters, if the debug flag is set.
         if DEBUG_PARAMS {
             logger::log(
                 format!(
@@ -437,7 +437,7 @@ impl MediaFile {
             _ => true,
         };
 
-        // Output the MKV Extract parameters, if the debug flag is set.
+        // Output the mkvextract parameters, if the debug flag is set.
         if DEBUG_PARAMS {
             logger::log(
                 format!(
@@ -484,7 +484,7 @@ impl MediaFile {
             _ => true,
         };
 
-        // Output the MKV Extract parameters, if the debug flag is set.
+        // Output the mkvextract parameters, if the debug flag is set.
         if DEBUG_PARAMS {
             logger::log(
                 format!(
@@ -909,13 +909,13 @@ impl MediaFile {
         };
 
         // Iterate over all of the attachments.
-        self.attachments.iter().for_each(|attachment| {
+        for attachment in &self.attachments {
             self.add_attachment_if_matching(
                 args,
                 &format!("./attachments/{attachment}"),
                 &valid_extensions,
             );
-        });
+        }
     }
 
     /// Apply the parameters related to any external attachments to be added to the media file.
@@ -923,18 +923,14 @@ impl MediaFile {
     /// # Arguments
     ///
     /// * `args` - A reference to the vector containing the argument list.
-    /// * `directory` - An option indicating the directory from which the files should be imported.
+    /// * `dir` - The directory from which the files should be imported.
     /// * `params` - The conversion parameters to be applied to the media file.
     fn apply_external_attachment_mux_params(
         &self,
         args: &mut Vec<String>,
-        directory: &String,
+        dir: &String,
         params: &UnifiedParams,
     ) {
-        if !utils::dir_exists(directory) {
-            return;
-        }
-
         // Get a list of the valid attachment extensions.
         let valid_extensions = match &params.attachments.import_folder_extensions {
             Some(exts) => exts.clone(),
@@ -942,8 +938,7 @@ impl MediaFile {
         };
 
         // Read the contents of the import attachments folder recursively/
-        for entry in WalkDir::new(directory).into_iter().filter_map(|e| e.ok()) {
-            // Iterate over each entry within the folder.
+        for entry in WalkDir::new(dir).into_iter().filter_map(|e| e.ok()) {
             let pb = &entry.path();
             // We want to skip anything that isn't a file.
             if !pb.is_file() {
@@ -1232,7 +1227,7 @@ impl MediaFile {
             _ => true,
         };
 
-        // Output the MKV Merge parameters, if the debug flag is set.
+        // Output the mkvmerge parameters, if the debug flag is set.
         if DEBUG_PARAMS {
             logger::log(
                 format!(
