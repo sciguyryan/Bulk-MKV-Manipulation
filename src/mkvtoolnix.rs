@@ -6,13 +6,13 @@ const FAIL_ERROR_CODE: i32 = 2;
 
 pub fn get_mkvtoolnix_exe(exe: &str) -> String {
     Path::new(&paths::PATHS.mkvtoolnix)
-        .join(exe)
-        .to_string_lossy()
+        .join(format!("{}.exe", exe))
+        .display()
         .to_string()
 }
 
 pub fn run_mkv_extract(in_path: &str, out_path: &str, arg_type: &str, args: &[String]) -> i32 {
-    let path = get_mkvtoolnix_exe("mkvextract.exe");
+    let path = get_mkvtoolnix_exe("mkvextract");
 
     let r = Command::new(path)
         .arg(in_path)
@@ -33,7 +33,7 @@ pub fn run_mkv_extract(in_path: &str, out_path: &str, arg_type: &str, args: &[St
 }
 
 pub fn run_mkv_merge(base_dir: &str, args: &[String]) -> i32 {
-    let path = get_mkvtoolnix_exe("mkvmerge.exe");
+    let path = get_mkvtoolnix_exe("mkvmerge");
 
     let r = Command::new(path).args(args).current_dir(base_dir).output();
 

@@ -268,7 +268,14 @@ impl MediaFile {
                 let args = params
                     .as_ffmpeg_argument_list(t, &in_file_path, &out_file_path)
                     .unwrap();
-                logger::log(format!("ffmpeg parameters: {}", args.join(" ")), true);
+                logger::log(
+                    format!(
+                        "ffmpeg command line: \"{}\" {}",
+                        paths::PATHS.ffmpeg,
+                        &args.join(" ")
+                    ),
+                    true,
+                );
             }
 
             if !success {
@@ -395,7 +402,14 @@ impl MediaFile {
 
         // Output the MKV Extract parameters, if the debug flag is set.
         if DEBUG_PARAMS {
-            logger::log(format!("mkvextract parameters: {}", &args.join(" ")), true);
+            logger::log(
+                format!(
+                    "mkvextract command line: \"{}\" {}",
+                    mkvtoolnix::get_mkvtoolnix_exe("mkvextract"),
+                    &args.join(" ")
+                ),
+                true,
+            );
         }
 
         r
@@ -424,7 +438,13 @@ impl MediaFile {
 
         // Output the MKV Extract parameters, if the debug flag is set.
         if DEBUG_PARAMS {
-            logger::log("mkvextract parameters: chapters.xml", true);
+            logger::log(
+                format!(
+                    "mkvextract command line: \"{}\" chapters.xml",
+                    mkvtoolnix::get_mkvtoolnix_exe("mkvextract")
+                ),
+                true,
+            );
         }
 
         r
@@ -465,7 +485,14 @@ impl MediaFile {
 
         // Output the MKV Extract parameters, if the debug flag is set.
         if DEBUG_PARAMS {
-            logger::log(format!("mkvextract parameters: {}", &args.join(" ")), true);
+            logger::log(
+                format!(
+                    "mkvextract command line: \"{}\" {}",
+                    mkvtoolnix::get_mkvtoolnix_exe("mkvextract"),
+                    &args.join(" ")
+                ),
+                true,
+            );
         }
 
         r
@@ -1214,7 +1241,14 @@ impl MediaFile {
 
         // Output the MKV Merge parameters, if the debug flag is set.
         if DEBUG_PARAMS {
-            logger::log(format!("mkvmerge parameters: {}", &args.join(" ")), true);
+            logger::log(
+                format!(
+                    "mkvmerge command line: \"{}\" {}",
+                    mkvtoolnix::get_mkvtoolnix_exe("mkvmerge"),
+                    &args.join(" ")
+                ),
+                true,
+            );
         }
     }
 
