@@ -23,7 +23,7 @@ pub struct UnifiedParams {
     pub misc_params: MiscParams,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Clone)]
 pub struct TrackParams {
     /// The ID of the track to which these parameters should be applied.
     pub id: usize,
@@ -77,7 +77,7 @@ pub struct ChapterParams {
     pub create_interval: Option<String>,
 }
 
-#[derive(Default, Deserialize, PartialEq, Eq)]
+#[derive(Default, Deserialize, PartialEq, Eq, Clone)]
 pub enum DeletionOptions {
     /// Delete the file using the default method.
     Delete,

@@ -599,7 +599,13 @@ impl MediaFile {
             };
 
             if let Some(t) = target {
-                if self.track_type_counter.get(&tt).cloned().unwrap_or(0) != t {
+                if self
+                    .track_type_counter
+                    .get(&tt)
+                    .cloned()
+                    .unwrap_or_default()
+                    != t
+                {
                     logger::log(
                         format!(
                             "Fewer tracks of type {} than required for file {}.",
@@ -727,7 +733,7 @@ impl MediaFile {
 
         logger::log(" Done.", false);
 
-        // We we able to successfully parse the output?
+        // Were we able to successfully parse the output?
         if let Some(mut mf) = MediaFile::parse_json(&json) {
             mf.id = UNIQUE_ID.fetch_add(1, Ordering::SeqCst);
 
@@ -836,26 +842,24 @@ impl MediaFile {
         self.remux_file(out_path, title, params);
 
         // Delete the temporary files.
-        if let Some(del) = &params.misc_params.remove_temp_files {
-            match del {
-                DeletionOptions::Delete => {
-                    logger::log_inline("Attempting to delete temporary files... ", false);
-                    if utils::delete_directory(&self.get_temp_path()) {
-                        logger::log(" files successfully deleted.", false);
-                    } else {
-                        logger::log(" files could not be deleted.", false);
-                    }
+        match params.misc_params.remove_temp_files {
+            Some(DeletionOptions::Delete) => {
+                logger::log_inline("Attempting to delete temporary files... ", false);
+                if utils::delete_directory(&self.get_temp_path()) {
+                    logger::log(" files successfully deleted.", false);
+                } else {
+                    logger::log(" files could not be deleted.", false);
                 }
-                DeletionOptions::Trash => {
-                    logger::log_inline("Attempting to delete temporary files... ", false);
-                    if trash::delete(self.get_temp_path()).is_ok() {
-                        logger::log(" files successfully sent to the trash.", false);
-                    } else {
-                        logger::log(" files could not be sent to the trash.", false);
-                    }
-                }
-                _ => {}
             }
+            Some(DeletionOptions::Trash) => {
+                logger::log_inline("Attempting to delete temporary files... ", false);
+                if trash::delete(self.get_temp_path()).is_ok() {
+                    logger::log(" files successfully sent to the trash.", false);
+                } else {
+                    logger::log(" files could not be sent to the trash.", false);
+                }
+            }
+            _ => {}
         }
 
         true
@@ -874,25 +878,27 @@ impl MediaFile {
         path: &str,
         accepted_extensions: &[String],
     ) {
-        if let Some(file_name) = utils::get_file_name(path) {
-            let is_match = if let Some(ext) = utils::get_file_extension(&file_name) {
-                accepted_extensions.contains(&ext)
-            } else {
-                accepted_extensions.is_empty()
-            };
-
-            if !is_match {
-                return;
-            }
-
-            // Set the attachment name.
-            args.push("--attachment-name".to_string());
-            args.push(file_name);
-
-            // Set the attachment file path.
-            args.push("--attach-file".to_string());
-            args.push(path.to_string());
+        let file_name = utils::get_file_name(path).unwrap_or_default();
+        if file_name.is_empty() {
+            return;
         }
+
+        let is_match = match utils::get_file_extension(&file_name) {
+            Some(ext) => accepted_extensions.contains(&ext),
+            None => accepted_extensions.is_empty(),
+        };
+
+        if !is_match {
+            return;
+        }
+
+        // Set the attachment name.
+        args.push("--attachment-name".to_string());
+        args.push(file_name);
+
+        // Set the attachment file path.
+        args.push("--attach-file".to_string());
+        args.push(path.to_string());
     }
 
     /// Apply the parameters related to any internal attachments to be added to the media file.
@@ -980,10 +986,9 @@ impl MediaFile {
             // 5 minutes, unless a different interval is specified.
             let mut format = "00:05:00.000000000";
             if let Some(interval) = &params.chapters.create_interval {
-                if !interval.is_empty() {
-                    format = interval;
-                }
+                format = interval;
             }
+
             args.push(format!("interval:{format}"));
         }
     }
@@ -1001,61 +1006,64 @@ impl MediaFile {
         track_id: usize,
         params: &UnifiedParams,
     ) {
-        if params.track_params.is_none() {
-            return;
-        }
+        // Do we have any track parameters to apply?
+        let all_track_params = match &params.track_params {
+            Some(tps) => tps,
+            None => return,
+        };
+
+        // Do we have any parameters to apply to this track?
+        let track_params = match all_track_params.iter().find(|t| t.id == track_id) {
+            Some(tp) => tp,
+            None => return,
+        };
+
+        let track_type = &self.media.tracks[track_id].track_type;
 
         let mut param_opts = HashMap::new();
 
-        // Do we have any parameters to apply to this track?
-        if let Some(tp) = &params.track_params {
-            if let Some(p) = tp.iter().find(|t| t.id == track_id) {
-                let track_type = &self.media.tracks[track_id].track_type;
-
-                if let Some(b) = p.default {
-                    param_opts.insert("default-track", b);
-                }
-                if let Some(b) = p.enabled {
-                    param_opts.insert("track-enabled", b);
-                }
-                if let Some(b) = p.forced {
-                    if *track_type == TrackType::Subtitle {
-                        param_opts.insert("forced-display", b);
-                    } else {
-                        eprintln!("The forced flag was set for track ID {track_id}, but the track type does not support it.");
-                    }
-                }
-                if let Some(b) = p.hearing_impaired {
-                    if *track_type == TrackType::Audio {
-                        param_opts.insert("hearing-impaired", b);
-                    } else {
-                        eprintln!("The hearing impaired flag was set for track ID {track_id}, but the track type does not support it.");
-                    }
-                }
-                if let Some(b) = p.hearing_impaired {
-                    if *track_type == TrackType::Audio {
-                        param_opts.insert("visual-impaired", b);
-                    } else {
-                        eprintln!("The visually impaired flag was set for track ID {track_id}, but the track type does not support it.");
-                    }
-                }
-                if let Some(b) = p.text_descriptions {
-                    if *track_type == TrackType::Subtitle {
-                        param_opts.insert("text-descriptions", b);
-                    } else {
-                        eprintln!("The text descriptions flag was set for track ID {track_id}, but the track type does not support it.");
-                    }
-                }
-                if let Some(b) = p.original {
-                    param_opts.insert("original", b);
-                }
-                if let Some(b) = p.commentary {
-                    if *track_type == TrackType::Audio || *track_type == TrackType::Subtitle {
-                        param_opts.insert("commentary", b);
-                    } else {
-                        eprintln!("The commentary flag was set for track ID {track_id}, but the track type does not support it.");
-                    }
-                }
+        if let Some(b) = track_params.default {
+            param_opts.insert("default-track", b);
+        }
+        if let Some(b) = track_params.enabled {
+            param_opts.insert("track-enabled", b);
+        }
+        if let Some(b) = track_params.forced {
+            if *track_type == TrackType::Subtitle {
+                param_opts.insert("forced-display", b);
+            } else {
+                eprintln!("The forced flag was set for track ID {track_id}, but the track type does not support it.");
+            }
+        }
+        if let Some(b) = track_params.hearing_impaired {
+            if *track_type == TrackType::Audio {
+                param_opts.insert("hearing-impaired", b);
+            } else {
+                eprintln!("The hearing impaired flag was set for track ID {track_id}, but the track type does not support it.");
+            }
+        }
+        if let Some(b) = track_params.hearing_impaired {
+            if *track_type == TrackType::Audio {
+                param_opts.insert("visual-impaired", b);
+            } else {
+                eprintln!("The visually impaired flag was set for track ID {track_id}, but the track type does not support it.");
+            }
+        }
+        if let Some(b) = track_params.text_descriptions {
+            if *track_type == TrackType::Subtitle {
+                param_opts.insert("text-descriptions", b);
+            } else {
+                eprintln!("The text descriptions flag was set for track ID {track_id}, but the track type does not support it.");
+            }
+        }
+        if let Some(b) = track_params.original {
+            param_opts.insert("original", b);
+        }
+        if let Some(b) = track_params.commentary {
+            if matches!(*track_type, TrackType::Audio | TrackType::Subtitle) {
+                param_opts.insert("commentary", b);
+            } else {
+                eprintln!("The commentary flag was set for track ID {track_id}, but the track type does not support it.");
             }
         }
 
@@ -1110,7 +1118,7 @@ impl MediaFile {
                 args.push(format!("0:{}x{}", track.width, track.height));
             }
 
-            // Do we need to set the bit depth.
+            // Do we need to set the bit depth?
             if track.bit_depth != 0 {
                 args.push("--color-bits-per-channel".to_string());
                 args.push(format!("0:{}", track.bit_depth));
@@ -1139,15 +1147,14 @@ impl MediaFile {
     /// * `args` - A reference to the vector containing the argument list.
     /// * `params` - The conversion parameters to be applied to the media file.
     fn apply_tag_mux_params(&self, args: &mut Vec<String>, params: &UnifiedParams) {
-        if let Some(tags) = &params.misc_params.tags_path {
-            if !utils::file_exists(tags) {
-                return;
-            }
-
-            // Set the global tags argument.
-            args.push("--global-tags".to_string());
-            args.push(tags.clone());
+        let path = params.misc_params.tags_path.clone().unwrap_or_default();
+        if !utils::file_exists(&path) {
+            return;
         }
+
+        // Set the global tags argument.
+        args.push("--global-tags".to_string());
+        args.push(path);
     }
 
     /// Remux the attachments, chapters and tracks into a single file.
@@ -1183,12 +1190,14 @@ impl MediaFile {
         }
 
         // Add any external attachments from a specified folder, if needed.
-        if let Some(import_dir) = &params.attachments.import_from_folder {
-            // We don't want to add any attachments if the directory is empty
-            // since doing so will cause unintended files to be added.
-            if !import_dir.is_empty() {
-                self.apply_external_attachment_mux_params(&mut args, import_dir, params);
-            }
+        // We don't want to add any attachments if the directory is empty.
+        let import_dir = params
+            .attachments
+            .import_from_folder
+            .clone()
+            .unwrap_or_default();
+        if !import_dir.is_empty() {
+            self.apply_external_attachment_mux_params(&mut args, &import_dir, params);
         }
 
         // Apply the chapter muxing arguments, if needed.
@@ -1250,15 +1259,15 @@ impl MediaFile {
             MediaFile::dump_json(json);
         }
 
-        let result = serde_json::from_str::<MediaFile>(json);
-        if let Ok(mi) = result {
-            Some(mi)
-        } else {
-            logger::log(
-                format!("Error attempting to parse JSON data: {:?}", result.err()),
-                true,
-            );
-            None
+        match serde_json::from_str::<MediaFile>(json) {
+            Ok(mi) => Some(mi),
+            Err(e) => {
+                logger::log(
+                    format!("Error attempting to parse JSON data: {:?}", e),
+                    true,
+                );
+                None
+            }
         }
     }
 }
