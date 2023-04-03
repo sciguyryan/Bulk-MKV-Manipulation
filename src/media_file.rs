@@ -18,6 +18,7 @@ use std::{
     process::Command,
     sync::atomic::{AtomicUsize, Ordering},
 };
+use walkdir::WalkDir;
 
 /// This will generate sequential thread-global unique IDs for instances of this struct.
 static UNIQUE_ID: AtomicUsize = AtomicUsize::new(0);
@@ -940,27 +941,19 @@ impl MediaFile {
             None => Vec::new(),
         };
 
-        // Read the contents of the import attachments folder.
-        let read = fs::read_dir(directory);
-        if let Ok(dir) = read {
+        // Read the contents of the import attachments folder recursively/
+        for entry in WalkDir::new(directory).into_iter().filter_map(|e| e.ok()) {
             // Iterate over each entry within the folder.
-            for entry in dir.flatten() {
-                let pb = &entry.path();
-                // We want to skip anything that isn't a file.
-                if !pb.is_file() {
-                    continue;
-                }
-
-                // If the path is valid, add it to the kept attachments list.
-                if let Some(path) = pb.to_str() {
-                    self.add_attachment_if_matching(args, path, &valid_extensions);
-                }
+            let pb = &entry.path();
+            // We want to skip anything that isn't a file.
+            if !pb.is_file() {
+                continue;
             }
-        } else {
-            logger::log(
-                format!("Failed to read import attachments folder: {read:?}"),
-                true,
-            );
+
+            // If the path is valid, add it to the kept attachments list.
+            if let Some(path) = pb.to_str() {
+                self.add_attachment_if_matching(args, path, &valid_extensions);
+            }
         }
     }
 
