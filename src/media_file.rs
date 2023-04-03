@@ -920,8 +920,14 @@ impl MediaFile {
         if let Ok(dir) = read {
             // Iterate over each entry within the folder.
             for entry in dir.flatten() {
+                let pb = &entry.path();
+                // We want to skip anything that isn't a file.
+                if !pb.is_file() {
+                    continue;
+                }
+
                 // If the path is valid, add it to the kept attachments list.
-                if let Some(path) = entry.path().to_str() {
+                if let Some(path) = pb.to_str() {
                     self.add_attachment_if_matching(args, path, &valid_extensions);
                 }
             }
