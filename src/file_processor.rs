@@ -145,12 +145,15 @@ impl FileProcessor {
         let read = fs::read_dir(&profile.input_dir);
         if let Ok(dir) = read {
             for entry in dir.flatten() {
-                let path = entry.path();
+                let pb = entry.path();
+                if !pb.is_file() {
+                    continue;
+                }
 
-                if let Some(ext) = path.extension() {
+                if let Some(ext) = pb.extension() {
                     // We always want to check extensions in lowercase.
                     if VALID_EXTENSIONS.contains(&ext.to_string_lossy().to_lowercase().as_str()) {
-                        input_paths.push(path.display().to_string());
+                        input_paths.push(pb.display().to_string());
                     }
                 }
             }

@@ -847,12 +847,10 @@ impl MediaFile {
         accepted_extensions: &[String],
     ) {
         if let Some(file_name) = utils::get_file_name(path) {
-            let is_match = if accepted_extensions.is_empty() {
-                true
-            } else if let Some(ext) = utils::get_file_extension(&file_name) {
+            let is_match = if let Some(ext) = utils::get_file_extension(&file_name) {
                 accepted_extensions.contains(&ext)
             } else {
-                false
+                accepted_extensions.is_empty()
             };
 
             if !is_match {
