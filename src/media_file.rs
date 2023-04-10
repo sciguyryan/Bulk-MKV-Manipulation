@@ -884,7 +884,7 @@ impl MediaFile {
         }
 
         let is_match = match utils::get_file_extension(&file_name) {
-            Some(ext) => accepted_extensions.contains(&ext),
+            Some(ext) => accepted_extensions.is_empty() || accepted_extensions.contains(&ext),
             None => accepted_extensions.is_empty(),
         };
 
@@ -899,6 +899,30 @@ impl MediaFile {
         // Set the attachment file path.
         args.push("--attach-file".to_string());
         args.push(path.to_string());
+    }
+
+    /// Apply the parameters related to any attachments to be added to the media file.
+    ///
+    /// # Arguments
+    ///
+    /// * `args` - A reference to the vector containing the argument list.
+    /// * `params` - The conversion parameters to be applied to the media file.
+    fn apply_attachment_mux_params(&self, args: &mut Vec<String>, params: &UnifiedParams) {
+        // Apply the internal (extracted) attachment muxing arguments, if needed.
+        if params.attachments.import_from_original {
+            self.apply_internal_attachment_mux_params(args, params);
+        }
+
+        // Add any external attachments from the specified folder, if needed.
+        // We don't don't have any to add if the folder path is empty.
+        let import_dir = params
+            .attachments
+            .import_from_folder
+            .clone()
+            .unwrap_or_default();
+        if !import_dir.is_empty() {
+            self.apply_external_attachment_mux_params(args, &import_dir, params);
+        }
     }
 
     /// Apply the parameters related to any internal attachments to be added to the media file.
@@ -1185,20 +1209,7 @@ impl MediaFile {
         self.apply_track_mux_params(&mut args, params);
 
         // Apply the attachment muxing arguments, if needed.
-        if params.attachments.import_from_original {
-            self.apply_internal_attachment_mux_params(&mut args, params);
-        }
-
-        // Add any external attachments from a specified folder, if needed.
-        // We don't want to add any attachments if the directory is empty.
-        let import_dir = params
-            .attachments
-            .import_from_folder
-            .clone()
-            .unwrap_or_default();
-        if !import_dir.is_empty() {
-            self.apply_external_attachment_mux_params(&mut args, &import_dir, params);
-        }
+        self.apply_attachment_mux_params(&mut args, params);
 
         // Apply the chapter muxing arguments, if needed.
         if params.chapters.import_from_original || params.chapters.create_if_not_present {
