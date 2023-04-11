@@ -878,11 +878,6 @@ impl MediaFile {
         path: &str,
         accepted_extensions: &Option<Vec<String>>,
     ) {
-        if !utils::file_exists(path) {
-            logger::log_inline(format!("Attachment file {path}... was requested for addition but the path can't be found."), false);
-            return;
-        }
-
         let file_name = utils::get_file_name(path).unwrap_or_default();
         if file_name.is_empty() {
             return;
@@ -902,6 +897,11 @@ impl MediaFile {
         };
 
         if !is_match {
+            return;
+        }
+
+        if !utils::file_exists(path) {
+            logger::log_inline(format!("Attachment path {path} was selected for inclusion but the file couldn't be found."), false);
             return;
         }
 
