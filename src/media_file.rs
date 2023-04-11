@@ -1249,7 +1249,7 @@ impl MediaFile {
             *arg = arg.replace("%p", &self.get_temp_path());
         }
 
-        todo!("not finished yet");
+        let _a = Command::new(command_path).args(command_args).output();
     }
 
     /// Remux the attachments, chapters and tracks into a single file.
