@@ -871,13 +871,18 @@ impl MediaFile {
     ///
     /// * `args` - A reference to the vector containing the argument list.
     /// * `path` - A string slice representing the path to the attachment file.
-    /// * `accepted_extensions` - A string slice containing the supported file extensions.
+    /// * `accepted_extensions` - A reference to the option containing permitted extensions list. If omitted then all extensions are permitted.
     fn add_attachment_if_matching(
         &self,
         args: &mut Vec<String>,
         path: &str,
         accepted_extensions: &Option<Vec<String>>,
     ) {
+        if !utils::file_exists(path) {
+            logger::log_inline(format!("Attachment file {path}... was requested for addition but the path can't be found."), false);
+            return;
+        }
+
         let file_name = utils::get_file_name(path).unwrap_or_default();
         if file_name.is_empty() {
             return;
