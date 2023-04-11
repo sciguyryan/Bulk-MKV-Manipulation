@@ -102,7 +102,7 @@ pub struct MiscParams {
     /// If the path is not specified, or is invalid, then no tags will be added.
     pub tags_path: Option<String>,
     /// The paths to any processes that should be run before or after this processing step.
-    pub run: Option<ProcessRunner>,
+    pub run: Option<ProcessRun>,
 }
 
 #[derive(Deserialize)]
@@ -156,12 +156,20 @@ pub enum TrackFilterType {
     None,
 }
 
-#[derive(Deserialize)]
-pub struct ProcessRunner {
+#[derive(Deserialize, Clone)]
+pub struct ProcessRun {
     /// The path to the process to be run before this stage is initiated.
     pub pre_mux: Option<String>,
     /// The path to the process to be run after this stage has been completed.
     pub post_mux: Option<String>,
+}
+
+#[derive(Deserialize, Debug)]
+pub enum ProcessRunType {
+    // A command to be run prior to muxing.
+    PreMux,
+    // A command to be run after muxing.
+    PostMux,
 }
 
 #[derive(Deserialize)]

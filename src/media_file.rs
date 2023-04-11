@@ -3,7 +3,7 @@ use crate::{
         audio::{AudioCodec, AudioParams},
         params_trait::ConversionParams,
         subtitle::SubtitleParams,
-        unified::{TrackFilterType, UnifiedParams},
+        unified::{ProcessRunType, TrackFilterType, UnifiedParams},
         video::VideoParams,
     },
     converters, logger, mkvtoolnix, paths, utils,
@@ -838,8 +838,14 @@ impl MediaFile {
             todo!("not yet implemented");
         }
 
+        // Run any pre-muxing processes that have been requested.
+        self.run_commands(ProcessRunType::PreMux, params);
+
         // Remux the media file.
         self.remux_file(out_path, title, params);
+
+        // Run any post-muxing processes that have been requested.
+        self.run_commands(ProcessRunType::PostMux, params);
 
         // Delete the temporary files.
         match params.misc.remove_temp_files {
@@ -1184,6 +1190,54 @@ impl MediaFile {
         // Set the global tags argument.
         args.push("--global-tags".to_string());
         args.push(path);
+    }
+
+    /// Run any pre-muxing commands.
+    ///
+    /// # Arguments
+    ///
+    /// * `run_type` - The type of command to be run.
+    /// * `params` - The conversion parameters to be applied to the media file.
+    pub fn run_commands(&self, run_type: ProcessRunType, params: &UnifiedParams) {
+        logger::log_inline("Checking for run commands... ", false);
+
+        let run = match params.misc.run.clone() {
+            Some(p) => p,
+            None => {
+                logger::log("no run commands were found.", false);
+                return;
+            }
+        };
+
+        let path = match run_type {
+            ProcessRunType::PreMux => match run.pre_mux {
+                Some(p) => {
+                    logger::log("a pre-mux command has been requested!", false);
+                    p
+                }
+                None => return,
+            },
+            ProcessRunType::PostMux => match run.post_mux {
+                Some(p) => {
+                    logger::log("a post-mux command has been requested!", false);
+                    p
+                }
+                None => return,
+            },
+        };
+
+        if !utils::file_exists(&path) {
+            logger::log(
+                format!(
+                    "{:?} command path was specified, but the path doesn't exist!",
+                    run_type
+                ),
+                false,
+            );
+            return;
+        }
+
+        todo!("not finished yet");
     }
 
     /// Remux the attachments, chapters and tracks into a single file.
