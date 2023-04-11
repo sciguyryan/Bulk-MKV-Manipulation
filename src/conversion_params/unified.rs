@@ -95,9 +95,9 @@ pub struct MiscParams {
     /// The method to be used when removing the temporary files, if specified.
     pub remove_temp_files: Option<DeletionOptions>,
     // Should the title of the media file be set?
-    pub set_file_title: bool,
+    pub set_file_title: Option<bool>,
     /// Should the computer be shutdown after the processing is complete?
-    pub shutdown_upon_completion: bool,
+    pub shutdown_upon_completion: Option<bool>,
     /// The path to the tags file.
     /// If the path is not specified, or is invalid, then no tags will be added.
     pub tags_path: Option<String>,

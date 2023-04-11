@@ -1226,13 +1226,17 @@ impl MediaFile {
             },
         };
 
+        if command.is_empty() {
+            return;
+        }
+
         let command_path = &command[0];
         let mut command_args: Vec<String> = command[1..].iter().map(|s| s.to_string()).collect();
 
         if !utils::file_exists(command_path) {
             logger::log(
                 format!(
-                    "{:?} command path was specified, but the path doesn't exist!",
+                    "Run command of type {:?} was specified, but the path doesn't exist!",
                     run_type
                 ),
                 false,
@@ -1242,7 +1246,7 @@ impl MediaFile {
 
         // Next, go through the arguments list and replace any special parameters.
         for arg in &mut command_args {
-            *arg = arg.replace("%P", &self.get_temp_path());
+            *arg = arg.replace("%p", &self.get_temp_path());
         }
 
         todo!("not finished yet");
@@ -1267,9 +1271,11 @@ impl MediaFile {
         args.push(out_path.to_string());
 
         // The title of the media file, if needed.
-        if params.misc.set_file_title {
-            args.push("--title".to_string());
-            args.push(title.to_string());
+        if let Some(b) = params.misc.set_file_title {
+            if b {
+                args.push("--title".to_string());
+                args.push(title.to_string());
+            }
         }
 
         // Apply the track muxing arguments.

@@ -337,10 +337,12 @@ impl FileProcessor {
         }
 
         // Shutdown the computer after processing, if required.
-        if params.misc.shutdown_upon_completion {
-            match shutdown() {
-                Ok(_) => logger::log("Attempting to shutdown down the computer...", true),
-                Err(e) => logger::log(format!("Failed to shutdown the computer: {e}"), true),
+        if let Some(b) = params.misc.shutdown_upon_completion {
+            if b {
+                match shutdown() {
+                    Ok(_) => logger::log("Attempting to shutdown down the computer...", true),
+                    Err(e) => logger::log(format!("Failed to shutdown the computer: {e}"), true),
+                }
             }
         }
     }
