@@ -303,7 +303,7 @@ impl FileProcessor {
             );
 
             // Delete the original file, if required.
-            if let Some(del) = &params.misc_params.remove_original_file {
+            if let Some(del) = &params.misc.remove_original_file {
                 match del {
                     DeletionOptions::Delete => {
                         logger::log_inline("Attempting to delete original media file... ", false);
@@ -337,7 +337,7 @@ impl FileProcessor {
         }
 
         // Shutdown the computer after processing, if required.
-        if params.misc_params.shutdown_upon_completion {
+        if params.misc.shutdown_upon_completion {
             match shutdown() {
                 Ok(_) => logger::log("Attempting to shutdown down the computer...", true),
                 Err(e) => logger::log(format!("Failed to shutdown the computer: {e}"), true),

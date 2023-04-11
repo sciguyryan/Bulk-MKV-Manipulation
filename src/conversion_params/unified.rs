@@ -20,7 +20,7 @@ pub struct UnifiedParams {
     /// Parameters related to the chapters.
     pub chapters: ChapterParams,
     // Various other parameters that do not fit into another category.
-    pub misc_params: MiscParams,
+    pub misc: MiscParams,
 }
 
 #[derive(Deserialize, Clone)]
@@ -63,8 +63,6 @@ pub struct AttachmentParams {
     /// An empty list will indicate that all files should be included.
     #[serde(deserialize_with = "array_to_lowercase_string_vec")]
     pub import_folder_extensions: Option<Vec<String>>,
-    /// The paths to any processes that should be run before or after this processing step.
-    pub run: Option<ProcessRunner>,
 }
 
 #[derive(Deserialize)]
@@ -103,6 +101,8 @@ pub struct MiscParams {
     /// The path to the tags file.
     /// If the path is not specified, or is invalid, then no tags will be added.
     pub tags_path: Option<String>,
+    /// The paths to any processes that should be run before or after this processing step.
+    pub run: Option<ProcessRunner>,
 }
 
 #[derive(Deserialize)]
@@ -125,8 +125,6 @@ pub struct UnifiedSubtitleParams {
     /// If the language is undefined, what should the language be
     /// assumed as being?
     pub default_language: Option<String>,
-    /// The paths to any processes that should be run before or after this processing step.
-    pub run: Option<ProcessRunner>,
 }
 
 #[derive(Deserialize)]
@@ -134,8 +132,6 @@ pub struct UnifiedOtherTrackParams {
     /// Should "other" be imported from the original file?
     /// These are tracks that are not of type: audio, subtitle or video.
     pub import_from_original: bool,
-    /// The paths to any processes that should be run before or after this processing step.
-    pub run: Option<ProcessRunner>,
 }
 
 #[derive(Deserialize)]
@@ -147,8 +143,6 @@ pub struct UnifiedVideoParams {
     /// If the language is undefined, what should the language be
     /// assumed as being?
     pub default_language: Option<String>,
-    /// The paths to any processes that should be run before or after this processing step.
-    pub run: Option<ProcessRunner>,
 }
 
 #[derive(Default, Deserialize)]
@@ -165,9 +159,9 @@ pub enum TrackFilterType {
 #[derive(Deserialize)]
 pub struct ProcessRunner {
     /// The path to the process to be run before this stage is initiated.
-    pub pre: Option<String>,
+    pub pre_mux: Option<String>,
     /// The path to the process to be run after this stage has been completed.
-    pub post: Option<String>,
+    pub post_mux: Option<String>,
 }
 
 #[derive(Deserialize)]

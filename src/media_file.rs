@@ -842,7 +842,7 @@ impl MediaFile {
         self.remux_file(out_path, title, params);
 
         // Delete the temporary files.
-        match params.misc_params.remove_temp_files {
+        match params.misc.remove_temp_files {
             Some(DeletionOptions::Delete) => {
                 logger::log_inline("Attempting to delete temporary files... ", false);
                 if utils::delete_directory(&self.get_temp_path()) {
@@ -901,7 +901,7 @@ impl MediaFile {
         }
 
         if !utils::file_exists(path) {
-            logger::log_inline(format!("Attachment path {path} was selected for inclusion but the file couldn't be found."), false);
+            logger::log_inline(format!("Attachment path {path} was selected for inclusion but the path couldn't be found."), false);
             return;
         }
 
@@ -1176,7 +1176,7 @@ impl MediaFile {
     /// * `args` - A reference to the vector containing the argument list.
     /// * `params` - The conversion parameters to be applied to the media file.
     fn apply_tag_mux_params(&self, args: &mut Vec<String>, params: &UnifiedParams) {
-        let path = params.misc_params.tags_path.clone().unwrap_or_default();
+        let path = params.misc.tags_path.clone().unwrap_or_default();
         if !utils::file_exists(&path) {
             return;
         }
@@ -1205,7 +1205,7 @@ impl MediaFile {
         args.push(out_path.to_string());
 
         // The title of the media file, if needed.
-        if params.misc_params.set_file_title {
+        if params.misc.set_file_title {
             args.push("--title".to_string());
             args.push(title.to_string());
         }
@@ -1222,7 +1222,7 @@ impl MediaFile {
         }
 
         // Apply the tag muxing arguments, if needed.
-        if params.misc_params.tags_path.is_some() {
+        if params.misc.tags_path.is_some() {
             self.apply_tag_mux_params(&mut args, params);
         }
 
