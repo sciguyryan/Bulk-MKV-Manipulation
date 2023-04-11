@@ -842,10 +842,10 @@ impl MediaFile {
         self.run_commands(ProcessRunType::PreMux, params);
 
         // Remux the media file.
-        self.remux_file(out_path, title, params);
-
-        // Run any post-muxing processes that have been requested.
-        self.run_commands(ProcessRunType::PostMux, params);
+        if self.remux_file(out_path, title, params) {
+            // Run any post-muxing processes that have been requested.
+            self.run_commands(ProcessRunType::PostMux, params);
+        }
 
         // Delete the temporary files.
         match params.misc.remove_temp_files {
@@ -1247,7 +1247,7 @@ impl MediaFile {
     /// * `out_path` - The path to the expected location of the output media file.
     /// * `title` - The title of the media file.
     /// * `params` - The conversion parameters to be applied to the media file.
-    pub fn remux_file(&self, out_path: &str, title: &str, params: &UnifiedParams) {
+    pub fn remux_file(&self, out_path: &str, title: &str, params: &UnifiedParams) -> bool {
         use std::fmt::Write;
 
         logger::log_inline("Remuxing media file... ", false);
@@ -1294,7 +1294,7 @@ impl MediaFile {
         args.push(order);
 
         // Run the MKV merge process.
-        match mkvtoolnix::run_mkv_merge(&self.get_temp_path(), &args) {
+        let success = match mkvtoolnix::run_mkv_merge(&self.get_temp_path(), &args) {
             0 | 1 => {
                 logger::log("muxing complete.", false);
                 true
@@ -1317,6 +1317,8 @@ impl MediaFile {
                 true,
             );
         }
+
+        success
     }
 
     /// Parse the JSON output from MediaInfo.
