@@ -159,9 +159,9 @@ pub enum TrackFilterType {
 #[derive(Deserialize, Clone)]
 pub struct ProcessRun {
     /// The path to the process to be run before this stage is initiated.
-    pub pre_mux: Option<String>,
+    pub pre_mux: Option<Vec<String>>,
     /// The path to the process to be run after this stage has been completed.
-    pub post_mux: Option<String>,
+    pub post_mux: Option<Vec<String>>,
 }
 
 #[derive(Deserialize, Debug)]

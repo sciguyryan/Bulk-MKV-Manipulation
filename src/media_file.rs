@@ -838,12 +838,12 @@ impl MediaFile {
             todo!("not yet implemented");
         }
 
-        // Run any pre-muxing processes that have been requested.
+        // Run any pre-muxing processes, if any were requested.
         self.run_commands(ProcessRunType::PreMux, params);
 
         // Remux the media file.
         if self.remux_file(out_path, title, params) {
-            // Run any post-muxing processes that have been requested.
+            // Run any post-muxing processes, if any were requested.
             self.run_commands(ProcessRunType::PostMux, params);
         }
 
@@ -1209,24 +1209,27 @@ impl MediaFile {
             }
         };
 
-        let path = match run_type {
+        let command = match run_type {
             ProcessRunType::PreMux => match run.pre_mux {
-                Some(p) => {
+                Some(c) => {
                     logger::log("a pre-mux command has been requested!", false);
-                    p
+                    c
                 }
                 None => return,
             },
             ProcessRunType::PostMux => match run.post_mux {
-                Some(p) => {
+                Some(c) => {
                     logger::log("a post-mux command has been requested!", false);
-                    p
+                    c
                 }
                 None => return,
             },
         };
 
-        if !utils::file_exists(&path) {
+        let command_path = &command[0];
+        let mut command_args: Vec<String> = command[1..].iter().map(|s| s.to_string()).collect();
+
+        if !utils::file_exists(command_path) {
             logger::log(
                 format!(
                     "{:?} command path was specified, but the path doesn't exist!",
@@ -1235,6 +1238,11 @@ impl MediaFile {
                 false,
             );
             return;
+        }
+
+        // Next, go through the arguments list and replace any special parameters.
+        for arg in &mut command_args {
+            *arg = arg.replace("%P", &self.get_temp_path());
         }
 
         todo!("not finished yet");
