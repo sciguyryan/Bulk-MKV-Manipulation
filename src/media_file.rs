@@ -876,16 +876,24 @@ impl MediaFile {
         &self,
         args: &mut Vec<String>,
         path: &str,
-        accepted_extensions: &[String],
+        accepted_extensions: &Option<Vec<String>>,
     ) {
         let file_name = utils::get_file_name(path).unwrap_or_default();
         if file_name.is_empty() {
             return;
         }
 
+        let valid_extensions = match accepted_extensions {
+            Some(exts) => exts.clone(),
+            None => Vec::new(),
+        };
+
+        // The file is a match if:
+        //   * The extension is within the valid list, or the valid list is empty.
+        //   * The extension is empty and the valid list is empty.
         let is_match = match utils::get_file_extension(&file_name) {
-            Some(ext) => accepted_extensions.is_empty() || accepted_extensions.contains(&ext),
-            None => accepted_extensions.is_empty(),
+            Some(ext) => valid_extensions.is_empty() || valid_extensions.contains(&ext),
+            None => valid_extensions.is_empty(),
         };
 
         if !is_match {
@@ -932,18 +940,12 @@ impl MediaFile {
     /// * `args` - A reference to the vector containing the argument list.
     /// * `params` - The conversion parameters to be applied to the media file.
     fn apply_internal_attachment_mux_params(&self, args: &mut Vec<String>, params: &UnifiedParams) {
-        // Get a list of the valid attachment extensions.
-        let valid_extensions = match &params.attachments.import_original_extensions {
-            Some(exts) => exts.clone(),
-            None => Vec::new(),
-        };
-
         // Iterate over all of the attachments.
         for attachment in &self.attachments {
             self.add_attachment_if_matching(
                 args,
-                &format!("./attachments/{attachment}"),
-                &valid_extensions,
+                &format!("{}/attachments/{attachment}", self.get_temp_path()),
+                &params.attachments.import_original_extensions,
             );
         }
     }
@@ -961,12 +963,6 @@ impl MediaFile {
         dir: &String,
         params: &UnifiedParams,
     ) {
-        // Get a list of the valid attachment extensions.
-        let valid_extensions = match &params.attachments.import_folder_extensions {
-            Some(exts) => exts.clone(),
-            None => Vec::new(),
-        };
-
         // Read the contents of the import attachments folder recursively/
         for entry in WalkDir::new(dir).into_iter().filter_map(|e| e.ok()) {
             let pb = &entry.path();
@@ -977,7 +973,11 @@ impl MediaFile {
 
             // If the path is valid, add it to the kept attachments list.
             if let Some(path) = pb.to_str() {
-                self.add_attachment_if_matching(args, path, &valid_extensions);
+                self.add_attachment_if_matching(
+                    args,
+                    path,
+                    &params.attachments.import_folder_extensions,
+                );
             }
         }
     }
