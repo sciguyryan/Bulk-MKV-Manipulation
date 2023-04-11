@@ -63,6 +63,8 @@ pub struct AttachmentParams {
     /// An empty list will indicate that all files should be included.
     #[serde(deserialize_with = "array_to_lowercase_string_vec")]
     pub import_folder_extensions: Option<Vec<String>>,
+    /// The paths to any processes that should be run before or after this processing step.
+    pub run: Option<ProcessRunner>,
 }
 
 #[derive(Deserialize)]
@@ -123,6 +125,8 @@ pub struct UnifiedSubtitleParams {
     /// If the language is undefined, what should the language be
     /// assumed as being?
     pub default_language: Option<String>,
+    /// The paths to any processes that should be run before or after this processing step.
+    pub run: Option<ProcessRunner>,
 }
 
 #[derive(Deserialize)]
@@ -130,6 +134,8 @@ pub struct UnifiedOtherTrackParams {
     /// Should "other" be imported from the original file?
     /// These are tracks that are not of type: audio, subtitle or video.
     pub import_from_original: bool,
+    /// The paths to any processes that should be run before or after this processing step.
+    pub run: Option<ProcessRunner>,
 }
 
 #[derive(Deserialize)]
@@ -141,6 +147,8 @@ pub struct UnifiedVideoParams {
     /// If the language is undefined, what should the language be
     /// assumed as being?
     pub default_language: Option<String>,
+    /// The paths to any processes that should be run before or after this processing step.
+    pub run: Option<ProcessRunner>,
 }
 
 #[derive(Default, Deserialize)]
@@ -152,6 +160,14 @@ pub enum TrackFilterType {
     /// No filter should be applied.
     #[default]
     None,
+}
+
+#[derive(Deserialize)]
+pub struct ProcessRunner {
+    /// The path to the process to be run before this stage is initiated.
+    pub pre: Option<String>,
+    /// The path to the process to be run after this stage has been completed.
+    pub post: Option<String>,
 }
 
 #[derive(Deserialize)]
