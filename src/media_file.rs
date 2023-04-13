@@ -1254,11 +1254,8 @@ impl MediaFile {
         }
 
         // Run the command.
-        let mut cmd_spawn = Command::new(path).args(args).spawn();
-        if let Ok(cmd) = &mut cmd_spawn {
-            let _result = cmd.wait().expect("command failed");
-        }
-        //println!("{:?}", _a);
+        let _result = Command::new(path).args(args).output();
+        //println!("{:?}", _result);
     }
 
     /// Remux the attachments, chapters and tracks into a single file.
