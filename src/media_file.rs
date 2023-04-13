@@ -137,9 +137,13 @@ pub struct MediaFile {
     #[serde(skip)]
     id: usize,
 
-    /// The path to the media file.
+    /// The input path to the media file.
     #[serde(skip)]
     pub file_path: String,
+
+    /// The output for the modified media file.
+    #[serde(skip)]
+    pub output_path: String,
 
     /// The data pertaining to the media file.
     pub media: MediaFileInfo,
@@ -795,6 +799,8 @@ impl MediaFile {
     pub fn process(&mut self, out_path: &str, title: &str, params: &UnifiedParams) -> bool {
         use crate::conversion_params::unified::DeletionOptions;
 
+        self.output_path = out_path.to_string();
+
         // Set the file IDs of all child tracks.
         for track in &mut self.media.tracks {
             track.file_id = self.id;
@@ -907,7 +913,7 @@ impl MediaFile {
         }
 
         if !utils::file_exists(path) {
-            logger::log(format!("Attachment path '{path}' was selected for inclusion but the path couldn't be found."), false);
+            logger::log(format!("[info] Attachment path '{path}' was selected for inclusion but the path couldn't be found. This may not be a bug."), false);
             return;
         }
 
@@ -1250,12 +1256,13 @@ impl MediaFile {
         // Go through the arguments list and replace any special parameters.
         // Currently there is only one, but there might eventually be more.
         for arg in &mut args {
-            *arg = arg.replace("%p", &self.get_temp_path());
+            *arg = arg.replace("%i%", &self.file_path);
+            *arg = arg.replace("%o%", &self.output_path);
+            *arg = arg.replace("%t%", &self.get_temp_path());
         }
 
         // Run the command.
         let _result = Command::new(path).args(args).output();
-        //println!("{:?}", _result);
     }
 
     /// Remux the attachments, chapters and tracks into a single file.
