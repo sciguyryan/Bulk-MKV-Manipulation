@@ -907,7 +907,7 @@ impl MediaFile {
         }
 
         if !utils::file_exists(path) {
-            logger::log_inline(format!("Attachment path {path} was selected for inclusion but the path couldn't be found."), false);
+            logger::log(format!("Attachment path '{path}' was selected for inclusion but the path couldn't be found."), false);
             return;
         }
 
@@ -974,7 +974,7 @@ impl MediaFile {
         dir: &String,
         params: &UnifiedParams,
     ) {
-        // Read the contents of the import attachments folder recursively/
+        // Read the contents of the import attachments folder recursively.
         for entry in WalkDir::new(dir).into_iter().filter_map(|e| e.ok()) {
             let pb = &entry.path();
             // We want to skip anything that isn't a file.
@@ -1230,10 +1230,13 @@ impl MediaFile {
             return;
         }
 
-        let command_path = &command[0];
-        let mut command_args: Vec<String> = command[1..].iter().map(|s| s.to_string()).collect();
+        // The path to the command must always be the first in the list.
+        // Everything that follows will be assumed to be arguments
+        // to be passed to whatever command is being run.
+        let path = &command[0];
+        let mut args: Vec<String> = command[1..].iter().map(|s| s.to_string()).collect();
 
-        if !utils::file_exists(command_path) {
+        if !utils::file_exists(path) {
             logger::log(
                 format!(
                     "Run command of type {:?} was specified, but the path doesn't exist!",
@@ -1244,12 +1247,18 @@ impl MediaFile {
             return;
         }
 
-        // Next, go through the arguments list and replace any special parameters.
-        for arg in &mut command_args {
+        // Go through the arguments list and replace any special parameters.
+        // Currently there is only one, but there might eventually be more.
+        for arg in &mut args {
             *arg = arg.replace("%p", &self.get_temp_path());
         }
 
-        let _a = Command::new(command_path).args(command_args).output();
+        // Run the command.
+        let mut cmd_spawn = Command::new(path).args(args).spawn();
+        if let Ok(cmd) = &mut cmd_spawn {
+            let _result = cmd.wait().expect("command failed");
+        }
+        //println!("{:?}", _a);
     }
 
     /// Remux the attachments, chapters and tracks into a single file.
@@ -1262,7 +1271,7 @@ impl MediaFile {
     pub fn remux_file(&self, out_path: &str, title: &str, params: &UnifiedParams) -> bool {
         use std::fmt::Write;
 
-        logger::log_inline("Remuxing media file... ", false);
+        logger::log("Remuxing media file... ", false);
 
         let mut args = Vec::with_capacity(100);
 
@@ -1310,11 +1319,11 @@ impl MediaFile {
         // Run the MKV merge process.
         let success = match mkvtoolnix::run_mkv_merge(&self.get_temp_path(), &args) {
             0 | 1 => {
-                logger::log("muxing complete.", false);
+                logger::log("Remuxing media file complete.", false);
                 true
             }
             2 => {
-                logger::log("muxing failed.", false);
+                logger::log("Remuxing media file failed.", false);
                 false
             }
             _ => true,
