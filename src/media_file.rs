@@ -824,7 +824,7 @@ impl MediaFile {
             return false;
         }
 
-        logger::splitter(false);
+        logger::log("", false);
 
         // Convert the audio tracks.
         if let Some(ac) = &params.audio_tracks.conversion {
@@ -843,22 +843,22 @@ impl MediaFile {
             todo!("not yet implemented");
         }
 
-        logger::splitter(false);
+        logger::log("", false);
 
         // Run any pre-muxing processes, if any were requested.
         self.run_commands(ProcessRunType::PreMux, params);
 
-        logger::splitter(false);
+        logger::log("", false);
 
         // Remux the media file.
         if self.remux_file(out_path, title, params) {
-            logger::splitter(false);
+            logger::log("", false);
 
             // Run any post-muxing processes, if any were requested.
             self.run_commands(ProcessRunType::PostMux, params);
         }
 
-        logger::splitter(false);
+        logger::log("", false);
 
         // Delete the temporary files.
         match params.misc.remove_temp_files {
@@ -1252,7 +1252,7 @@ impl MediaFile {
         // Everything that follows will be assumed to be arguments
         // to be passed to whatever command is being run.
         let path = &command[0];
-        let mut args: Vec<String> = command[1..].iter().map(|s| s.to_string()).collect();
+        let mut args: Vec<String> = command[1..].to_vec();
 
         if !utils::file_exists(path) {
             logger::log(

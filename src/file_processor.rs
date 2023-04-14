@@ -277,7 +277,7 @@ impl FileProcessor {
             }
         }
 
-        logger::splitter(false);
+        logger::log("", false);
         logger::log(
             format!(
                 "Setup complete, in {}.",
