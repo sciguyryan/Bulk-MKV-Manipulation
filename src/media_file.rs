@@ -276,7 +276,7 @@ impl MediaFile {
                         paths::PATHS.ffmpeg,
                         &args.join(" ")
                     ),
-                    true,
+                    false,
                 );
             }
 
@@ -445,7 +445,7 @@ impl MediaFile {
                     "mkvextract command line: \"{}\" chapters.xml",
                     mkvtoolnix::get_mkvtoolnix_exe("mkvextract")
                 ),
-                true,
+                false,
             );
         }
 
@@ -493,7 +493,7 @@ impl MediaFile {
                     mkvtoolnix::get_mkvtoolnix_exe("mkvextract"),
                     &args.join(" ")
                 ),
-                true,
+                false,
             );
         }
 
@@ -1277,7 +1277,7 @@ impl MediaFile {
         match Command::new(path).args(args).output() {
             Ok(o) => {
                 logger::log(
-                    "The command was successfully executed and yielded the following output.",
+                    "The command was successfully executed and yielded the following output:",
                     false,
                 );
                 let str = String::from_utf8_lossy(&o.stdout);
@@ -1369,7 +1369,7 @@ impl MediaFile {
                     mkvtoolnix::get_mkvtoolnix_exe("mkvmerge"),
                     &args.join(" ")
                 ),
-                true,
+                false,
             );
         }
 
