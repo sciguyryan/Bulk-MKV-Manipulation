@@ -4,8 +4,6 @@ use lazy_static::lazy_static;
 use std::fmt::Display;
 use std::{fs::File, io::prelude::*, sync::Mutex};
 
-const SPLITTER: usize = 20;
-
 lazy_static! {
     pub static ref LOGGER: Mutex<Logger> = Mutex::new(Logger::new());
 }
@@ -47,10 +45,6 @@ where
     }
 
     log(format!("{:-^1$}", title, 60), console);
-}
-
-pub fn splitter(console: bool) {
-    log("-".repeat(SPLITTER), console);
 }
 
 pub fn subsection<S: AsRef<str>>(title: S, console: bool)
