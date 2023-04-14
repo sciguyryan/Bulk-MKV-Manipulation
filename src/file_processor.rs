@@ -135,8 +135,9 @@ impl FileProcessor {
 
         logger::log(
             format!(
-                "{} file names are present in the output file name list",
-                output_paths.len()
+                "{} file name{} are present in the output file name list.",
+                output_paths.len(),
+                if output_paths.len() != 1 { "s" } else { "" }
             ),
             false,
         );
@@ -179,8 +180,13 @@ impl FileProcessor {
 
         logger::log(
             format!(
-                "{} applicable files are present in the input files directory",
-                input_paths.len()
+                "{} applicable file{} present in the input files directory.",
+                input_paths.len(),
+                if output_paths.len() != 1 {
+                    "s are"
+                } else {
+                    " is"
+                }
             ),
             false,
         );

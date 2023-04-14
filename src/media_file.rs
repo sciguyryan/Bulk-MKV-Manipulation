@@ -223,10 +223,7 @@ impl MediaFile {
             .filter(|(_, x)| x.track_type == TrackType::Audio)
         {
             logger::log_inline(
-                format!(
-                    "Converting audio track {} to format {:?}...",
-                    t.id, out_codec
-                ),
+                format!("Converting audio track {} to '{:?}'...", t.id, out_codec),
                 false,
             );
 
@@ -409,11 +406,11 @@ impl MediaFile {
         if DEBUG_PARAMS {
             logger::log(
                 format!(
-                    "mkvextract command line: \"{}\" {}",
+                    "[info] mkvextract command line: \"{}\" {}",
                     mkvtoolnix::get_mkvtoolnix_exe("mkvextract"),
                     &args.join(" ")
                 ),
-                true,
+                false,
             );
         }
 
@@ -827,6 +824,8 @@ impl MediaFile {
             return false;
         }
 
+        logger::splitter(false);
+
         // Convert the audio tracks.
         if let Some(ac) = &params.audio_tracks.conversion {
             if ac.codec.is_some() && !self.convert_all_audio(ac) {
@@ -844,14 +843,22 @@ impl MediaFile {
             todo!("not yet implemented");
         }
 
+        logger::splitter(false);
+
         // Run any pre-muxing processes, if any were requested.
         self.run_commands(ProcessRunType::PreMux, params);
 
+        logger::splitter(false);
+
         // Remux the media file.
         if self.remux_file(out_path, title, params) {
+            logger::splitter(false);
+
             // Run any post-muxing processes, if any were requested.
             self.run_commands(ProcessRunType::PostMux, params);
         }
+
+        logger::splitter(false);
 
         // Delete the temporary files.
         match params.misc.remove_temp_files {
@@ -913,7 +920,7 @@ impl MediaFile {
         }
 
         if !utils::file_exists(path) {
-            logger::log(format!("[info] Attachment path '{path}' was selected for inclusion but the path couldn't be found. This may not be a bug."), false);
+            logger::log(format!("[info] Attachment path '{path}' was selected for inclusion but the path couldn't be found. This may be expected if extermal commands have been used."), false);
             return;
         }
 
@@ -1208,30 +1215,35 @@ impl MediaFile {
         logger::log_inline("Checking for run commands... ", false);
 
         let run = match params.misc.run.clone() {
-            Some(p) => p,
+            Some(r) => r,
             None => {
-                logger::log("no run commands were found.", false);
+                logger::log("no commands were specified.", false);
                 return;
             }
         };
 
         let command = match run_type {
-            ProcessRunType::PreMux => match run.pre_mux {
-                Some(c) => {
-                    logger::log("a pre-mux command has been requested!", false);
-                    c
-                }
-                None => return,
-            },
-            ProcessRunType::PostMux => match run.post_mux {
-                Some(c) => {
-                    logger::log("a post-mux command has been requested!", false);
-                    c
-                }
-                None => return,
-            },
+            ProcessRunType::PreMux => run.pre_mux,
+            ProcessRunType::PostMux => run.post_mux,
         };
 
+        if command.is_none() {
+            logger::log(
+                format!("no command of type {:?} was specified.", run_type),
+                false,
+            );
+            return;
+        }
+
+        logger::log(
+            format!(
+                "A command of type {:?} was specified and will now be executed.",
+                run_type
+            ),
+            false,
+        );
+
+        let command = command.unwrap();
         if command.is_empty() {
             return;
         }
@@ -1261,8 +1273,24 @@ impl MediaFile {
             *arg = arg.replace("%t%", &self.get_temp_path());
         }
 
-        // Run the command.
-        let _result = Command::new(path).args(args).output();
+        // Run the command and show the results.
+        match Command::new(path).args(args).output() {
+            Ok(o) => {
+                logger::log(
+                    "The command was successfully executed and yielded the following output.",
+                    false,
+                );
+                let str = String::from_utf8_lossy(&o.stdout);
+                for line in str.split('\n') {
+                    logger::log(format!(">\t{line}"), false);
+                }
+            }
+            Err(e) => {
+                logger::log(
+                    format!("The command was not successfully executed and yielded the following output: {:?}", e), false
+                );
+            }
+        }
     }
 
     /// Remux the attachments, chapters and tracks into a single file.
@@ -1323,11 +1351,11 @@ impl MediaFile {
         // Run the MKV merge process.
         let success = match mkvtoolnix::run_mkv_merge(&self.get_temp_path(), &args) {
             0 | 1 => {
-                logger::log("Remuxing media file complete.", false);
+                logger::log("Remuxing complete.", false);
                 true
             }
             2 => {
-                logger::log("Remuxing media file failed.", false);
+                logger::log("Remuxing failed.", false);
                 false
             }
             _ => true,

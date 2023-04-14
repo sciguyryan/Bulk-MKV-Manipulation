@@ -164,7 +164,7 @@ pub struct ProcessRun {
     pub post_mux: Option<Vec<String>>,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, PartialEq, Eq)]
 pub enum ProcessRunType {
     // A command to be run prior to muxing.
     PreMux,
