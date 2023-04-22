@@ -218,7 +218,7 @@ impl MediaFile {
             .filter(|(_, x)| x.track_type == TrackType::Audio)
         {
             logger::log_inline(
-                format!("Converting audio track {} to '{:?}'...", t.id, out_codec),
+                format!("Converting audio track {} to '{out_codec:?}'...", t.id),
                 false,
             );
 
@@ -233,10 +233,8 @@ impl MediaFile {
                 //   the original to avoid attempting to overwrite the original
                 //   while also trying to convert it. Needless to say, that does not work.
                 let out_ext = MediaFileTrack::get_extension_from_codec(out_codec);
-                let new_file_path = in_file_path.replace(
-                    &t.get_out_file_name(),
-                    &format!("moved{}.{}", t.id, out_ext),
-                );
+                let new_file_path = in_file_path
+                    .replace(&t.get_out_file_name(), &format!("moved{}.{out_ext}", t.id));
 
                 if fs::rename(&in_file_path, &new_file_path).is_err() {
                     logger::log(" unable to move input file, unable to encode .", false);
@@ -382,7 +380,7 @@ impl MediaFile {
             .map(|(i, a)| format!("{}:{a}", i + 1))
             .collect();
 
-        let r = match mkvtoolnix::run_mkv_extract(
+        let r = match mkvtoolnix::run_extract(
             &self.file_path,
             &self.get_temp_path(),
             "attachments",
@@ -404,7 +402,7 @@ impl MediaFile {
             logger::log(
                 format!(
                     "[info] mkvextract command line: \"{}\" {}",
-                    mkvtoolnix::get_mkvtoolnix_exe("mkvextract"),
+                    mkvtoolnix::get_exe("mkvextract"),
                     &args.join(" ")
                 ),
                 false,
@@ -418,7 +416,7 @@ impl MediaFile {
     pub fn extract_chapters(&self) -> bool {
         logger::log_inline("Extracting chapters...", false);
 
-        let r = match mkvtoolnix::run_mkv_extract(
+        let r = match mkvtoolnix::run_extract(
             &self.file_path,
             &self.get_temp_path(),
             "chapters",
@@ -440,7 +438,7 @@ impl MediaFile {
             logger::log(
                 format!(
                     "mkvextract command line: \"{}\" chapters.xml",
-                    mkvtoolnix::get_mkvtoolnix_exe("mkvextract")
+                    mkvtoolnix::get_exe("mkvextract")
                 ),
                 false,
             );
@@ -465,7 +463,7 @@ impl MediaFile {
             .map(|track| format!("{}:{}", track.id, track.get_out_file_name()))
             .collect();
 
-        let r = match mkvtoolnix::run_mkv_extract(
+        let r = match mkvtoolnix::run_extract(
             &self.file_path,
             &self.get_temp_path(),
             "tracks",
@@ -487,7 +485,7 @@ impl MediaFile {
             logger::log(
                 format!(
                     "mkvextract command line: \"{}\" {}",
-                    mkvtoolnix::get_mkvtoolnix_exe("mkvextract"),
+                    mkvtoolnix::get_exe("mkvextract"),
                     &args.join(" ")
                 ),
                 false,
@@ -609,8 +607,8 @@ impl MediaFile {
             {
                 logger::log(
                     format!(
-                        "Fewer tracks of type {} than required for file {}.",
-                        target_type, self.file_path
+                        "Fewer tracks of type {target_type} than required for file {}.",
+                        self.file_path
                     ),
                     false,
                 );
@@ -1248,14 +1246,14 @@ impl MediaFile {
 
         if command.is_none() {
             logger::log(
-                format!("no command of type {run_type:?} was specified."),
+                format!("no command of type '{run_type:?}' was specified."),
                 false,
             );
             return;
         }
 
         logger::log(
-            format!("\nA command of type {run_type:?} was specified and will now be executed.",),
+            format!("\nA command of type '{run_type:?}' was specified and will now be executed.",),
             false,
         );
 
@@ -1268,7 +1266,6 @@ impl MediaFile {
         // Everything that follows will be assumed to be arguments
         // to be passed to whatever command is being run.
         let path = &command[0];
-        let mut args: Vec<String> = command[1..].to_vec();
 
         if !utils::file_exists(path) {
             logger::log(
@@ -1282,6 +1279,7 @@ impl MediaFile {
 
         // Go through the arguments list and replace any special parameters.
         // Currently there is only one, but there might eventually be more.
+        let mut args: Vec<String> = command[1..].to_vec();
         for arg in &mut args {
             *arg = arg.replace("%i%", &self.file_path);
             *arg = arg.replace("%o%", &self.output_path);
@@ -1302,7 +1300,7 @@ impl MediaFile {
             }
             Err(e) => {
                 logger::log(
-                    format!("The command was not successfully executed and yielded the following output: {:?}", e), false
+                    format!("The command was not successfully executed and yielded the following output: {e:?}"), false
                 );
             }
         }
@@ -1316,8 +1314,6 @@ impl MediaFile {
     /// * `title` - The title of the media file.
     /// * `params` - The conversion parameters to be applied to the media file.
     pub fn remux_file(&self, out_path: &str, title: &str, params: &UnifiedParams) -> bool {
-        use std::fmt::Write;
-
         logger::log("Remuxing media file... ", false);
 
         let mut args = Vec::with_capacity(100);
@@ -1351,21 +1347,16 @@ impl MediaFile {
         }
 
         // Set the track order.
-        let mut order = String::new();
-        let len = self.media.tracks.len();
-        for i in 0..len {
-            let _r = write!(&mut order, "{i}:0");
+        let order = (0..self.media.tracks.len())
+            .map(|i| format!("{i}:0"))
+            .collect::<Vec<String>>()
+            .join(",");
 
-            // A comma at the end would be considered malformed.
-            if i < len - 1 {
-                order.push(',');
-            }
-        }
         args.push("--track-order".to_string());
         args.push(order);
 
         // Run the MKV merge process.
-        let success = match mkvtoolnix::run_mkv_merge(&self.get_temp_path(), &args) {
+        let success = match mkvtoolnix::run_merge(&self.get_temp_path(), &args) {
             0 | 1 => {
                 logger::log("Remuxing complete.", false);
                 true
@@ -1382,7 +1373,7 @@ impl MediaFile {
             logger::log(
                 format!(
                     "mkvmerge command line: \"{}\" {}",
-                    mkvtoolnix::get_mkvtoolnix_exe("mkvmerge"),
+                    mkvtoolnix::get_exe("mkvmerge"),
                     &args.join(" ")
                 ),
                 false,
@@ -1405,10 +1396,7 @@ impl MediaFile {
         match serde_json::from_str::<MediaFile>(json) {
             Ok(mi) => Some(mi),
             Err(e) => {
-                logger::log(
-                    format!("Error attempting to parse JSON data: {:?}", e),
-                    true,
-                );
+                logger::log(format!("Error attempting to parse JSON data: {e:?}"), true);
                 None
             }
         }
@@ -1489,6 +1477,10 @@ pub struct MediaFileTrack {
     /// The index of the file to which this track belongs.
     #[serde(skip)]
     pub file_id: usize,
+
+    /// Should this file be kept when remuxing?
+    #[serde(skip)]
+    pub keep: usize,
 }
 
 impl MediaFileTrack {
@@ -1496,7 +1488,7 @@ impl MediaFileTrack {
     pub fn get_out_file_name(&self) -> String {
         let ext = MediaFileTrack::get_extension_from_codec(&self.codec);
 
-        format!("{}_{}_{}.{}", self.track_type, self.id, self.language, ext)
+        format!("{}_{}_{}.{ext}", self.track_type, self.id, self.language)
     }
 
     /// Get the path to the extracted (original) media file.
@@ -1674,10 +1666,10 @@ where
     // We specifically want to map tracks with an unspecified language
     // to und, to avoid them being missed.
     if string.is_empty() {
-        return Ok(default_track_language());
+        Ok(default_track_language())
+    } else {
+        Ok(string)
     }
-
-    Ok(string)
 }
 
 fn second_string_to_ms<'de, D>(deserializer: D) -> Result<i32, D::Error>

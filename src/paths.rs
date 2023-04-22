@@ -54,8 +54,7 @@ impl Paths {
             check = false;
         } else {
             let path = Path::new(&self.mkvtoolnix);
-            let exes = vec!["mkvextract.exe", "mkvmerge.exe"];
-            for exe in exes {
+            for exe in ["mkvextract.exe", "mkvmerge.exe"] {
                 let temp = path.join(exe);
                 if !temp.exists() {
                     eprintln!("Failed to MkvToolNix EXE {exe} at {temp:?}");
