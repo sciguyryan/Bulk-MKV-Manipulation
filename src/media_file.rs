@@ -1691,7 +1691,7 @@ where
     match string.parse::<f32>() {
         Ok(n) => {
             // The number must be multiplied by 1000 to give the delay in milliseconds.
-            Ok(n as i32 * 1000)
+            Ok((n * 1000.0) as i32)
         }
         Err(_) => Err(de::Error::invalid_value(
             Unexpected::Str(&string),
