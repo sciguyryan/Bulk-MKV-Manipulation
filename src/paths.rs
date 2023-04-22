@@ -21,31 +21,25 @@ impl Paths {
         use std::{env, fs};
 
         let path = env::current_dir();
-        if path.is_err() {
-            panic!("failed to get current directory");
-        }
+        assert!(path.is_ok(), "Failed to get the current directory.");
 
         let mut path = path.unwrap();
         path.push("paths.json");
-
-        if !path.exists() {
-            panic!("You must specify the path to the paths data file.");
-        }
+        assert!(
+            path.exists(),
+            "The path to the paths JSON file was invalid."
+        );
 
         let json = fs::read_to_string(path).expect("failed to open paths data file");
         let tools_result = serde_json::from_str::<Paths>(&json);
-        let tools = if let Ok(p) = tools_result {
-            p
-        } else {
-            panic!(
-                "Error attempting to parse JSON data: {:?}",
-                tools_result.err()
-            );
-        };
+        assert!(
+            tools_result.is_ok(),
+            "Error attempting to parse JSON data: {:?}",
+            tools_result.err()
+        );
 
-        if !tools.check_paths() {
-            panic!("path checks failed");
-        }
+        let tools = tools_result.unwrap();
+        assert!(tools.check_paths(), "One or more paths were invalid.");
 
         tools
     }

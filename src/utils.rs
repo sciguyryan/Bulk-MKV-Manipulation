@@ -27,10 +27,6 @@ pub fn dir_exists(path: &str) -> bool {
 /// * `path` - The path to the directory.
 #[inline]
 pub fn delete_directory(path: &str) -> bool {
-    if !dir_exists(path) {
-        return false;
-    }
-
     fs::remove_dir_all(path).is_ok()
 }
 
@@ -127,10 +123,7 @@ pub fn format_duration(seconds: u64) -> String {
 /// * `fp` - The path to the file.
 #[inline]
 pub fn get_file_extension(fp: &str) -> Option<String> {
-    let index = fp.rfind('.')?;
-    let (_, ext) = fp.split_at(index + 1);
-
-    Some(ext.to_lowercase())
+    Some(Path::new(fp).extension()?.to_str()?.to_lowercase())
 }
 
 /// Get the name and extension of a given file path.
@@ -140,9 +133,7 @@ pub fn get_file_extension(fp: &str) -> Option<String> {
 /// * `fp` - The path to the file.
 #[inline]
 pub fn get_file_name(fp: &str) -> Option<String> {
-    let file_name = Path::new(fp).file_name()?.to_str()?;
-
-    Some(file_name.to_string())
+    Some(Path::new(fp).file_name()?.to_str()?.to_string())
 }
 
 /// Join several path segments into a single path.
@@ -168,7 +159,6 @@ pub fn join_path_segments<S: AsRef<str>>(base: &str, paths: &[S]) -> String {
 ///
 /// * `fp` - The path to the file.
 /// * `new_ext` - The new extension to be applied.
-///
 #[inline]
 pub fn swap_file_extension(fp: &str, new_ext: &str) -> String {
     use std::path::PathBuf;

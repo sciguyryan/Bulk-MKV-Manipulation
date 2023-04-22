@@ -18,7 +18,7 @@ use std::{
     process::Command,
     sync::atomic::{AtomicUsize, Ordering},
 };
-use walkdir::WalkDir;
+use walkdir::{DirEntry, Error, WalkDir};
 
 /// This will generate sequential thread-global unique IDs for instances of this struct.
 static UNIQUE_ID: AtomicUsize = AtomicUsize::new(0);
@@ -166,33 +166,28 @@ impl MediaFile {
     pub fn apply_track_language_defaults(&mut self, params: &UnifiedParams) {
         let mut defs = HashMap::new();
 
-        if let Some(d) = &params.audio_tracks.default_language {
-            defs.insert(TrackType::Audio, d);
+        if let Some(da) = &params.audio_tracks.default_language {
+            defs.insert(TrackType::Audio, da);
         }
 
-        if let Some(d) = &params.subtitle_tracks.default_language {
-            defs.insert(TrackType::Subtitle, d);
+        if let Some(ds) = &params.subtitle_tracks.default_language {
+            defs.insert(TrackType::Subtitle, ds);
         }
 
-        if let Some(d) = &params.video_tracks.default_language {
-            defs.insert(TrackType::Video, d);
+        if let Some(dv) = &params.video_tracks.default_language {
+            defs.insert(TrackType::Video, dv);
         }
 
-        // Do we have anything to do here?
-        if defs.is_empty() {
-            return;
-        }
-
-        for (tt, d) in defs {
+        for (track_type, default_lang) in defs {
             // Iterate through all of the tracks of the specific type,
             // where the track language is "und" (undefined).
             for track in self
                 .media
                 .tracks
                 .iter_mut()
-                .filter(|x| x.track_type == tt && x.language == "und")
+                .filter(|t| t.track_type == track_type && t.language == "und")
             {
-                track.language = d.clone();
+                track.language = default_lang.clone();
             }
         }
     }
@@ -378,12 +373,14 @@ impl MediaFile {
 
         logger::log_inline("Extracting attachments...", false);
 
-        let mut args = Vec::new();
-        for (i, attachment) in self.attachments.iter().enumerate() {
-            // Note: attachments indices do not start at index 0,
-            // so we have to add one to each of the IDs.
-            args.push(format!("{}:{}", i + 1, attachment));
-        }
+        // Note: attachments indices do not start at index 0,
+        // so we have to add one to each of the IDs.
+        let args: Vec<String> = self
+            .attachments
+            .iter()
+            .enumerate()
+            .map(|(i, a)| format!("{}:{a}", i + 1))
+            .collect();
 
         let r = match mkvtoolnix::run_mkv_extract(
             &self.file_path,
@@ -462,11 +459,11 @@ impl MediaFile {
 
         logger::log_inline("Extracting tracks...", false);
 
-        let mut args = Vec::new();
-        for track in tracks {
-            // Note: track indices start at index 0.
-            args.push(format!("{}:{}", track.id, track.get_out_file_name()));
-        }
+        // Note: track indices start at index 0.
+        let args: Vec<String> = tracks
+            .iter()
+            .map(|track| format!("{}:{}", track.id, track.get_out_file_name()))
+            .collect();
 
         let r = match mkvtoolnix::run_mkv_extract(
             &self.file_path,
@@ -591,31 +588,33 @@ impl MediaFile {
         }
 
         let mut success = true;
-        for tt in [TrackType::Audio, TrackType::Subtitle, TrackType::Video] {
-            let target = match tt {
+        for target_type in [TrackType::Audio, TrackType::Subtitle, TrackType::Video] {
+            let target = match target_type {
                 TrackType::Audio => audio.filter_by.total_to_retain,
                 TrackType::Subtitle => subtitle.filter_by.total_to_retain,
                 TrackType::Video => video.filter_by.total_to_retain,
                 _ => None,
             };
 
-            if let Some(t) = target {
-                if self
-                    .track_type_counter
-                    .get(&tt)
-                    .cloned()
-                    .unwrap_or_default()
-                    != t
-                {
-                    logger::log(
-                        format!(
-                            "Fewer tracks of type {} than required for file {}.",
-                            tt, self.file_path
-                        ),
-                        false,
-                    );
-                    success = false;
-                }
+            if target.is_none() {
+                continue;
+            }
+
+            if self
+                .track_type_counter
+                .get(&target_type)
+                .cloned()
+                .unwrap_or_default()
+                != target.unwrap()
+            {
+                logger::log(
+                    format!(
+                        "Fewer tracks of type {} than required for file {}.",
+                        target_type, self.file_path
+                    ),
+                    false,
+                );
+                success = false;
             }
         }
 
@@ -920,7 +919,7 @@ impl MediaFile {
         }
 
         if !utils::file_exists(path) {
-            logger::log(format!("[info] Attachment path '{path}' was selected for inclusion but the path couldn't be found. This may be expected if extermal commands have been used."), false);
+            logger::log(format!("[info] Attachment path '{path}' was selected for inclusion but the path couldn't be found. This may be expected if external commands have been used."), false);
             return;
         }
 
@@ -988,21 +987,16 @@ impl MediaFile {
         params: &UnifiedParams,
     ) {
         // Read the contents of the import attachments folder recursively.
-        for entry in WalkDir::new(dir).into_iter().filter_map(|e| e.ok()) {
-            let pb = &entry.path();
-            // We want to skip anything that isn't a file.
-            if !pb.is_file() {
-                continue;
-            }
-
+        for path in WalkDir::new(dir)
+            .into_iter()
+            .filter_map(MediaFile::filter_files)
+        {
             // If the path is valid, add it to the kept attachments list.
-            if let Some(path) = pb.to_str() {
-                self.add_attachment_if_matching(
-                    args,
-                    path,
-                    &params.attachments.import_folder_extensions,
-                );
-            }
+            self.add_attachment_if_matching(
+                args,
+                &path,
+                &params.attachments.import_folder_extensions,
+            );
         }
     }
 
@@ -1155,7 +1149,7 @@ impl MediaFile {
                     }
                     DelaySource::None => {}
                     _ => {
-                        todo!("DelaySource {:?} not yet implemented.", delay_source);
+                        todo!("DelaySource {delay_source:?} not yet implemented.");
                     }
                 }
             }
@@ -1205,6 +1199,31 @@ impl MediaFile {
         args.push(path);
     }
 
+    /// Filter files from a [`DirEntry`] iterator filter_map.
+    ///
+    /// # Arguments
+    ///
+    /// * `entry` - The [`DirEntry`] we are currently examining.
+    ///
+    /// # Returns
+    ///
+    /// A [`String`] if the [`DirEntry`] points to a file, and if the path is valid, None otherwise.
+    fn filter_files(entry: Result<DirEntry, Error>) -> Option<String> {
+        let dir_entry = match entry {
+            Ok(de) => de,
+            Err(_) => {
+                return None;
+            }
+        };
+
+        let path = dir_entry.path();
+        if path.is_file() {
+            Some(path.display().to_string())
+        } else {
+            None
+        }
+    }
+
     /// Run any pre-muxing commands.
     ///
     /// # Arguments
@@ -1229,17 +1248,14 @@ impl MediaFile {
 
         if command.is_none() {
             logger::log(
-                format!("no command of type {:?} was specified.", run_type),
+                format!("no command of type {run_type:?} was specified."),
                 false,
             );
             return;
         }
 
         logger::log(
-            format!(
-                "A command of type {:?} was specified and will now be executed.",
-                run_type
-            ),
+            format!("\nA command of type {run_type:?} was specified and will now be executed.",),
             false,
         );
 
@@ -1257,8 +1273,7 @@ impl MediaFile {
         if !utils::file_exists(path) {
             logger::log(
                 format!(
-                    "Run command of type {:?} was specified, but the path doesn't exist!",
-                    run_type
+                    "Run command of type {run_type:?} was specified, but the path doesn't exist!",
                 ),
                 false,
             );
@@ -1337,11 +1352,12 @@ impl MediaFile {
 
         // Set the track order.
         let mut order = String::new();
-        for i in 0..self.media.tracks.len() {
+        let len = self.media.tracks.len();
+        for i in 0..len {
             let _r = write!(&mut order, "{i}:0");
 
             // A comma at the end would be considered malformed.
-            if i < self.media.tracks.len() - 1 {
+            if i < len - 1 {
                 order.push(',');
             }
         }
@@ -1565,12 +1581,7 @@ where
 {
     let string = String::deserialize(deserializer)?;
 
-    let mut vec = Vec::new();
-    for sub in string.split(" / ") {
-        vec.push(sub.to_string());
-    }
-
-    Ok(vec)
+    Ok(string.split(" / ").map(|s| s.to_string()).collect())
 }
 
 fn string_to_codec_enum<'de, D>(deserializer: D) -> Result<Codec, D::Error>
@@ -1680,8 +1691,7 @@ where
     match string.parse::<f32>() {
         Ok(n) => {
             // The number must be multiplied by 1000 to give the delay in milliseconds.
-            let ms = n * 1000.0;
-            Ok(ms as i32)
+            Ok(n as i32 * 1000)
         }
         Err(_) => Err(de::Error::invalid_value(
             Unexpected::Str(&string),

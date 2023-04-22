@@ -25,40 +25,28 @@ fn main() {
 
     logger::section("Initial Setup", false);
 
-    if args.len() < 2 {
-        logger::log(
-            "No path to the conversion profile data file was specified.",
-            true,
-        );
-        return;
-    }
-
     // Read and parse the conversion profile data file.
+    assert!(
+        args.len() >= 2,
+        "No path to the conversion profile data file was specified."
+    );
     let profile_path = &args[1];
-    if !utils::file_exists(profile_path) {
-        logger::log(
-            "The path to the conversion profile data file was invalid.",
-            true,
-        );
-        return;
-    }
+    assert!(
+        utils::file_exists(profile_path),
+        "The path to the conversion profile data file was invalid."
+    );
 
     let profile_json = fs::read_to_string(profile_path).expect("failed to open profile data file");
-    let profile_result = serde_json::from_str::<InputProfile>(&profile_json);
-    let profile = if let Ok(p) = profile_result {
-        p
-    } else {
-        logger::log(
-            format!(
-                "An error occurred while attempting to parse the JSON data: {:?}.",
-                profile_result.err()
-            ),
-            true,
-        );
-        return;
-    };
+    let profile = serde_json::from_str::<InputProfile>(&profile_json);
+    assert!(
+        profile.is_ok(),
+        "An error occurred while attempting to parse the JSON data: {:?}.",
+        profile.err()
+    );
 
     logger::log("Attempting to validate filter parameters...", false);
+
+    let profile = profile.unwrap();
 
     // Validate the index processing parameters.
     if !profile.validate_index_params() {

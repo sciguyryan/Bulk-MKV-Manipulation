@@ -5,8 +5,8 @@ use crate::{
 use lexical_sort::{natural_cmp, StringSort};
 use serde_derive::Deserialize;
 use std::{
-    fs::{self, File},
-    io::{BufRead, BufReader},
+    fs::{self, DirEntry, File},
+    io::{BufRead, BufReader, Error},
     time::Instant,
 };
 
@@ -98,7 +98,7 @@ impl FileProcessor {
                 continue;
             }
 
-            let line = &line.unwrap();
+            let line = line.unwrap();
 
             // If the STOP clause is present then we should stop reading
             // the file name lines.
@@ -109,7 +109,7 @@ impl FileProcessor {
 
             // Sanitize the title of the media file based on the supplied
             // substitution parameters.
-            let sanitized = substitutions.apply(line);
+            let sanitized = substitutions.apply(&line);
 
             // Skip empty lines and comment lines.
             if sanitized.is_empty() || sanitized.starts_with('#') {
@@ -144,26 +144,17 @@ impl FileProcessor {
 
         // Build the list of input file paths.
         let read = fs::read_dir(&profile.input_dir);
-        if let Ok(dir) = read {
-            for entry in dir.flatten() {
-                let pb = entry.path();
-                if !pb.is_file() {
-                    continue;
-                }
+        assert!(
+            read.is_ok(),
+            "Failed to read input files directory: {read:?}"
+        );
 
-                if let Some(ext) = pb.extension() {
-                    // We always want to check extensions in lowercase.
-                    if VALID_EXTENSIONS.contains(&ext.to_string_lossy().to_lowercase().as_str()) {
-                        input_paths.push(pb.display().to_string());
-                    }
-                }
-            }
-        } else {
-            logger::log(
-                format!("Failed to read input files directory: {read:?}"),
-                true,
-            );
-            panic!();
+        // Add all of the matching files into the file list.
+        for path in read
+            .unwrap()
+            .filter_map(FileProcessor::filter_by_file_extension)
+        {
+            input_paths.push(path);
         }
 
         // Do we have any files in the input directory?
@@ -230,28 +221,69 @@ impl FileProcessor {
     /// * `name` - The name of the file.
     /// * `index` - The index of the file, if applicable.
     /// * `pad_type` - The pad type to be applied to the index, if applicable.
+    ///
+    /// # Returns
+    ///
+    /// A String giving the new output file name.
     fn file_name_from_padded_index(name: &str, index: usize, pad_type: Option<PadType>) -> String {
-        let mut str = if let Some(pad) = pad_type {
-            match pad {
-                PadType::One => {
-                    format!("{index} - {name}")
-                }
-                PadType::Ten => {
-                    format!("{index:02} - {name}")
-                }
-                PadType::Hundred => {
-                    format!("{index:03} - {name}")
-                }
-                PadType::Thousand => {
-                    format!("{index:04} - {name}")
-                }
+        let mut str = match pad_type {
+            Some(PadType::One) => {
+                format!("{index} - {name}")
             }
-        } else {
-            name.to_string()
+            Some(PadType::Ten) => {
+                format!("{index:02} - {name}")
+            }
+            Some(PadType::Hundred) => {
+                format!("{index:03} - {name}")
+            }
+            Some(PadType::Thousand) => {
+                format!("{index:04} - {name}")
+            }
+            None => name.to_string(),
         };
 
         str.push_str(".mkv");
         str
+    }
+
+    /// Filter a [`DirEntry`] based on whether it is a file, and has a specific extension.
+    ///
+    /// # Arguments
+    ///
+    /// * `entry` - A reference to the [`DirEntry`] object.
+    ///
+    /// # Returns
+    ///
+    /// A String giving the path to the file, if its extension is within the valid extensions list.
+    fn filter_by_file_extension(entry: Result<DirEntry, Error>) -> Option<String> {
+        // Eliminate invalid entries.
+        let dir_entry = match entry {
+            Ok(de) => de,
+            Err(_) => {
+                return None;
+            }
+        };
+
+        // We are only interested in files.
+        let path = dir_entry.path();
+        if !path.is_file() {
+            return None;
+        }
+
+        // Check if the file has an extension, and if the extension is within the
+        // valid extensions slice.
+        let extension = path
+            .extension()
+            .unwrap_or_default()
+            .to_ascii_lowercase()
+            .to_string_lossy()
+            .to_string();
+
+        if VALID_EXTENSIONS.contains(&&extension[..]) {
+            Some(path.display().to_string())
+        } else {
+            None
+        }
     }
 
     /// Process each of the media files in the input directory.
@@ -269,13 +301,11 @@ impl FileProcessor {
         let now = Instant::now();
 
         // Process the data from each of the media files.
-        let media_len = self.input_paths.len();
-        let mut media = Vec::with_capacity(media_len);
-        for i in 0..media_len {
-            if let Some(mf) = MediaFile::from_path(&self.input_paths[i]) {
-                media.push(mf);
-            }
-        }
+        let mut media: Vec<MediaFile> = self
+            .input_paths
+            .iter()
+            .filter_map(|p| MediaFile::from_path(p))
+            .collect();
 
         logger::log("", false);
         logger::log(
@@ -291,7 +321,10 @@ impl FileProcessor {
         // Process each media file.
         let mut success = true;
         for (i, m) in &mut media.iter_mut().enumerate() {
-            logger::subsection(&format!("File {} of {}", i + 1, media_len), true);
+            logger::subsection(
+                &format!("File {} of {}", i + 1, self.input_paths.len()),
+                true,
+            );
 
             let start = Instant::now();
             if !m.process(&self.output_paths[i], &self.titles[i], params) {
@@ -309,26 +342,24 @@ impl FileProcessor {
             );
 
             // Delete the original file, if required.
-            if let Some(del) = &params.misc.remove_original_file {
-                match del {
-                    DeletionOptions::Delete => {
-                        logger::log_inline("Attempting to delete original media file... ", false);
-                        if fs::remove_file(&self.input_paths[i]).is_ok() {
-                            logger::log(" file successfully deleted.", false);
-                        } else {
-                            logger::log(" file could not be deleted.", false);
-                        }
+            match params.misc.remove_original_file {
+                Some(DeletionOptions::Delete) => {
+                    logger::log_inline("Attempting to delete original media file... ", false);
+                    if fs::remove_file(&self.input_paths[i]).is_ok() {
+                        logger::log(" file successfully deleted.", false);
+                    } else {
+                        logger::log(" file could not be deleted.", false);
                     }
-                    DeletionOptions::Trash => {
-                        logger::log_inline("Attempting to delete original media file... ", false);
-                        if trash::delete(&self.input_paths[i]).is_ok() {
-                            logger::log(" file successfully sent to the trash.", false);
-                        } else {
-                            logger::log(" file could not be sent to the trash.", false);
-                        }
-                    }
-                    _ => {}
                 }
+                Some(DeletionOptions::Trash) => {
+                    logger::log_inline("Attempting to delete original media file... ", false);
+                    if trash::delete(&self.input_paths[i]).is_ok() {
+                        logger::log(" file successfully sent to the trash.", false);
+                    } else {
+                        logger::log(" file could not be sent to the trash.", false);
+                    }
+                }
+                _ => {}
             }
         }
 

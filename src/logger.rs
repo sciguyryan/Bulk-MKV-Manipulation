@@ -62,7 +62,7 @@ pub struct Logger {
 }
 
 impl Logger {
-    pub fn new() -> Logger {
+    pub fn new() -> Self {
         Self {
             enabled: false,
             is_first_section: true,
