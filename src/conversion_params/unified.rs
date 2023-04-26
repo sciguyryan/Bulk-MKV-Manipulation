@@ -149,9 +149,24 @@ pub struct UnifiedVideoParams {
 pub enum TrackFilterType {
     /// Filter by language code.
     Language,
+    /// Filter by track title.
+    Title(String, TrackTitleFilterType),
     /// Filter by track ID.
     TrackId,
     /// No filter should be applied.
+    #[default]
+    None,
+}
+
+#[derive(Default, Deserialize)]
+pub enum TrackTitleFilterType {
+    /// A fuzzy match - a match will be counted if the title contains the string.
+    Contains,
+    /// A strict match - a match will be counted if the title exactly matches the string.
+    Exact,
+    /// A regular expression match - a match will be counted if the title matches the regular expression.
+    RegEx,
+    /// No filtration based upon title type.
     #[default]
     None,
 }

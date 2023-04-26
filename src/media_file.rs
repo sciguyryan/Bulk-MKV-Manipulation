@@ -1505,7 +1505,7 @@ impl MediaFileTrack {
         )
     }
 
-    /// Get the expected path to the reencoded media file.
+    /// Get the expected path to the re-encoded media file.
     ///
     /// # Arguments
     ///
