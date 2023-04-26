@@ -1444,6 +1444,10 @@ pub struct MediaFileTrack {
     )]
     pub delay_source: DelaySource,
 
+    /// The track's title. If this is not defined then an empty string will be used instead.
+    #[serde(rename = "Title")]
+    pub title: String,
+
     /// The track's language ID. If this is not defined, or is specifically set to und (undefined) then it will default to English.
     #[serde(
         rename = "Language",
