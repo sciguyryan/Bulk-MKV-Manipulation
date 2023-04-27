@@ -26,6 +26,23 @@ pub struct InputProfile {
 }
 
 impl InputProfile {
+    pub fn initialize_filters(&mut self) -> bool {
+        self.processing_params
+            .subtitle_tracks
+            .filter_by
+            .initialize_regex()
+            && self
+                .processing_params
+                .subtitle_tracks
+                .filter_by
+                .initialize_regex()
+            && self
+                .processing_params
+                .video_tracks
+                .filter_by
+                .initialize_regex()
+    }
+
     pub fn validate_index_params(&self) -> bool {
         self.start_from.is_some() && self.index_pad_type.is_some()
             || self.start_from.is_none() && self.index_pad_type.is_none()
@@ -40,6 +57,7 @@ impl InputProfile {
         // Validate the audio filtering parameters.
         let audio_valid = match audio_filter.filter_type {
             TrackFilterType::Language => true,
+            TrackFilterType::Title => audio_filter.track_title_filter.is_some(),
             TrackFilterType::TrackId => audio_filter.track_indices.is_some(),
             TrackFilterType::None => true,
         };
@@ -50,6 +68,7 @@ impl InputProfile {
         // Validate the subtitle filtering parameters.
         let subtitle_valid = match subtitle_filter.filter_type {
             TrackFilterType::Language => true,
+            TrackFilterType::Title => subtitle_filter.track_title_filter.is_some(),
             TrackFilterType::TrackId => subtitle_filter.track_indices.is_some(),
             TrackFilterType::None => true,
         };
@@ -60,6 +79,7 @@ impl InputProfile {
         // Validate the video filtering parameters.
         let video_valid = match video_filter.filter_type {
             TrackFilterType::Language => true,
+            TrackFilterType::Title => video_filter.track_title_filter.is_some(),
             TrackFilterType::TrackId => video_filter.track_indices.is_some(),
             TrackFilterType::None => true,
         };

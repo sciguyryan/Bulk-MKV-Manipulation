@@ -1,3 +1,4 @@
+use regex::Regex;
 use serde::{Deserialize, Deserializer};
 use serde_derive::Deserialize;
 
@@ -105,6 +106,176 @@ pub struct MiscParams {
     pub run: Option<ProcessRun>,
 }
 
+#[derive(Deserialize, Clone)]
+pub struct ProcessRun {
+    /// The path to the process to be run before this stage is initiated.
+    pub pre_mux: Option<Vec<String>>,
+    /// The path to the process to be run after this stage has been completed.
+    pub post_mux: Option<Vec<String>>,
+}
+
+#[derive(Deserialize, Debug, PartialEq, Eq)]
+pub enum ProcessRunType {
+    // A command to be run prior to muxing.
+    PreMux,
+    // A command to be run after muxing.
+    PostMux,
+}
+
+#[derive(Deserialize)]
+pub struct TrackFilterBy {
+    /// The type of filter that should be applied to this track.
+    pub filter_type: TrackFilterType,
+    /// The list of language codes that should be accepted.
+    /// If this is empty then all languages will be accepted.
+    /// Only applicable for [`FilterType::Language`].
+    pub language_codes: Option<Vec<String>>,
+    /// The track indices to be selected.
+    pub track_indices: Option<Vec<usize>>,
+    /// The track title filter predicate.
+    /// Only applicable for [`FilterType::Title`].
+    pub track_title_filter: Option<TrackTitleFilterParams>,
+    /// The number of tracks of this type to retain, in total.
+    pub total_to_retain: Option<usize>,
+}
+
+impl TrackFilterBy {
+    /// Attempt to initialize a regular expression object that has been defined via a filters.
+    ///
+    /// # Returns
+    ///
+    /// True if the regular expressions were valid, false otherwise.
+    pub fn initialize_regex(&mut self) -> bool {
+        if let Some(ttf) = &mut self.track_title_filter {
+            ttf.initialize_regex()
+        } else {
+            true
+        }
+    }
+}
+
+#[derive(Deserialize)]
+pub struct TrackTitleFilterParams {
+    /// The predicate filter type.
+    filter_condition: TrackTitleFilterCondition,
+    /// The predicate filter strings.
+    filters: Vec<TrackTitleFilterType>,
+    /// The predicate regular expression objects, if defined.
+    #[serde(skip)]
+    regex_filters: Vec<Regex>,
+}
+
+#[derive(Deserialize, Eq, PartialEq)]
+pub enum TrackTitleFilterCondition {
+    /// If all of the filters are a match, then the title will be considered as matching.
+    And,
+    /// If any of the filters are a match, then the title will be considered as matching.
+    Or,
+    // If none of the filters are a match, then the title will be considered as matching.
+    Not,
+}
+
+#[derive(Clone, Deserialize)]
+pub enum TrackTitleFilterType {
+    /// A fuzzy match - a match will be counted if the title contains the string.
+    Contains(String),
+    /// A strict match - a match will be counted if the title exactly matches the string.
+    Equals(String),
+    /// A regular expression match - a match will be counted if the title matches the regular expression.
+    Regex(String),
+}
+
+#[derive(Default, Deserialize)]
+pub enum TrackFilterType {
+    /// Filter by language code.
+    Language,
+    /// Filter by track title.
+    Title,
+    /// Filter by track ID.
+    TrackId,
+    /// No filter should be applied.
+    #[default]
+    None,
+}
+
+impl TrackTitleFilterParams {
+    /// Attempt to initialize any regular expression objects that have been defined via a filters.
+    ///
+    /// # Returns
+    ///
+    /// True if the regular expression were valid, false otherwise.
+    pub fn initialize_regex(&mut self) -> bool {
+        for entry in &self.filters {
+            if let TrackTitleFilterType::Regex(s) = (*entry).clone() {
+                let r = Regex::new(&s);
+                if let Ok(re) = r {
+                    self.regex_filters.push(re);
+                } else {
+                    eprintln!("An error occurred while initializing regex: {r:?}");
+                    return false;
+                }
+            }
+        }
+
+        true
+    }
+
+    /// Checks to see if a given track title is a match against the specified filters.
+    ///
+    /// # Returns
+    ///
+    /// True if track title was a match for the filters, false otherwise.
+    pub fn is_match(&self, haystack: &str) -> bool {
+        let mut is_overall_match = true;
+
+        for f in &self.filters {
+            let is_match = match f {
+                TrackTitleFilterType::Contains(s) => haystack.contains(s),
+                TrackTitleFilterType::Equals(s) => s == haystack,
+                _ => continue,
+            };
+
+            match self.filter_condition {
+                TrackTitleFilterCondition::And => {
+                    is_overall_match &= is_match;
+                }
+                TrackTitleFilterCondition::Or => {
+                    is_overall_match |= is_match;
+                }
+                TrackTitleFilterCondition::Not => {
+                    is_overall_match &= !is_match;
+                }
+            }
+
+            if !is_overall_match {
+                return false;
+            }
+        }
+
+        for r in &self.regex_filters {
+            let is_match = r.is_match(haystack);
+
+            match self.filter_condition {
+                TrackTitleFilterCondition::And => {
+                    is_overall_match &= is_match;
+                }
+                TrackTitleFilterCondition::Or => {
+                    is_overall_match |= is_match;
+                }
+                TrackTitleFilterCondition::Not => {
+                    is_overall_match &= !is_match;
+                }
+            }
+
+            if !is_overall_match {
+                return false;
+            }
+        }
+
+        is_overall_match
+    }
+}
+
 #[derive(Deserialize)]
 pub struct UnifiedAudioParams {
     /// How should the tracks be filtered?
@@ -143,62 +314,6 @@ pub struct UnifiedVideoParams {
     /// If the language is undefined, what should the language be
     /// assumed as being?
     pub default_language: Option<String>,
-}
-
-#[derive(Default, Deserialize)]
-pub enum TrackFilterType {
-    /// Filter by language code.
-    Language,
-    /// Filter by track title.
-    Title(String, TrackTitleFilterType),
-    /// Filter by track ID.
-    TrackId,
-    /// No filter should be applied.
-    #[default]
-    None,
-}
-
-#[derive(Default, Deserialize)]
-pub enum TrackTitleFilterType {
-    /// A fuzzy match - a match will be counted if the title contains the string.
-    Contains,
-    /// A strict match - a match will be counted if the title exactly matches the string.
-    Exact,
-    /// A regular expression match - a match will be counted if the title matches the regular expression.
-    RegEx,
-    /// No filtration based upon title type.
-    #[default]
-    None,
-}
-
-#[derive(Deserialize, Clone)]
-pub struct ProcessRun {
-    /// The path to the process to be run before this stage is initiated.
-    pub pre_mux: Option<Vec<String>>,
-    /// The path to the process to be run after this stage has been completed.
-    pub post_mux: Option<Vec<String>>,
-}
-
-#[derive(Deserialize, Debug, PartialEq, Eq)]
-pub enum ProcessRunType {
-    // A command to be run prior to muxing.
-    PreMux,
-    // A command to be run after muxing.
-    PostMux,
-}
-
-#[derive(Deserialize)]
-pub struct TrackFilterBy {
-    /// The type of filter that should be applied to this track.
-    pub filter_type: TrackFilterType,
-    /// The list of language codes that should be accepted.
-    /// If this is empty then all languages will be accepted.
-    /// Only applicable to [`FilterType::Language`].
-    pub language_codes: Option<Vec<String>>,
-    /// The track indices to be selected.
-    pub track_indices: Option<Vec<usize>>,
-    /// The number of tracks of this type to retain, in total.
-    pub total_to_retain: Option<usize>,
 }
 
 fn array_to_lowercase_string_vec<'de, D>(deserializer: D) -> Result<Option<Vec<String>>, D::Error>

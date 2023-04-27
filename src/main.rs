@@ -46,10 +46,15 @@ fn main() {
 
     logger::log("Attempting to validate filter parameters...", false);
 
-    let profile = profile.unwrap();
+    let mut profile = profile.unwrap();
 
     // Validate the index processing parameters.
     if !profile.validate_index_params() {
+        return;
+    }
+
+    // Initialize any regular expression filters that may be present.
+    if !profile.initialize_filters() {
         return;
     }
 

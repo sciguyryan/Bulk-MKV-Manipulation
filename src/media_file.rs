@@ -658,6 +658,9 @@ impl MediaFile {
             _ => panic!(),
         };
 
+        // The panic should never happen since the cases are all dealt with above.
+        let title_filter = &filter.track_title_filter;
+
         // Is a track limiter in place, and have we reached the target number of tracks?
         if let Some(count) = filter.total_to_retain {
             if let Some(c) = self.track_type_counter.get(track_type) {
@@ -684,6 +687,16 @@ impl MediaFile {
                 // and normal indices exclude that pseudo-track.
                 if let Some(indices) = &filter.track_indices {
                     indices.contains(&(index - 1))
+                } else {
+                    // This case can never occur. There will always be a
+                    // vector in this instance as the filters are validated
+                    // prior to this step.
+                    panic!();
+                }
+            }
+            TrackFilterType::Title => {
+                if let Some(ttft) = &title_filter {
+                    ttft.is_match(&self.media.tracks[index].title)
                 } else {
                     // This case can never occur. There will always be a
                     // vector in this instance as the filters are validated
@@ -1445,7 +1458,7 @@ pub struct MediaFileTrack {
     pub delay_source: DelaySource,
 
     /// The track's title. If this is not defined then an empty string will be used instead.
-    #[serde(rename = "Title")]
+    #[serde(rename = "Title", default)]
     pub title: String,
 
     /// The track's language ID. If this is not defined, or is specifically set to und (undefined) then it will default to English.
