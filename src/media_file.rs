@@ -658,9 +658,6 @@ impl MediaFile {
             _ => panic!(),
         };
 
-        // The panic should never happen since the cases are all dealt with above.
-        let title_filter = &filter.track_title_filter;
-
         // Is a track limiter in place, and have we reached the target number of tracks?
         if let Some(count) = filter.total_to_retain {
             if let Some(c) = self.track_type_counter.get(track_type) {
@@ -676,16 +673,7 @@ impl MediaFile {
             TrackFilterType::Languages(language_ids) => {
                 MediaFile::filter_by_language(&self.media.tracks[index].language, language_ids)
             }
-            TrackFilterType::Title => {
-                if let Some(title_filters) = &title_filter {
-                    title_filters.is_match(&self.media.tracks[index].title)
-                } else {
-                    // This case can never occur. There will always be a
-                    // vector in this instance as the filters are validated
-                    // prior to this step.
-                    panic!();
-                }
-            }
+            TrackFilterType::Title(t) => t.is_match(&self.media.tracks[index].title),
             _ => true,
         }
     }

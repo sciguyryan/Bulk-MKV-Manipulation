@@ -135,7 +135,7 @@ pub struct TrackFilterPredicate {
     pub track_indices: Option<Vec<usize>>,
     /// The track title filter predicate.
     /// Only applicable for [`FilterType::Title`].
-    pub track_title_filter: Option<TrackTitleFilterParams>,
+    pub track_title_filter: Option<TrackTitlePredicateParams>,
     /// The number of tracks of this type to retain, in total.
     pub total_to_retain: Option<usize>,
 }
@@ -156,7 +156,7 @@ impl TrackFilterPredicate {
 }
 
 #[derive(Deserialize)]
-pub struct TrackTitleFilterParams {
+pub struct TrackTitlePredicateParams {
     /// The predicate filter type.
     filter_condition: TrackTitleFilterCondition,
     /// The predicate filter strings.
@@ -170,10 +170,10 @@ pub struct TrackTitleFilterParams {
 pub enum TrackTitleFilterCondition {
     /// If all of the filters are a match, then the title will be considered as matching.
     And,
-    /// If any of the filters are a match, then the title will be considered as matching.
-    Or,
     // If none of the filters are a match, then the title will be considered as matching.
     Not,
+    /// If any of the filters are a match, then the title will be considered as matching.
+    Or,
 }
 
 #[derive(Clone, Deserialize)]
@@ -188,18 +188,18 @@ pub enum TrackTitleFilterType {
 
 #[derive(Default, Deserialize)]
 pub enum TrackFilterType {
+    /// Filter by track indices.
+    Indices(Vec<usize>),
     /// Filter by track language code.
     Languages(Vec<String>),
     /// Filter by track title.
-    Title,
-    /// Filter by track indices.
-    Indices(Vec<usize>),
+    Title(TrackTitlePredicateParams),
     /// No filter should be applied.
     #[default]
     None,
 }
 
-impl TrackTitleFilterParams {
+impl TrackTitlePredicateParams {
     /// Attempt to initialize any regular expression objects that have been defined via a filters.
     ///
     /// # Returns

@@ -58,7 +58,7 @@ impl InputProfile {
         let audio_valid = match &audio_filter.filter_type {
             TrackFilterType::Indices(i) => !i.is_empty(),
             TrackFilterType::Languages(l) => !l.is_empty(),
-            TrackFilterType::Title => audio_filter.track_title_filter.is_some(),
+            TrackFilterType::Title(_) => true,
             TrackFilterType::None => true,
         };
         if !audio_valid {
@@ -69,7 +69,7 @@ impl InputProfile {
         let subtitle_valid = match &subtitle_filter.filter_type {
             TrackFilterType::Indices(i) => !i.is_empty(),
             TrackFilterType::Languages(l) => !l.is_empty(),
-            TrackFilterType::Title => subtitle_filter.track_title_filter.is_some(),
+            TrackFilterType::Title(_) => true,
             TrackFilterType::None => true,
         };
         if !subtitle_valid {
@@ -80,7 +80,7 @@ impl InputProfile {
         let video_valid = match &video_filter.filter_type {
             TrackFilterType::Indices(i) => !i.is_empty(),
             TrackFilterType::Languages(l) => !l.is_empty(),
-            TrackFilterType::Title => video_filter.track_title_filter.is_some(),
+            TrackFilterType::Title(_) => true,
             TrackFilterType::None => true,
         };
         if !video_valid {
