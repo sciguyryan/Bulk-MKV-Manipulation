@@ -123,8 +123,9 @@ pub enum ProcessRunType {
 }
 
 #[derive(Deserialize)]
-pub struct TrackFilterBy {
+pub struct TrackFilterPredicate {
     /// The type of filter that should be applied to this track.
+    #[serde(rename = "type")]
     pub filter_type: TrackFilterType,
     /// The list of language codes that should be accepted.
     /// If this is empty then all languages will be accepted.
@@ -139,7 +140,7 @@ pub struct TrackFilterBy {
     pub total_to_retain: Option<usize>,
 }
 
-impl TrackFilterBy {
+impl TrackFilterPredicate {
     /// Attempt to initialize a regular expression object that has been defined via a filters.
     ///
     /// # Returns
@@ -188,11 +189,11 @@ pub enum TrackTitleFilterType {
 #[derive(Default, Deserialize)]
 pub enum TrackFilterType {
     /// Filter by track language code.
-    Language,
+    Languages(Vec<String>),
     /// Filter by track title.
     Title,
     /// Filter by track indices.
-    Indices,
+    Indices(Vec<usize>),
     /// No filter should be applied.
     #[default]
     None,
@@ -279,7 +280,7 @@ impl TrackTitleFilterParams {
 #[derive(Deserialize)]
 pub struct UnifiedAudioParams {
     /// How should the tracks be filtered?
-    pub filter_by: TrackFilterBy,
+    pub predicate: TrackFilterPredicate,
     /// The conversion parameters for audio tracks.
     pub conversion: Option<AudioParams>,
     /// If the language is undefined, what should the language be
@@ -290,7 +291,7 @@ pub struct UnifiedAudioParams {
 #[derive(Deserialize)]
 pub struct UnifiedSubtitleParams {
     /// How should the tracks be filtered?
-    pub filter_by: TrackFilterBy,
+    pub predicate: TrackFilterPredicate,
     /// The conversion parameters for subtitle tracks.
     pub conversion: Option<SubtitleParams>,
     /// If the language is undefined, what should the language be
@@ -308,7 +309,7 @@ pub struct UnifiedOtherTrackParams {
 #[derive(Deserialize)]
 pub struct UnifiedVideoParams {
     /// How should the tracks be filtered?
-    pub filter_by: TrackFilterBy,
+    pub predicate: TrackFilterPredicate,
     /// The conversion parameters for subtitle tracks.
     pub conversion: Option<VideoParams>,
     /// If the language is undefined, what should the language be

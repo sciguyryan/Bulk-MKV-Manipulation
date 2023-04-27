@@ -588,9 +588,9 @@ impl MediaFile {
         let mut success = true;
         for target_type in [TrackType::Audio, TrackType::Subtitle, TrackType::Video] {
             let target = match target_type {
-                TrackType::Audio => audio.filter_by.total_to_retain,
-                TrackType::Subtitle => subtitle.filter_by.total_to_retain,
-                TrackType::Video => video.filter_by.total_to_retain,
+                TrackType::Audio => audio.predicate.total_to_retain,
+                TrackType::Subtitle => subtitle.predicate.total_to_retain,
+                TrackType::Video => video.predicate.total_to_retain,
                 _ => None,
             };
 
@@ -652,9 +652,9 @@ impl MediaFile {
 
         // The panic should never happen since the cases are all dealt with above.
         let filter = match track_type {
-            TrackType::Audio => &params.audio_tracks.filter_by,
-            TrackType::Subtitle => &params.subtitle_tracks.filter_by,
-            TrackType::Video => &params.video_tracks.filter_by,
+            TrackType::Audio => &params.audio_tracks.predicate,
+            TrackType::Subtitle => &params.subtitle_tracks.predicate,
+            TrackType::Video => &params.video_tracks.predicate,
             _ => panic!(),
         };
 
@@ -671,28 +671,10 @@ impl MediaFile {
         }
 
         // Note: that the filters are validated so the unwraps are safe here.
-        match filter.filter_type {
-            TrackFilterType::Indices => {
-                // We need to subtract one here as the "general" track always appears first
-                // and normal indices exclude that pseudo-track.
-                if let Some(indices) = &filter.track_indices {
-                    indices.contains(&(index - 1))
-                } else {
-                    // This case can never occur. There will always be a
-                    // vector in this instance as the filters are validated
-                    // prior to this step.
-                    panic!();
-                }
-            }
-            TrackFilterType::Language => {
-                if let Some(language_ids) = &filter.language_codes {
-                    MediaFile::filter_by_language(&self.media.tracks[index].language, language_ids)
-                } else {
-                    // This case can never occur. There will always be a
-                    // vector in this instance as the filters are validated
-                    // prior to this step.
-                    panic!();
-                }
+        match &filter.filter_type {
+            TrackFilterType::Indices(indices) => indices.contains(&(index - 1)),
+            TrackFilterType::Languages(language_ids) => {
+                MediaFile::filter_by_language(&self.media.tracks[index].language, language_ids)
             }
             TrackFilterType::Title => {
                 if let Some(title_filters) = &title_filter {

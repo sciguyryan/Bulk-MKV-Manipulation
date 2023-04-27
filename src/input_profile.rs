@@ -29,17 +29,17 @@ impl InputProfile {
     pub fn initialize_filters(&mut self) -> bool {
         self.processing_params
             .subtitle_tracks
-            .filter_by
+            .predicate
             .initialize_regex()
             && self
                 .processing_params
                 .subtitle_tracks
-                .filter_by
+                .predicate
                 .initialize_regex()
             && self
                 .processing_params
                 .video_tracks
-                .filter_by
+                .predicate
                 .initialize_regex()
     }
 
@@ -50,15 +50,15 @@ impl InputProfile {
 
     pub fn validate_filter_params(&self) -> bool {
         let pp = &self.processing_params;
-        let audio_filter = &pp.audio_tracks.filter_by;
-        let subtitle_filter = &pp.subtitle_tracks.filter_by;
-        let video_filter = &pp.video_tracks.filter_by;
+        let audio_filter = &pp.audio_tracks.predicate;
+        let subtitle_filter = &pp.subtitle_tracks.predicate;
+        let video_filter = &pp.video_tracks.predicate;
 
         // Validate the audio filtering parameters.
-        let audio_valid = match audio_filter.filter_type {
-            TrackFilterType::Language => true,
+        let audio_valid = match &audio_filter.filter_type {
+            TrackFilterType::Indices(i) => !i.is_empty(),
+            TrackFilterType::Languages(l) => !l.is_empty(),
             TrackFilterType::Title => audio_filter.track_title_filter.is_some(),
-            TrackFilterType::Indices => audio_filter.track_indices.is_some(),
             TrackFilterType::None => true,
         };
         if !audio_valid {
@@ -66,10 +66,10 @@ impl InputProfile {
         }
 
         // Validate the subtitle filtering parameters.
-        let subtitle_valid = match subtitle_filter.filter_type {
-            TrackFilterType::Language => true,
+        let subtitle_valid = match &subtitle_filter.filter_type {
+            TrackFilterType::Indices(i) => !i.is_empty(),
+            TrackFilterType::Languages(l) => !l.is_empty(),
             TrackFilterType::Title => subtitle_filter.track_title_filter.is_some(),
-            TrackFilterType::Indices => subtitle_filter.track_indices.is_some(),
             TrackFilterType::None => true,
         };
         if !subtitle_valid {
@@ -77,10 +77,10 @@ impl InputProfile {
         }
 
         // Validate the video filtering parameters.
-        let video_valid = match video_filter.filter_type {
-            TrackFilterType::Language => true,
+        let video_valid = match &video_filter.filter_type {
+            TrackFilterType::Indices(i) => !i.is_empty(),
+            TrackFilterType::Languages(l) => !l.is_empty(),
             TrackFilterType::Title => video_filter.track_title_filter.is_some(),
-            TrackFilterType::Indices => video_filter.track_indices.is_some(),
             TrackFilterType::None => true,
         };
         if !video_valid {
