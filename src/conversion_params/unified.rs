@@ -187,12 +187,12 @@ pub enum TrackTitleFilterType {
 
 #[derive(Default, Deserialize)]
 pub enum TrackFilterType {
-    /// Filter by language code.
+    /// Filter by track language code.
     Language,
     /// Filter by track title.
     Title,
-    /// Filter by track ID.
-    TrackId,
+    /// Filter by track indices.
+    Indices,
     /// No filter should be applied.
     #[default]
     None,

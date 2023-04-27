@@ -672,17 +672,7 @@ impl MediaFile {
 
         // Note: that the filters are validated so the unwraps are safe here.
         match filter.filter_type {
-            TrackFilterType::Language => {
-                if let Some(lang) = &filter.language_codes {
-                    MediaFile::filter_by_language(&self.media.tracks[index].language, lang)
-                } else {
-                    // This case can never occur. There will always be a
-                    // vector in this instance as the filters are validated
-                    // prior to this step.
-                    panic!();
-                }
-            }
-            TrackFilterType::TrackId => {
+            TrackFilterType::Indices => {
                 // We need to subtract one here as the "general" track always appears first
                 // and normal indices exclude that pseudo-track.
                 if let Some(indices) = &filter.track_indices {
@@ -694,9 +684,19 @@ impl MediaFile {
                     panic!();
                 }
             }
+            TrackFilterType::Language => {
+                if let Some(language_ids) = &filter.language_codes {
+                    MediaFile::filter_by_language(&self.media.tracks[index].language, language_ids)
+                } else {
+                    // This case can never occur. There will always be a
+                    // vector in this instance as the filters are validated
+                    // prior to this step.
+                    panic!();
+                }
+            }
             TrackFilterType::Title => {
-                if let Some(ttft) = &title_filter {
-                    ttft.is_match(&self.media.tracks[index].title)
+                if let Some(title_filters) = &title_filter {
+                    title_filters.is_match(&self.media.tracks[index].title)
                 } else {
                     // This case can never occur. There will always be a
                     // vector in this instance as the filters are validated
