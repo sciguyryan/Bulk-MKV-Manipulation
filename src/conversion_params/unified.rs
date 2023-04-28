@@ -106,6 +106,7 @@ pub struct MiscParams {
     pub run: Option<ProcessRun>,
 }
 
+// TODO: move this into the ProcessRunType enum, as was done with the predicates.
 #[derive(Deserialize, Clone)]
 pub struct ProcessRun {
     /// The path to the process to be run before this stage is initiated.
@@ -127,15 +128,6 @@ pub struct TrackFilterPredicate {
     /// The type of filter that should be applied to this track.
     #[serde(rename = "type")]
     pub filter_type: TrackFilterType,
-    /// The list of language codes that should be accepted.
-    /// If this is empty then all languages will be accepted.
-    /// Only applicable for [`FilterType::Language`].
-    pub language_codes: Option<Vec<String>>,
-    /// The track indices to be selected.
-    pub track_indices: Option<Vec<usize>>,
-    /// The track title filter predicate.
-    /// Only applicable for [`FilterType::Title`].
-    pub track_title_filter: Option<TrackTitlePredicateParams>,
     /// The number of tracks of this type to retain, in total.
     pub total_to_retain: Option<usize>,
 }
@@ -147,7 +139,7 @@ impl TrackFilterPredicate {
     ///
     /// True if the regular expressions were valid, false otherwise.
     pub fn initialize_regex(&mut self) -> bool {
-        if let Some(ttf) = &mut self.track_title_filter {
+        if let TrackFilterType::Title(ttf) = &mut self.filter_type {
             ttf.initialize_regex()
         } else {
             true
