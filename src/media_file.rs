@@ -1215,7 +1215,7 @@ impl MediaFile {
             .collect();
         if commands.is_empty() {
             logger::log(
-                format!("no command of type '{run_type:?}' was specified."),
+                format!("no commands of type '{run_type:?}' were specified."),
                 false,
             );
             return;
@@ -1251,9 +1251,16 @@ impl MediaFile {
             // Currently there is only one, but there might eventually be more.
             let mut args: Vec<String> = command_args[1..].to_vec();
             for arg in &mut args {
+                // The %logging% tag is special. If it is present, and if logging isn't enabled
+                // then the entire argument will be removed.
+                if arg.contains("%log%") && !logger::is_logger_enabled() {
+                    *arg = String::new();
+                }
+
                 *arg = arg.replace("%i%", &self.file_path);
                 *arg = arg.replace("%o%", &self.output_path);
                 *arg = arg.replace("%t%", &self.get_temp_path());
+                *arg = arg.replace("%log%", "");
             }
 
             // Run the command and show the results.

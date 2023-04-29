@@ -8,16 +8,20 @@ lazy_static! {
     pub static ref LOGGER: Mutex<Logger> = Mutex::new(Logger::new());
 }
 
+pub fn is_first_section() -> bool {
+    LOGGER.lock().unwrap().is_first_section
+}
+
+pub fn is_logger_enabled() -> bool {
+    LOGGER.lock().unwrap().enabled
+}
+
 pub fn set_enabled(enabled: bool) {
     LOGGER.lock().unwrap().enabled = enabled;
 }
 
 pub fn set_is_first_section(first: bool) {
     LOGGER.lock().unwrap().is_first_section = first;
-}
-
-pub fn get_is_first_section() -> bool {
-    LOGGER.lock().unwrap().is_first_section
 }
 
 pub fn log<S: AsRef<str>>(message: S, console: bool)
@@ -38,7 +42,7 @@ pub fn section<S: AsRef<str>>(title: S, console: bool)
 where
     S: Display,
 {
-    if get_is_first_section() {
+    if is_first_section() {
         set_is_first_section(false);
     } else {
         log("", console);
