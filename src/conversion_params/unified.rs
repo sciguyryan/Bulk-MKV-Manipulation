@@ -103,28 +103,19 @@ pub struct MiscParams {
     /// If the path is not specified, or is invalid, then no tags will be added.
     pub tags_path: Option<String>,
     /// The paths to any processes that should be run before or after this processing step.
-    pub run: Option<ProcessRun>,
+    pub run: Option<Vec<ProcessRun>>,
 }
 
 pub trait PredicateFilterMatch {
     fn is_match(&self, haystack: &str) -> bool;
 }
 
-// TODO: move this into the ProcessRunType enum, as was done with the predicates.
-#[derive(Deserialize, Clone)]
-pub struct ProcessRun {
-    /// The path to the process to be run before this stage is initiated.
-    pub pre_mux: Option<Vec<String>>,
-    /// The path to the process to be run after this stage has been completed.
-    pub post_mux: Option<Vec<String>>,
-}
-
-#[derive(Deserialize, Debug, PartialEq, Eq)]
-pub enum ProcessRunType {
+#[derive(Clone, Deserialize, Debug, PartialEq, Eq)]
+pub enum ProcessRun {
     // A command to be run prior to muxing.
-    PreMux,
+    PreMux(Vec<String>),
     // A command to be run after muxing.
-    PostMux,
+    PostMux(Vec<String>),
 }
 
 #[derive(Deserialize)]

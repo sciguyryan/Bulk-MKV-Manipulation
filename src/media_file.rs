@@ -3,7 +3,7 @@ use crate::{
         audio::{AudioCodec, AudioParams},
         params_trait::ConversionParams,
         subtitle::SubtitleParams,
-        unified::{PredicateFilterMatch, ProcessRunType, TrackPredicate, UnifiedParams},
+        unified::{PredicateFilterMatch, ProcessRun, TrackPredicate, UnifiedParams},
         video::VideoParams,
     },
     converters, logger, mkvtoolnix, paths, utils,
@@ -89,6 +89,20 @@ impl From<AudioCodec> for Codec {
     }
 }
 
+#[derive(Debug, PartialEq, Eq)]
+pub enum RunCommandType {
+    PreMux,
+    PostMux,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Eq)]
+pub enum DelaySource {
+    Container,
+    #[default]
+    None,
+    Stream,
+}
+
 #[derive(Clone, Default, Deserialize, Eq, Hash, PartialEq)]
 pub enum TrackType {
     /// An audio track.
@@ -121,14 +135,6 @@ impl fmt::Display for TrackType {
             TrackType::Video => write!(f, "video"),
         }
     }
-}
-
-#[derive(Clone, Debug, Default, Deserialize, PartialEq, Eq)]
-pub enum DelaySource {
-    Container,
-    #[default]
-    None,
-    Stream,
 }
 
 #[derive(Deserialize)]
@@ -824,7 +830,7 @@ impl MediaFile {
         logger::log("", false);
 
         // Run any pre-muxing processes, if any were requested.
-        self.run_commands(ProcessRunType::PreMux, params);
+        self.run_commands(RunCommandType::PreMux, params);
 
         logger::log("", false);
 
@@ -833,7 +839,7 @@ impl MediaFile {
             logger::log("", false);
 
             // Run any post-muxing processes, if any were requested.
-            self.run_commands(ProcessRunType::PostMux, params);
+            self.run_commands(RunCommandType::PostMux, params);
         }
 
         logger::log("", false);
@@ -1209,7 +1215,7 @@ impl MediaFile {
     ///
     /// * `run_type` - The type of command to be run.
     /// * `params` - The conversion parameters to be applied to the media file.
-    pub fn run_commands(&self, run_type: ProcessRunType, params: &UnifiedParams) {
+    pub fn run_commands(&self, run_type: RunCommandType, params: &UnifiedParams) {
         logger::log_inline("Checking for run commands... ", false);
 
         let run = match params.misc.run.clone() {
@@ -1220,12 +1226,14 @@ impl MediaFile {
             }
         };
 
-        let command = match run_type {
-            ProcessRunType::PreMux => run.pre_mux,
-            ProcessRunType::PostMux => run.post_mux,
-        };
-
-        if command.is_none() {
+        let commands: Vec<&ProcessRun> = run
+            .iter()
+            .filter(|f| match run_type {
+                RunCommandType::PreMux => matches!(f, ProcessRun::PreMux(_)),
+                RunCommandType::PostMux => matches!(f, ProcessRun::PostMux(_)),
+            })
+            .collect();
+        if commands.is_empty() {
             logger::log(
                 format!("no command of type '{run_type:?}' was specified."),
                 false,
@@ -1233,56 +1241,58 @@ impl MediaFile {
             return;
         }
 
-        logger::log(
-            format!("\nA command of type '{run_type:?}' was specified and will now be executed.",),
-            false,
-        );
-
-        let command = command.unwrap();
-        if command.is_empty() {
-            return;
-        }
-
-        // The path to the command must always be the first in the list.
-        // Everything that follows will be assumed to be arguments
-        // to be passed to whatever command is being run.
-        let path = &command[0];
-
-        if !utils::file_exists(path) {
+        logger::log("\n", false);
+        for command in commands {
             logger::log(
-                format!(
-                    "Run command of type {run_type:?} was specified, but the path doesn't exist!",
-                ),
+                format!("A command of type '{run_type:?}' was specified and will now be executed."),
                 false,
             );
-            return;
-        }
 
-        // Go through the arguments list and replace any special parameters.
-        // Currently there is only one, but there might eventually be more.
-        let mut args: Vec<String> = command[1..].to_vec();
-        for arg in &mut args {
-            *arg = arg.replace("%i%", &self.file_path);
-            *arg = arg.replace("%o%", &self.output_path);
-            *arg = arg.replace("%t%", &self.get_temp_path());
-        }
+            let command_args = match command {
+                ProcessRun::PreMux(args) => args,
+                ProcessRun::PostMux(args) => args,
+            };
 
-        // Run the command and show the results.
-        match Command::new(path).args(args).output() {
-            Ok(o) => {
+            // The path to the command must always be the first in the list.
+            // Everything that follows will be assumed to be arguments
+            // to be passed to whatever command is being run.
+            let path = &command_args[0];
+            if !utils::file_exists(path) {
                 logger::log(
-                    "The command was successfully executed and yielded the following output:",
+                    format!(
+                        "Run command of type {run_type:?} was specified, but the path doesn't exist!",
+                    ),
                     false,
                 );
-                let str = String::from_utf8_lossy(&o.stdout);
-                for line in str.split('\n') {
-                    logger::log(format!(">\t{line}"), false);
-                }
+                return;
             }
-            Err(e) => {
-                logger::log(
-                    format!("The command was not successfully executed and yielded the following output: {e:?}"), false
-                );
+
+            // Go through the arguments list and replace any special parameters.
+            // Currently there is only one, but there might eventually be more.
+            let mut args: Vec<String> = command_args[1..].to_vec();
+            for arg in &mut args {
+                *arg = arg.replace("%i%", &self.file_path);
+                *arg = arg.replace("%o%", &self.output_path);
+                *arg = arg.replace("%t%", &self.get_temp_path());
+            }
+
+            // Run the command and show the results.
+            match Command::new(path).args(args).output() {
+                Ok(o) => {
+                    logger::log(
+                        "The command was successfully executed and yielded the following output:",
+                        false,
+                    );
+                    let str = String::from_utf8_lossy(&o.stdout);
+                    for line in str.split('\n') {
+                        logger::log(format!(">\t{line}"), false);
+                    }
+                }
+                Err(e) => {
+                    logger::log(
+                        format!("The command was not successfully executed and yielded the following output: {e:?}"), false
+                    );
+                }
             }
         }
     }
