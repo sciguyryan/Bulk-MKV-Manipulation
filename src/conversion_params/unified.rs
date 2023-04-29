@@ -119,17 +119,17 @@ pub enum ProcessRun {
 }
 
 #[derive(Deserialize)]
-pub struct TrackIdPredicate {
+pub struct TrackIndexPredicate {
     ids: Vec<usize>,
 }
 
-impl TrackIdPredicate {
+impl TrackIndexPredicate {
     pub fn is_empty(&self) -> bool {
         self.ids.is_empty()
     }
 }
 
-impl PredicateFilterMatch<usize> for TrackIdPredicate {
+impl PredicateFilterMatch<usize> for TrackIndexPredicate {
     /// Checks to see if a given track language ID is a match against the specified filters.
     ///
     /// # Returns
@@ -297,8 +297,8 @@ impl PredicateFilterMatch<&str> for TrackLanguagePredicate {
 #[derive(Default, Deserialize)]
 pub enum TrackPredicate {
     /// Filter by track indices.
-    #[serde(rename = "indices")]
-    Indices(TrackIdPredicate),
+    #[serde(rename = "index")]
+    Index(TrackIndexPredicate),
     /// Filter by track language code.
     #[serde(rename = "language")]
     Language(TrackLanguagePredicate),
