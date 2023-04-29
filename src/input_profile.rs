@@ -1,5 +1,5 @@
 use crate::{
-    conversion_params::unified::{TrackFilterType, UnifiedParams},
+    conversion_params::unified::{TrackPredicate, UnifiedParams},
     file_processor::PadType,
     logger,
     substitutions::Substitutions,
@@ -55,33 +55,33 @@ impl InputProfile {
         let video_filter = &pp.video_tracks.predicate;
 
         // Validate the audio filtering parameters.
-        let audio_valid = match &audio_filter.filter_type {
-            TrackFilterType::Indices(i) => !i.is_empty(),
-            TrackFilterType::Languages(l) => !l.is_empty(),
-            TrackFilterType::Title(_) => true,
-            TrackFilterType::None => true,
+        let audio_valid = match &audio_filter {
+            TrackPredicate::Indices(i) => !i.is_empty(),
+            TrackPredicate::Languages(l) => !l.language_ids.is_empty(),
+            TrackPredicate::Title(_) => true,
+            TrackPredicate::None => true,
         };
         if !audio_valid {
             logger::log("Failed to validate the audio filter parameters", true);
         }
 
         // Validate the subtitle filtering parameters.
-        let subtitle_valid = match &subtitle_filter.filter_type {
-            TrackFilterType::Indices(i) => !i.is_empty(),
-            TrackFilterType::Languages(l) => !l.is_empty(),
-            TrackFilterType::Title(_) => true,
-            TrackFilterType::None => true,
+        let subtitle_valid = match &subtitle_filter {
+            TrackPredicate::Indices(i) => !i.is_empty(),
+            TrackPredicate::Languages(l) => !l.language_ids.is_empty(),
+            TrackPredicate::Title(_) => true,
+            TrackPredicate::None => true,
         };
         if !subtitle_valid {
             logger::log("Failed to validate the subtitle filter parameters", true);
         }
 
         // Validate the video filtering parameters.
-        let video_valid = match &video_filter.filter_type {
-            TrackFilterType::Indices(i) => !i.is_empty(),
-            TrackFilterType::Languages(l) => !l.is_empty(),
-            TrackFilterType::Title(_) => true,
-            TrackFilterType::None => true,
+        let video_valid = match &video_filter {
+            TrackPredicate::Indices(i) => !i.is_empty(),
+            TrackPredicate::Languages(l) => !l.language_ids.is_empty(),
+            TrackPredicate::Title(_) => true,
+            TrackPredicate::None => true,
         };
         if !video_valid {
             logger::log("Failed to validate the subtitle filter parameters", true);

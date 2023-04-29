@@ -3,7 +3,7 @@ use crate::{
         audio::{AudioCodec, AudioParams},
         params_trait::ConversionParams,
         subtitle::SubtitleParams,
-        unified::{ProcessRunType, TrackFilterType, UnifiedParams},
+        unified::{PredicateFilterMatch, ProcessRunType, TrackPredicate, UnifiedParams},
         video::VideoParams,
     },
     converters, logger, mkvtoolnix, paths, utils,
@@ -543,16 +543,6 @@ impl MediaFile {
         );
     }
 
-    /// Filter a track based on it's language.
-    ///
-    /// # Arguments
-    ///
-    /// * `lang` - The language of the track.
-    /// * `langs` - The list of accepted languages.
-    fn filter_by_language(lang: &str, langs: &[String]) -> bool {
-        langs.is_empty() || langs.iter().any(|l| l == lang)
-    }
-
     /// Filter the media file tracks based on the specified criteria.
     ///
     /// # Arguments
@@ -588,9 +578,9 @@ impl MediaFile {
         let mut success = true;
         for target_type in [TrackType::Audio, TrackType::Subtitle, TrackType::Video] {
             let target = match target_type {
-                TrackType::Audio => audio.predicate.total_to_retain,
-                TrackType::Subtitle => subtitle.predicate.total_to_retain,
-                TrackType::Video => video.predicate.total_to_retain,
+                TrackType::Audio => audio.total_to_retain,
+                TrackType::Subtitle => subtitle.total_to_retain,
+                TrackType::Video => video.total_to_retain,
                 _ => None,
             };
 
@@ -651,29 +641,37 @@ impl MediaFile {
         }
 
         // The panic should never happen since the cases are all dealt with above.
-        let filter = match track_type {
+        let predicate = match track_type {
             TrackType::Audio => &params.audio_tracks.predicate,
             TrackType::Subtitle => &params.subtitle_tracks.predicate,
             TrackType::Video => &params.video_tracks.predicate,
             _ => panic!(),
         };
 
+        // The panic should never happen since the cases are all dealt with above.
+        let tracks_to_retail = match track_type {
+            TrackType::Audio => &params.audio_tracks.total_to_retain,
+            TrackType::Subtitle => &params.subtitle_tracks.total_to_retain,
+            TrackType::Video => &params.video_tracks.total_to_retain,
+            _ => panic!(),
+        };
+
         // Is a track limiter in place, and have we reached the target number of tracks?
-        if let Some(count) = filter.total_to_retain {
+        if let Some(count) = tracks_to_retail {
             if let Some(c) = self.track_type_counter.get(track_type) {
-                if *c >= count {
+                if c >= count {
                     return false;
                 }
             }
         }
 
         // Note: that the filters are validated so the unwraps are safe here.
-        match &filter.filter_type {
-            TrackFilterType::Indices(indices) => indices.contains(&(index - 1)),
-            TrackFilterType::Languages(language_ids) => {
-                MediaFile::filter_by_language(&self.media.tracks[index].language, language_ids)
+        match &predicate {
+            TrackPredicate::Indices(indices) => indices.contains(&(index - 1)),
+            TrackPredicate::Languages(language_ids) => {
+                language_ids.is_match(&self.media.tracks[index].language)
             }
-            TrackFilterType::Title(t) => t.is_match(&self.media.tracks[index].title),
+            TrackPredicate::Title(t) => t.is_match(&self.media.tracks[index].title),
             _ => true,
         }
     }
