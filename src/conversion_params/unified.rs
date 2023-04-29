@@ -106,8 +106,8 @@ pub struct MiscParams {
     pub run: Option<Vec<ProcessRun>>,
 }
 
-pub trait PredicateFilterMatch {
-    fn is_match(&self, haystack: &str) -> bool;
+pub trait PredicateFilterMatch<T> {
+    fn is_match(&self, needle: T) -> bool;
 }
 
 #[derive(Clone, Deserialize, Debug, PartialEq, Eq)]
@@ -116,6 +116,28 @@ pub enum ProcessRun {
     PreMux(Vec<String>),
     // A command to be run after muxing.
     PostMux(Vec<String>),
+}
+
+#[derive(Deserialize)]
+pub struct TrackIdPredicate {
+    ids: Vec<usize>,
+}
+
+impl TrackIdPredicate {
+    pub fn is_empty(&self) -> bool {
+        self.ids.is_empty()
+    }
+}
+
+impl PredicateFilterMatch<usize> for TrackIdPredicate {
+    /// Checks to see if a given track language ID is a match against the specified filters.
+    ///
+    /// # Returns
+    ///
+    /// True if track language ID was a match for the filters, false otherwise.
+    fn is_match(&self, needle: usize) -> bool {
+        self.ids.is_empty() || self.ids.contains(&needle)
+    }
 }
 
 #[derive(Deserialize)]
@@ -150,62 +172,82 @@ impl TrackTitlePredicate {
 
         true
     }
-}
 
-impl PredicateFilterMatch for TrackTitlePredicate {
-    /// Checks to see if a given track title is a match against the specified filters.
+    /// Check if a given string is a match for the track title.
     ///
     /// # Returns
     ///
-    /// True if track title was a match for the filters, false otherwise.
-    fn is_match(&self, haystack: &str) -> bool {
+    /// True if the needle string is a match for the track title, false otherwise.
+    fn is_text_match(&self, needle: &str) -> bool {
         let mut is_overall_match = true;
 
         for f in &self.filters {
-            let is_match = match f {
-                TrackTitlePredicateType::Contains(s) => haystack.contains(s),
-                TrackTitlePredicateType::Equals(s) => s == haystack,
+            let is_sub_match = match f {
+                TrackTitlePredicateType::Contains(s) => needle.contains(s),
+                TrackTitlePredicateType::Equals(s) => s == needle,
                 _ => continue,
             };
 
             match self.filter_condition {
                 TrackTitlePredicateCondition::And => {
-                    is_overall_match &= is_match;
+                    is_overall_match &= is_sub_match;
                 }
                 TrackTitlePredicateCondition::Or => {
-                    is_overall_match |= is_match;
+                    is_overall_match |= is_sub_match;
                 }
                 TrackTitlePredicateCondition::Not => {
-                    is_overall_match &= !is_match;
+                    is_overall_match &= !is_sub_match;
                 }
             }
 
             if !is_overall_match {
-                return false;
-            }
-        }
-
-        for r in &self.regex_filters {
-            let is_match = r.is_match(haystack);
-
-            match self.filter_condition {
-                TrackTitlePredicateCondition::And => {
-                    is_overall_match &= is_match;
-                }
-                TrackTitlePredicateCondition::Or => {
-                    is_overall_match |= is_match;
-                }
-                TrackTitlePredicateCondition::Not => {
-                    is_overall_match &= !is_match;
-                }
-            }
-
-            if !is_overall_match {
-                return false;
+                break;
             }
         }
 
         is_overall_match
+    }
+
+    /// Check if a given string is a regular expression match for the track title.
+    ///
+    /// # Returns
+    ///
+    /// True if the needle string is a regular expression match for the track title, false otherwise.
+    fn is_regex_match(&self, needle: &str) -> bool {
+        let mut is_overall_match = true;
+
+        for r in &self.regex_filters {
+            let is_sub_match = r.is_match(needle);
+
+            match self.filter_condition {
+                TrackTitlePredicateCondition::And => {
+                    is_overall_match &= is_sub_match;
+                }
+                TrackTitlePredicateCondition::Or => {
+                    is_overall_match |= is_sub_match;
+                }
+                TrackTitlePredicateCondition::Not => {
+                    is_overall_match &= !is_sub_match;
+                }
+            }
+
+            if !is_overall_match {
+                break;
+            }
+        }
+
+        is_overall_match
+    }
+}
+
+impl PredicateFilterMatch<&str> for TrackTitlePredicate {
+    /// Checks to see if a given track title is a match against the specified filters.
+    ///
+    /// # Returns
+    ///
+    /// True if track title was a match for the filters, false otherwise.
+    fn is_match(&self, needle: &str) -> bool {
+        self.is_text_match(needle) && self.is_regex_match(needle)
     }
 }
 
@@ -235,21 +277,27 @@ pub struct TrackLanguagePredicate {
     pub language_ids: Vec<String>,
 }
 
-impl PredicateFilterMatch for TrackLanguagePredicate {
+impl TrackLanguagePredicate {
+    pub fn is_empty(&self) -> bool {
+        self.language_ids.is_empty()
+    }
+}
+
+impl PredicateFilterMatch<&str> for TrackLanguagePredicate {
     /// Checks to see if a given track language ID is a match against the specified filters.
     ///
     /// # Returns
     ///
     /// True if track language ID was a match for the filters, false otherwise.
-    fn is_match(&self, haystack: &str) -> bool {
-        self.language_ids.is_empty() || self.language_ids.contains(&haystack.to_string())
+    fn is_match(&self, needle: &str) -> bool {
+        self.language_ids.is_empty() || self.language_ids.contains(&needle.to_string())
     }
 }
 
 #[derive(Default, Deserialize)]
 pub enum TrackPredicate {
     /// Filter by track indices.
-    Indices(Vec<usize>),
+    Indices(TrackIdPredicate),
     /// Filter by track language code.
     Languages(TrackLanguagePredicate),
     /// Filter by track title.

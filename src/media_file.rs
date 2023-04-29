@@ -672,12 +672,11 @@ impl MediaFile {
         }
 
         // Note: that the filters are validated so the unwraps are safe here.
+        let track = &self.media.tracks[index];
         match &predicate {
-            TrackPredicate::Indices(indices) => indices.contains(&(index - 1)),
-            TrackPredicate::Languages(language_ids) => {
-                language_ids.is_match(&self.media.tracks[index].language)
-            }
-            TrackPredicate::Title(t) => t.is_match(&self.media.tracks[index].title),
+            TrackPredicate::Indices(i) => i.is_match(index - 1),
+            TrackPredicate::Languages(l) => l.is_match(&track.language),
+            TrackPredicate::Title(t) => t.is_match(&track.title),
             _ => true,
         }
     }

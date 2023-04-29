@@ -57,7 +57,7 @@ impl InputProfile {
         // Validate the audio filtering parameters.
         let audio_valid = match &audio_filter {
             TrackPredicate::Indices(i) => !i.is_empty(),
-            TrackPredicate::Languages(l) => !l.language_ids.is_empty(),
+            TrackPredicate::Languages(l) => !l.is_empty(),
             TrackPredicate::Title(_) => true,
             TrackPredicate::None => true,
         };
@@ -68,7 +68,7 @@ impl InputProfile {
         // Validate the subtitle filtering parameters.
         let subtitle_valid = match &subtitle_filter {
             TrackPredicate::Indices(i) => !i.is_empty(),
-            TrackPredicate::Languages(l) => !l.language_ids.is_empty(),
+            TrackPredicate::Languages(l) => !l.is_empty(),
             TrackPredicate::Title(_) => true,
             TrackPredicate::None => true,
         };
@@ -79,7 +79,7 @@ impl InputProfile {
         // Validate the video filtering parameters.
         let video_valid = match &video_filter {
             TrackPredicate::Indices(i) => !i.is_empty(),
-            TrackPredicate::Languages(l) => !l.language_ids.is_empty(),
+            TrackPredicate::Languages(l) => !l.is_empty(),
             TrackPredicate::Title(_) => true,
             TrackPredicate::None => true,
         };
