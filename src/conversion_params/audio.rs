@@ -82,7 +82,7 @@ impl fmt::Display for AudioCodec {
 }
 
 #[derive(Deserialize)]
-pub struct AudioParams {
+pub struct AudioConvertParams {
     /// The audio codec to be used for the conversion.
     pub codec: Option<AudioCodec>,
     /// The number of channels to be used for the conversion. If None, the number will be the same as the source.
@@ -101,7 +101,7 @@ pub struct AudioParams {
     pub volume_adjustment: Option<String>,
 }
 
-impl ConversionParams for AudioParams {
+impl ConversionParams for AudioConvertParams {
     /// Validate the specified codec parameters.
     fn validate(&self) -> bool {
         let codec = if let Some(c) = &self.codec {

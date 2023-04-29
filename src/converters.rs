@@ -1,7 +1,7 @@
 use crate::{
     conversion_params::{
-        audio::AudioParams, params_trait::ConversionParams, subtitle::SubtitleParams,
-        video::VideoParams,
+        audio::AudioConvertParams, params_trait::ConversionParams, subtitle::SubtitleConvertParams,
+        video::VideoConvertParams,
     },
     logger,
     media_file::MediaFileTrack,
@@ -24,7 +24,7 @@ pub fn convert_audio_file(
     track: &MediaFileTrack,
     file_in: &str,
     file_out: &str,
-    params: &AudioParams,
+    params: &AudioConvertParams,
 ) -> bool {
     // If the arguments were not valid then None will be returned.
     let args = params.as_ffmpeg_argument_list(track, file_in, file_out);
@@ -45,7 +45,11 @@ pub fn convert_audio_file(
 /// * `params` - The parameters to be used for encoding the output file.
 ///
 #[allow(unused)]
-pub fn convert_subtitle_file(file_in: &str, file_out: &str, params: &SubtitleParams) -> bool {
+pub fn convert_subtitle_file(
+    file_in: &str,
+    file_out: &str,
+    params: &SubtitleConvertParams,
+) -> bool {
     todo!("not yet implemented");
 }
 
@@ -61,7 +65,7 @@ pub fn convert_subtitle_file(file_in: &str, file_out: &str, params: &SubtitlePar
 pub fn convert_video_file(
     file_in: &str,
     file_out: &str,
-    params: &VideoParams,
+    params: &VideoConvertParams,
     remove_original: bool,
 ) -> bool {
     todo!("not yet implemented");

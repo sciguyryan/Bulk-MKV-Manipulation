@@ -1,10 +1,10 @@
 use crate::{
     conversion_params::{
-        audio::{AudioCodec, AudioParams},
+        audio::{AudioCodec, AudioConvertParams},
         params_trait::ConversionParams,
-        subtitle::SubtitleParams,
+        subtitle::SubtitleConvertParams,
         unified::{PredicateFilterMatch, ProcessRun, TrackPredicate, UnifiedParams},
-        video::VideoParams,
+        video::VideoConvertParams,
     },
     converters, logger, mkvtoolnix, paths, utils,
 };
@@ -91,7 +91,9 @@ impl From<AudioCodec> for Codec {
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum RunCommandType {
+    /// A command that should be executed prior to the muxing of the MKV file.
     PreMux,
+    /// A command that should be executed after the muxing of the MKV file.
     PostMux,
 }
 
@@ -203,7 +205,7 @@ impl MediaFile {
     /// # Arguments
     ///
     /// * `params` - The conversion parameters to be applied to the tracks.
-    pub fn convert_all_audio(&mut self, params: &AudioParams) -> bool {
+    pub fn convert_all_audio(&mut self, params: &AudioConvertParams) -> bool {
         if params.codec.is_none() {
             return true;
         };
@@ -298,7 +300,7 @@ impl MediaFile {
     ///
     /// * `params` - The conversion parameters to be applied to the subtitle tracks.
     #[allow(unused)]
-    pub fn convert_all_subtitles(&mut self, params: &SubtitleParams) {
+    pub fn convert_all_subtitles(&mut self, params: &SubtitleConvertParams) {
         if params.codec.is_none() {
             return;
         };
@@ -312,7 +314,7 @@ impl MediaFile {
     ///
     /// * `params` - The conversion parameters to be applied to the video tracks.
     #[allow(unused)]
-    pub fn convert_all_video(&mut self, params: &VideoParams) {
+    pub fn convert_all_video(&mut self, params: &VideoConvertParams) {
         if params.codec.is_none() {
             return;
         };

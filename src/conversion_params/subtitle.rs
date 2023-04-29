@@ -20,12 +20,12 @@ impl fmt::Display for SubtitleCodec {
 }
 
 #[derive(Clone, Deserialize, Serialize)]
-pub struct SubtitleParams {
+pub struct SubtitleConvertParams {
     /// The subtitle codec to be used for the conversion.
     pub codec: Option<SubtitleCodec>,
 }
 
-impl ConversionParams for SubtitleParams {
+impl ConversionParams for SubtitleConvertParams {
     /// Validate the specified codec parameters.
     #[allow(unused)]
     fn validate(&self) -> bool {

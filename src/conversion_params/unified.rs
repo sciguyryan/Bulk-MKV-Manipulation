@@ -2,7 +2,9 @@ use regex::Regex;
 use serde::{Deserialize, Deserializer};
 use serde_derive::Deserialize;
 
-use super::{audio::AudioParams, subtitle::SubtitleParams, video::VideoParams};
+use super::{
+    audio::AudioConvertParams, subtitle::SubtitleConvertParams, video::VideoConvertParams,
+};
 
 #[derive(Deserialize)]
 pub struct UnifiedParams {
@@ -113,8 +115,10 @@ pub trait PredicateFilterMatch<T> {
 #[derive(Clone, Deserialize, Debug, PartialEq, Eq)]
 pub enum ProcessRun {
     // A command to be run prior to muxing.
+    #[serde(rename = "pre_mux")]
     PreMux(Vec<String>),
     // A command to be run after muxing.
+    #[serde(rename = "post_mux")]
     PostMux(Vec<String>),
 }
 
@@ -136,7 +140,7 @@ impl PredicateFilterMatch<usize> for TrackIndexPredicate {
     ///
     /// True if track language ID was a match for the filters, false otherwise.
     fn is_match(&self, needle: usize) -> bool {
-        self.ids.is_empty() || self.ids.contains(&needle)
+        self.is_empty() || self.ids.contains(&needle)
     }
 }
 
@@ -290,7 +294,7 @@ impl PredicateFilterMatch<&str> for TrackLanguagePredicate {
     ///
     /// True if track language ID was a match for the filters, false otherwise.
     fn is_match(&self, needle: &str) -> bool {
-        self.ids.is_empty() || self.ids.contains(&needle.to_string())
+        self.is_empty() || self.ids.contains(&needle.to_string())
     }
 }
 
@@ -330,7 +334,7 @@ pub struct UnifiedAudioParams {
     /// The type of filter that should be applied to this track.
     pub predicate: TrackPredicate,
     /// The conversion parameters for audio tracks.
-    pub conversion: Option<AudioParams>,
+    pub conversion: Option<AudioConvertParams>,
     /// If the language is undefined, what should the language be
     /// assumed as being?
     pub default_language: Option<String>,
@@ -343,7 +347,7 @@ pub struct UnifiedSubtitleParams {
     /// The type of filter that should be applied to this track.
     pub predicate: TrackPredicate,
     /// The conversion parameters for subtitle tracks.
-    pub conversion: Option<SubtitleParams>,
+    pub conversion: Option<SubtitleConvertParams>,
     /// If the language is undefined, what should the language be
     /// assumed as being?
     pub default_language: Option<String>,
@@ -363,7 +367,7 @@ pub struct UnifiedVideoParams {
     /// The type of filter that should be applied to this track.
     pub predicate: TrackPredicate,
     /// The conversion parameters for subtitle tracks.
-    pub conversion: Option<VideoParams>,
+    pub conversion: Option<VideoConvertParams>,
     /// If the language is undefined, what should the language be
     /// assumed as being?
     pub default_language: Option<String>,
