@@ -1247,16 +1247,17 @@ impl MediaFile {
                 return;
             }
 
-            // Go through the arguments list and replace any special parameters.
-            // Currently there is only one, but there might eventually be more.
+            // Go through the arguments list and replace any special tags.
             let mut args: Vec<String> = command_args[1..].to_vec();
-            for arg in &mut args {
-                // The %logging% tag is special. If it is present, and if logging isn't enabled
-                // then the entire argument will be removed.
-                if arg.contains("%log%") && !logger::is_logger_enabled() {
-                    *arg = String::new();
-                }
 
+            // The %log% tag is special.
+            // If it is present, and if logging isn't enabled then the
+            // entire argument will be removed.
+            if !logger::is_logger_enabled() {
+                args.retain(|a| !a.contains("%log%"));
+            }
+
+            for arg in &mut args {
                 *arg = arg.replace("%i%", &self.file_path);
                 *arg = arg.replace("%o%", &self.output_path);
                 *arg = arg.replace("%t%", &self.get_temp_path());
