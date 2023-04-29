@@ -50,12 +50,9 @@ impl InputProfile {
 
     pub fn validate_filter_params(&self) -> bool {
         let pp = &self.processing_params;
-        let audio_filter = &pp.audio_tracks.predicate;
-        let subtitle_filter = &pp.subtitle_tracks.predicate;
-        let video_filter = &pp.video_tracks.predicate;
 
         // Validate the audio filtering parameters.
-        let audio_valid = match &audio_filter {
+        let audio_valid = match &pp.audio_tracks.predicate {
             TrackPredicate::Index(i) => !i.is_empty(),
             TrackPredicate::Language(l) => !l.is_empty(),
             TrackPredicate::Title(_) => true,
@@ -66,7 +63,7 @@ impl InputProfile {
         }
 
         // Validate the subtitle filtering parameters.
-        let subtitle_valid = match &subtitle_filter {
+        let subtitle_valid = match &pp.subtitle_tracks.predicate {
             TrackPredicate::Index(i) => !i.is_empty(),
             TrackPredicate::Language(l) => !l.is_empty(),
             TrackPredicate::Title(_) => true,
@@ -77,7 +74,7 @@ impl InputProfile {
         }
 
         // Validate the video filtering parameters.
-        let video_valid = match &video_filter {
+        let video_valid = match &pp.video_tracks.predicate {
             TrackPredicate::Index(i) => !i.is_empty(),
             TrackPredicate::Language(l) => !l.is_empty(),
             TrackPredicate::Title(_) => true,

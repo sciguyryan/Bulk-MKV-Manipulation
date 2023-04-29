@@ -63,10 +63,6 @@ impl FileProcessor {
             return None;
         }
 
-        let mut input_paths = Vec::new();
-        let mut output_paths = Vec::new();
-        let mut titles = Vec::new();
-
         // Read the file containing the output names.
         let file = match File::open(&profile.output_names_file_path) {
             Ok(f) => f,
@@ -89,6 +85,8 @@ impl FileProcessor {
         let mut has_stop_clause = false;
 
         // Iterate over each line of the file.
+        let mut output_paths = Vec::new();
+        let mut titles = Vec::new();
         let mut index = profile.start_from.unwrap_or_default();
         for line in BufReader::new(file).lines() {
             // This can occur if the line does not contain valid UTF-8
@@ -150,6 +148,7 @@ impl FileProcessor {
         );
 
         // Add all of the matching files into the file list.
+        let mut input_paths = Vec::new();
         for path in read
             .unwrap()
             .filter_map(FileProcessor::filter_by_file_extension)

@@ -56,12 +56,10 @@ pub enum AudioCodec {
     AacLibfdk,
     Ac3,
     Flac,
-    Mp2,
     Mp3Lame,
     Mp3Shine,
     Opus,
     Vorbis,
-    WavPack,
 }
 
 impl fmt::Display for AudioCodec {
@@ -71,12 +69,10 @@ impl fmt::Display for AudioCodec {
             AudioCodec::AacLibfdk => write!(f, "libfdk_aac"),
             AudioCodec::Ac3 => write!(f, "ac3"),
             AudioCodec::Flac => write!(f, "flac"),
-            AudioCodec::Mp2 => write!(f, "libtwolame"),
             AudioCodec::Mp3Lame => write!(f, "libmp3lame"),
             AudioCodec::Mp3Shine => write!(f, "libshine"),
             AudioCodec::Opus => write!(f, "libopus"),
             AudioCodec::Vorbis => write!(f, "libvorbis"),
-            AudioCodec::WavPack => write!(f, "wavpack"),
         }
     }
 }
@@ -231,7 +227,7 @@ impl AudioCodec {
         match &feature {
             CodecFeatures::Compression => matches!(
                 self,
-                AudioCodec::Flac | AudioCodec::Mp3Lame | AudioCodec::Opus | AudioCodec::WavPack
+                AudioCodec::Flac | AudioCodec::Mp3Lame | AudioCodec::Opus
             ),
             CodecFeatures::Vbr => matches!(self, AudioCodec::AacLibfdk | AudioCodec::Opus),
         }

@@ -33,10 +33,7 @@ const DEBUG_PARAMS: bool = false;
 pub enum Codec {
     Aac,
     Ac3,
-    Acm,
     AdvancedSsa,
-    Alac,
-    Avs,
     Dts,
     DvbSubtitle,
     Eac3,
@@ -45,31 +42,15 @@ pub enum Codec {
     H264,
     Hdmv,
     Hevc,
-    Kate,
-    Ms,
-    Mp1,
-    Mp2,
     Mp3,
-    Musepack,
     Opus,
-    Pcm,
-    ProRes,
-    QuickTime,
-    Raw,
-    RealAudio,
-    RealVideo,
     SubStationAlpha,
-    SubTextUtf8,
+    SubtitleTextUtf8,
     SubtitleBitmap,
-    Theora,
-    TheTrueAudio,
     #[default]
     Unknown,
-    VobSub,
     Vp8,
     Vp9,
-    WavPack4,
-    WebVtt,
 }
 
 impl From<AudioCodec> for Codec {
@@ -79,12 +60,10 @@ impl From<AudioCodec> for Codec {
             AudioCodec::AacLibfdk => Codec::Aac,
             AudioCodec::Ac3 => Codec::Ac3,
             AudioCodec::Flac => Codec::Flac,
-            AudioCodec::Mp2 => Codec::Mp2,
             AudioCodec::Mp3Lame => Codec::Mp3,
             AudioCodec::Mp3Shine => Codec::Mp3,
             AudioCodec::Opus => Codec::Opus,
             AudioCodec::Vorbis => Codec::Opus,
-            AudioCodec::WavPack => Codec::WavPack4,
         }
     }
 }
@@ -1513,39 +1492,21 @@ impl MediaFileTrack {
         let r = match codec {
             Codec::Aac => "aac",
             Codec::Ac3 => "ac3",
-            Codec::Acm => "acm",
             Codec::AdvancedSsa => "ass",
-            Codec::Alac => "m4a",
-            Codec::Avs => "avs",
             Codec::Dts => "dts",
             Codec::Eac3 => "eac3",
             Codec::FfV1 => "ffv1",
             Codec::Flac => "flac",
             Codec::H264 => "h264",
             Codec::Hevc => "hevc",
-            Codec::Ms => "m2ts",
-            Codec::Mp1 => "mp1",
-            Codec::Mp2 => "mp2",
             Codec::Mp3 => "mp3",
-            Codec::Musepack => "mpc",
             Codec::Opus => "opus",
-            Codec::Pcm => "pcm",
-            Codec::ProRes => "prores",
-            Codec::QuickTime => "mov",
-            Codec::Raw => "raw",
-            Codec::RealAudio => "ra",
-            Codec::RealVideo => "rm",
             Codec::SubStationAlpha => "ssa",
-            Codec::DvbSubtitle | Codec::Kate | Codec::Hdmv | Codec::SubTextUtf8 => "srt",
+            Codec::DvbSubtitle | Codec::Hdmv | Codec::SubtitleTextUtf8 => "srt",
             Codec::SubtitleBitmap => "bmp",
-            Codec::Theora => "ogg",
-            Codec::TheTrueAudio => "ta1",
             Codec::Unknown => "unknown",
-            Codec::VobSub => "sub",
             Codec::Vp8 => "vp8",
             Codec::Vp9 => "vp9",
-            Codec::WavPack4 => "wv",
-            Codec::WebVtt => "vtt",
         };
 
         r.to_string()
@@ -1580,58 +1541,39 @@ where
 
     let codec = match string.as_str() {
         // Video codecs
-        "V_MS/VFW/FOURCC" => Codec::Ms,
-        "V_UNCOMPRESSED" => Codec::Raw,
         "V_MPEG4/ISO/SP" | "V_MPEG4/ISO/ASP" | "V_MPEG4/ISO/AP" | "V_MPEG4/MS/V3"
         | "V_MPEG4/ISO/AVC" => Codec::H264,
         "V_MPEGH/ISO/HEVC" => Codec::Hevc,
-        "V_MPEG1" => Codec::Mp1,
-        "V_MPEG2" => Codec::Mp2,
-        "V_AVS2" => Codec::Avs,
-        "V_REAL/RV10" | "V_REAL/RV20" | "V_REAL/RV30" | "V_REAL/RV40" => Codec::RealVideo,
-        "V_QUICKTIME" => Codec::QuickTime,
-        "V_THEORA" => Codec::Theora,
-        "V_PRORES" => Codec::ProRes,
         "V_VP8" => Codec::Vp8,
         "V_VP9" => Codec::Vp9,
         "V_FFV1" => Codec::FfV1,
 
         // Audio codecs.
         "A_MPEG/L3" => Codec::Mp3,
-        "A_MPEG/L2" | "A_MPEG/L1" => Codec::Mp2,
-        "A_PCM/INT/BIG" | "A_PCM/INT/LIT" | "A_PCM/FLOAT/IEEE" => Codec::Pcm,
-        "A_MPC" => Codec::Musepack,
         "A_AC3" | "A_AC3/BSID9" | "A_AC3/BSID10" => Codec::Ac3,
-        "A_ALAC" => Codec::Alac,
         "A_DTS" | "A_DTS/EXPRESS" | "A_DTS/LOSSLESS" => Codec::Dts,
         "A_VORBIS" | "A_OPUS" => Codec::Opus,
         "A_FLAC" => Codec::Flac,
-        "A_REAL/14_4" | "A_REAL/28_8" | "A_REAL/COOK" | "A_REAL/SIPR" | "A_REAL/RALF"
-        | "A_REAL/ATRC" => Codec::RealAudio,
-        "A_MS/ACM" => Codec::Acm,
         "A_AAC/MPEG2/MAIN" | "A_AAC/MPEG2/LC" | "A_AAC/MPEG2/LC/SBR" | "A_AAC/MPEG2/SSR"
         | "A_AAC/MPEG4/MAIN" | "A_AAC/MPEG4/LC" | "A_AAC/MPEG4/LC/SBR" | "A_AAC/MPEG4/SSR"
         | "A_AAC/MPEG4/LTP" | "A_AAC-1" | "A_AAC-2" => Codec::Aac,
-        "A_QUICKTIME" | "A_QUICKTIME/QDMC" | "A_QUICKTIME/QDM2" => Codec::QuickTime,
-        "A_TTA1" => Codec::TheTrueAudio,
-        "A_WAVPACK4" => Codec::WavPack4,
         "A_EAC3" => Codec::Eac3,
 
         // Subtitle codecs.
-        "S_TEXT/UTF8" => Codec::SubTextUtf8,
+        "S_TEXT/UTF8" => Codec::SubtitleTextUtf8,
         "S_TEXT/SSA" => Codec::SubStationAlpha,
         "S_TEXT/ASS" => Codec::AdvancedSsa,
-        "S_TEXT/WEBVTT" => Codec::WebVtt,
         "S_IMAGE/BMP" => Codec::SubtitleBitmap,
         "S_DVBSUB" => Codec::DvbSubtitle,
-        "S_VOBSUB" => Codec::VobSub,
         "S_HDMV/PGS" | "S_HDMV/TEXTST" => Codec::Hdmv,
-        "S_KATE" => Codec::Kate,
 
         // Other codecs.
         _ => {
-            println!("Unexpected codec ID when parsing MKV file: {string}");
-            Codec::default()
+            logger::log(
+                format!("[warning] Unexpected codec ID when parsing MKV file: {string}"),
+                true,
+            );
+            panic!()
         }
     };
 
