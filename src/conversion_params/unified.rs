@@ -274,12 +274,12 @@ pub enum TrackTitlePredicateType {
 #[derive(Deserialize)]
 pub struct TrackLanguagePredicate {
     /// A list of language ID codes that have been specified in the filters.
-    pub language_ids: Vec<String>,
+    pub ids: Vec<String>,
 }
 
 impl TrackLanguagePredicate {
     pub fn is_empty(&self) -> bool {
-        self.language_ids.is_empty()
+        self.ids.is_empty()
     }
 }
 
@@ -290,17 +290,20 @@ impl PredicateFilterMatch<&str> for TrackLanguagePredicate {
     ///
     /// True if track language ID was a match for the filters, false otherwise.
     fn is_match(&self, needle: &str) -> bool {
-        self.language_ids.is_empty() || self.language_ids.contains(&needle.to_string())
+        self.ids.is_empty() || self.ids.contains(&needle.to_string())
     }
 }
 
 #[derive(Default, Deserialize)]
 pub enum TrackPredicate {
     /// Filter by track indices.
+    #[serde(rename = "indices")]
     Indices(TrackIdPredicate),
     /// Filter by track language code.
-    Languages(TrackLanguagePredicate),
+    #[serde(rename = "language")]
+    Language(TrackLanguagePredicate),
     /// Filter by track title.
+    #[serde(rename = "title")]
     Title(TrackTitlePredicate),
     /// No filter should be applied.
     #[default]

@@ -675,7 +675,7 @@ impl MediaFile {
         let track = &self.media.tracks[index];
         match &predicate {
             TrackPredicate::Indices(i) => i.is_match(index - 1),
-            TrackPredicate::Languages(l) => l.is_match(&track.language),
+            TrackPredicate::Language(l) => l.is_match(&track.language),
             TrackPredicate::Title(t) => t.is_match(&track.title),
             _ => true,
         }
