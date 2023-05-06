@@ -6,7 +6,7 @@ use titlecase::titlecase;
 const BAD_NTFS_CHARS: [char; 9] = ['/', '?', '<', '>', '\\', ':', '*', '|', '"'];
 
 lazy_static! {
-    static ref UpperRegex: Regex = Regex::new("(-\\s)(\\pL)").unwrap();
+    static ref UPPER_REGEX: Regex = Regex::new("(\\s-\\s)(\\p{Ll})").unwrap();
 }
 
 #[derive(Clone, Deserialize)]
@@ -71,14 +71,16 @@ impl Substitutions {
         if self.fix_case_after_dashes && line.contains('–') {
             let mut replacements: Vec<(String, String)> = Vec::new();
 
-            UpperRegex.captures(&line).into_iter().for_each(|cap| {
+            for cap in UPPER_REGEX.captures_iter(&line) {
                 let entire_segment = cap.get(0).unwrap().as_str();
                 let first_seg = cap.get(1).unwrap().as_str();
-                let second_seg = cap.get(2).unwrap().as_str();
-                let replacement = format!("{}{}", first_seg, second_seg.to_uppercase());
+                let second_seg = cap.get(2).unwrap().as_str().to_uppercase();
 
-                replacements.push((entire_segment.to_string(), replacement))
-            });
+                replacements.push((
+                    entire_segment.to_string(),
+                    format!("{first_seg}{second_seg}"),
+                ))
+            }
 
             for (input, output) in replacements {
                 line = line.replace(&input, &output);
