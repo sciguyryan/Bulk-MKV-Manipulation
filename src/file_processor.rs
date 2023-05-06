@@ -227,16 +227,16 @@ impl FileProcessor {
     fn file_name_from_padded_index(name: &str, index: usize, pad_type: Option<PadType>) -> String {
         let mut str = match pad_type {
             Some(PadType::One) => {
-                format!("{index} - {name}")
+                format!("{index} – {name}")
             }
             Some(PadType::Ten) => {
-                format!("{index:02} - {name}")
+                format!("{index:02} – {name}")
             }
             Some(PadType::Hundred) => {
-                format!("{index:03} - {name}")
+                format!("{index:03} – {name}")
             }
             Some(PadType::Thousand) => {
-                format!("{index:04} - {name}")
+                format!("{index:04} – {name}")
             }
             None => name.to_string(),
         };

@@ -1,8 +1,13 @@
+use lazy_static::lazy_static;
 use regex::Regex;
 use serde_derive::Deserialize;
 use titlecase::titlecase;
 
 const BAD_NTFS_CHARS: [char; 9] = ['/', '?', '<', '>', '\\', ':', '*', '|', '"'];
+
+lazy_static! {
+    static ref UpperRegex: Regex = Regex::new("(-\\s)(\\pL)").unwrap();
+}
 
 #[derive(Clone, Deserialize)]
 pub struct Substitutions {
@@ -21,6 +26,10 @@ pub struct Substitutions {
     /// If unspecified the value will default to true.
     #[serde(default = "default_strip_ntfs")]
     pub strip_invalid_ntfs_chars: bool,
+
+    /// This will fix proper case after dashes when sanitizing a string.
+    #[serde(default = "default_fix_dashes")]
+    pub fix_case_after_dashes: bool,
 
     /// This will be lazily initialized upon first use.
     #[serde(skip)]
@@ -59,6 +68,23 @@ impl Substitutions {
             line = line.replace(&entry[0], &entry[1]);
         }
 
+        if self.fix_case_after_dashes && line.contains('–') {
+            let mut replacements: Vec<(String, String)> = Vec::new();
+
+            UpperRegex.captures(&line).into_iter().for_each(|cap| {
+                let entire_segment = cap.get(0).unwrap().as_str();
+                let first_seg = cap.get(1).unwrap().as_str();
+                let second_seg = cap.get(2).unwrap().as_str();
+                let replacement = format!("{}{}", first_seg, second_seg.to_uppercase());
+
+                replacements.push((entire_segment.to_string(), replacement))
+            });
+
+            for (input, output) in replacements {
+                line = line.replace(&input, &output);
+            }
+        }
+
         line
     }
 
@@ -75,6 +101,10 @@ impl Substitutions {
 
         true
     }
+}
+
+fn default_fix_dashes() -> bool {
+    true
 }
 
 fn default_strip_ntfs() -> bool {
