@@ -658,7 +658,7 @@ impl MediaFile {
             TrackPredicate::Index(i) => i.is_match(index - 1),
             TrackPredicate::Language(l) => l.is_match(&track.language),
             TrackPredicate::Title(t) => t.is_match(&track.title),
-            _ => true,
+            TrackPredicate::None => true,
         }
     }
 
@@ -1575,7 +1575,7 @@ where
         "S_DVBSUB" => Codec::DvbSubtitle,
         "S_HDMV/PGS" | "S_HDMV/TEXTST" => Codec::Hdmv,
 
-        // Other codecs.
+        // Unknown codecs.
         _ => {
             logger::log(
                 format!("[warning] Unexpected codec ID when parsing MKV file: {string}"),

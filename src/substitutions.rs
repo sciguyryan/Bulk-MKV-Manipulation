@@ -42,14 +42,6 @@ impl Substitutions {
             return String::new();
         }
 
-        for (re, sub) in &self.regex_internal {
-            line = re.replace(&line, sub).to_string();
-        }
-
-        for entry in &self.strings {
-            line = line.replace(&entry[0], &entry[1]);
-        }
-
         if self.strip_invalid_ntfs_chars {
             line = line.replace(&BAD_NTFS_CHARS[..], "");
         }
@@ -57,6 +49,14 @@ impl Substitutions {
         // This should be the last action to be performed.
         if self.convert_to_proper_title_case {
             line = titlecase(&line);
+        }
+
+        for (re, sub) in &self.regex_internal {
+            line = re.replace(&line, sub).to_string();
+        }
+
+        for entry in &self.strings {
+            line = line.replace(&entry[0], &entry[1]);
         }
 
         line
