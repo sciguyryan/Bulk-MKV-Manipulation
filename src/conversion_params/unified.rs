@@ -147,6 +147,7 @@ impl PredicateFilterMatch<usize> for TrackIndexPredicate {
 #[derive(Deserialize)]
 pub struct TrackTitlePredicate {
     /// The predicate filter type.
+    #[serde(default = "TrackTitlePredicateCondition::default")]
     filter_condition: TrackTitlePredicateCondition,
     /// The predicate filter strings.
     filters: Vec<TrackTitlePredicateType>,
@@ -255,9 +256,10 @@ impl PredicateFilterMatch<&str> for TrackTitlePredicate {
     }
 }
 
-#[derive(Deserialize, Eq, PartialEq)]
+#[derive(Default, Deserialize, Eq, PartialEq)]
 pub enum TrackTitlePredicateCondition {
     /// If all of the filters are a match, then the title will be considered as matching.
+    #[default]
     And,
     // If none of the filters are a match, then the title will be considered as matching.
     Not,
