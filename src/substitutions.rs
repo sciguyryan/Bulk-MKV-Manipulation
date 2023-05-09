@@ -1,6 +1,7 @@
 use lazy_static::lazy_static;
 use regex::Regex;
 use serde_derive::Deserialize;
+use std::collections::HashMap;
 use titlecase::titlecase;
 
 const BAD_NTFS_CHARS: [char; 9] = ['/', '?', '<', '>', '\\', ':', '*', '|', '"'];
@@ -37,22 +38,27 @@ pub struct Substitutions {
 }
 
 impl Substitutions {
-    pub fn apply(&mut self, s: &str) -> String {
+    /// Apply any substitutions as specified by the substitution profile.
+    ///
+    /// # Arguments
+    ///
+    /// * `in_string` - The input string.
+    ///
+    /// # Returns
+    ///
+    /// A string with any specified substitutions applied.
+    pub fn apply(&mut self, in_string: &str) -> String {
         if self.regex_internal.is_empty() {
             assert!(self.initialize_regex());
         }
 
         // Ensure that there are no stray tabs and spaces at the start
         // and end of the file name.
-        let mut line = s.trim().to_string();
+        let mut line = in_string.trim().to_string();
 
         // If the input string is empty, there is nothing to do here.
         if line.is_empty() {
             return String::new();
-        }
-
-        if self.strip_invalid_ntfs_chars {
-            line = line.replace(&BAD_NTFS_CHARS[..], "");
         }
 
         // This should be the last action to be performed.
@@ -68,18 +74,22 @@ impl Substitutions {
             line = line.replace(&entry[0], &entry[1]);
         }
 
+        if self.strip_invalid_ntfs_chars {
+            line = line.replace(&BAD_NTFS_CHARS[..], "");
+        }
+
         if self.fix_case_after_dashes && line.contains('–') {
-            let mut replacements: Vec<(String, String)> = Vec::new();
+            let mut replacements = HashMap::new();
 
             for cap in UPPER_REGEX.captures_iter(&line) {
-                let entire_segment = cap.get(0).unwrap().as_str();
-                let first_seg = cap.get(1).unwrap().as_str();
-                let second_seg = cap.get(2).unwrap().as_str().to_uppercase();
+                let entire_match = cap.get(0).unwrap().as_str();
+                let first_group = cap.get(1).unwrap().as_str();
+                let second_group = cap.get(2).unwrap().as_str().to_uppercase();
 
-                replacements.push((
-                    entire_segment.to_string(),
-                    format!("{first_seg}{second_seg}"),
-                ))
+                replacements.insert(
+                    entire_match.to_string(),
+                    format!("{first_group}{second_group}"),
+                );
             }
 
             for (input, output) in replacements {
@@ -90,6 +100,11 @@ impl Substitutions {
         line
     }
 
+    /// Initialize any regular expression objects as specified by the substitution profile.
+    ///
+    /// # Returns
+    ///
+    /// True if the regular expressions were successfully initialized, false otherwise.
     fn initialize_regex(&mut self) -> bool {
         for entry in &self.regular_expressions {
             let r = Regex::new(&entry[0]);
