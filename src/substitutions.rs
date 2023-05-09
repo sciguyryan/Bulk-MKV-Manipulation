@@ -7,7 +7,7 @@ use titlecase::titlecase;
 const BAD_NTFS_CHARS: [char; 9] = ['/', '?', '<', '>', '\\', ':', '*', '|', '"'];
 
 lazy_static! {
-    static ref UPPER_REGEX: Regex = Regex::new("(\\s-\\s)(\\p{Ll})").unwrap();
+    static ref UPPER_REGEX: Regex = Regex::new("(\\s[–-]\\s)(\\p{Ll})").unwrap();
 }
 
 #[derive(Clone, Deserialize)]
