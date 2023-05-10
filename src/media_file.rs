@@ -27,7 +27,7 @@ static UNIQUE_ID: AtomicUsize = AtomicUsize::new(0);
 const EXPORT_JSON: bool = false;
 
 /// This will indicate whether to output the command line parameters used.
-const DEBUG_PARAMS: bool = true;
+const DEBUG_PARAMS: bool = false;
 
 #[derive(Clone, Debug, Default)]
 pub enum Codec {
@@ -70,9 +70,13 @@ impl From<AudioCodec> for Codec {
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum RunCommandType {
-    /// A command that should be executed prior to the muxing of the MKV file.
+    /// A command that should be executed prior converting the tracks using FFMPEG.
+    PreConvert,
+    /// A command that should be executed prior to the muxing of the output MKV file.
     PreMux,
-    /// A command that should be executed after the muxing of the MKV file.
+    /// A command that should be executed after converting the tracks using FFMPEG.
+    PostConvert,
+    /// A command that should be executed after the muxing of the output MKV file.
     PostMux,
 }
 
@@ -790,6 +794,9 @@ impl MediaFile {
 
         logger::log("", false);
 
+        // Run any pre-conversion processes, if any were requested.
+        self.run_commands(RunCommandType::PreConvert, params);
+
         // Convert the audio tracks.
         if let Some(ac) = &params.audio_tracks.conversion {
             if ac.codec.is_some() && !self.convert_all_audio(ac) {
@@ -806,6 +813,9 @@ impl MediaFile {
         if let Some(_vc) = &params.video_tracks.conversion {
             todo!("not yet implemented");
         }
+
+        // Run any post-conversion processes, if any were requested.
+        self.run_commands(RunCommandType::PostConvert, params);
 
         logger::log("", false);
 
@@ -1209,7 +1219,9 @@ impl MediaFile {
         let commands: Vec<&ProcessRun> = run
             .iter()
             .filter(|f| match run_type {
+                RunCommandType::PreConvert => matches!(f, ProcessRun::PreConvert(_)),
                 RunCommandType::PreMux => matches!(f, ProcessRun::PreMux(_)),
+                RunCommandType::PostConvert => matches!(f, ProcessRun::PreConvert(_)),
                 RunCommandType::PostMux => matches!(f, ProcessRun::PostMux(_)),
             })
             .collect();
@@ -1229,7 +1241,9 @@ impl MediaFile {
             );
 
             let command_args = match command {
+                ProcessRun::PreConvert(args) => args,
                 ProcessRun::PreMux(args) => args,
+                ProcessRun::PostConvert(args) => args,
                 ProcessRun::PostMux(args) => args,
             };
 
@@ -1248,7 +1262,7 @@ impl MediaFile {
             }
 
             // Go through the arguments list and replace any special tags.
-            let mut args: Vec<String> = command_args[1..].to_vec();
+            let mut args = command_args[1..].to_vec();
 
             // The %log% tag is special.
             // If it is present, and if logging isn't enabled then the

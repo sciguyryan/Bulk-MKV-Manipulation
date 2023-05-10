@@ -114,9 +114,15 @@ pub trait PredicateFilterMatch<T> {
 
 #[derive(Clone, Deserialize, Debug, PartialEq, Eq)]
 pub enum ProcessRun {
+    // A command to be run prior to converting any tracks using FFMPEG.
+    #[serde(rename = "pre_convert")]
+    PreConvert(Vec<String>),
     // A command to be run prior to muxing.
     #[serde(rename = "pre_mux")]
     PreMux(Vec<String>),
+    // A command to be run after converting any tracks using FFMPEG.
+    #[serde(rename = "post_convert")]
+    PostConvert(Vec<String>),
     // A command to be run after muxing.
     #[serde(rename = "post_mux")]
     PostMux(Vec<String>),
