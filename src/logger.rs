@@ -38,6 +38,17 @@ where
     LOGGER.lock().unwrap().log_inline(message.as_ref(), console);
 }
 
+pub fn log_output_lines(output: &str, console: bool) {
+    for line in output.split('\n') {
+        let line = line.replace(['\n', '\r'], "");
+        if line.is_empty() {
+            continue;
+        }
+
+        LOGGER.lock().unwrap().log(&format!(">\t{line}"), console);
+    }
+}
+
 pub fn section<S: AsRef<str>>(title: S, console: bool)
 where
     S: Display,

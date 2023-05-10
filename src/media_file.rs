@@ -1271,10 +1271,7 @@ impl MediaFile {
                         "The command was successfully executed and yielded the following output:",
                         false,
                     );
-                    let str = String::from_utf8_lossy(&o.stdout);
-                    for line in str.split('\n') {
-                        logger::log(format!(">\t{line}"), false);
-                    }
+                    logger::log_output_lines(&String::from_utf8_lossy(&o.stdout), false);
                 }
                 Err(e) => {
                     logger::log(

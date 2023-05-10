@@ -77,16 +77,26 @@ pub fn convert_video_file(
 ///
 /// * `args` - A list of the command-line arguments to be passed to FFMPEG.
 fn run_ffmpeg(args: &[String]) -> i32 {
-    let r = Command::new(&paths::PATHS.ffmpeg).args(args).output();
-
-    if let Ok(exit) = r {
-        if let Some(code) = exit.status.code() {
-            code
-        } else {
-            logger::log(format!("{:?}", exit.stderr), false);
-            FAIL_ERROR_CODE
+    let output = Command::new(&paths::PATHS.ffmpeg).args(args).output();
+    let result = match &output {
+        Ok(o) => {
+            if let Some(code) = o.status.code() {
+                code
+            } else {
+                FAIL_ERROR_CODE
+            }
         }
-    } else {
-        FAIL_ERROR_CODE
+        Err(_) => FAIL_ERROR_CODE,
+    };
+
+    if result == FAIL_ERROR_CODE {
+        logger::log(
+            "FFMPEG was not successfully executed and yielded the following output:",
+            false,
+        );
+        let out = output.unwrap();
+        logger::log_output_lines(&String::from_utf8_lossy(&out.stderr), false);
     }
+
+    result
 }
