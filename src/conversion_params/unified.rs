@@ -334,6 +334,7 @@ impl TrackPredicate {
 #[derive(Deserialize)]
 pub struct UnifiedAudioParams {
     /// The type of filter that should be applied to this track.
+    #[serde(default = "TrackPredicate::default")]
     pub predicate: TrackPredicate,
     /// The conversion parameters for audio tracks.
     pub conversion: Option<AudioConvertParams>,
@@ -347,6 +348,7 @@ pub struct UnifiedAudioParams {
 #[derive(Deserialize)]
 pub struct UnifiedSubtitleParams {
     /// The type of filter that should be applied to this track.
+    #[serde(default = "TrackPredicate::default")]
     pub predicate: TrackPredicate,
     /// The conversion parameters for subtitle tracks.
     pub conversion: Option<SubtitleConvertParams>,
@@ -367,6 +369,7 @@ pub struct UnifiedOtherTrackParams {
 #[derive(Deserialize)]
 pub struct UnifiedVideoParams {
     /// The type of filter that should be applied to this track.
+    #[serde(default = "TrackPredicate::default")]
     pub predicate: TrackPredicate,
     /// The conversion parameters for subtitle tracks.
     pub conversion: Option<VideoConvertParams>,

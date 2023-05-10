@@ -27,7 +27,7 @@ static UNIQUE_ID: AtomicUsize = AtomicUsize::new(0);
 const EXPORT_JSON: bool = false;
 
 /// This will indicate whether to output the command line parameters used.
-const DEBUG_PARAMS: bool = false;
+const DEBUG_PARAMS: bool = true;
 
 #[derive(Clone, Debug, Default)]
 pub enum Codec {
@@ -252,7 +252,7 @@ impl MediaFile {
                     .unwrap();
                 logger::log(
                     format!(
-                        "ffmpeg command line: \"{}\" {}",
+                        "[INFO] ffmpeg command line: \"{}\" {}",
                         paths::PATHS.ffmpeg,
                         &args.join(" ")
                     ),
@@ -388,7 +388,7 @@ impl MediaFile {
         if DEBUG_PARAMS {
             logger::log(
                 format!(
-                    "[info] mkvextract command line: \"{}\" {}",
+                    "[INFO] mkvextract command line: \"{}\" {}",
                     mkvtoolnix::get_exe("mkvextract"),
                     &args.join(" ")
                 ),
@@ -884,7 +884,7 @@ impl MediaFile {
         }
 
         if !utils::file_exists(path) {
-            logger::log(format!("[info] Attachment path '{path}' was selected for inclusion but the path couldn't be found. This may be expected if external commands have been used."), false);
+            logger::log(format!("[INFO] Attachment path '{path}' was selected for inclusion but the path couldn't be found. This may be expected if external commands have been used."), false);
             return;
         }
 
