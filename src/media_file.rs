@@ -228,7 +228,7 @@ impl MediaFile {
                     .replace(&t.get_out_file_name(), &format!("moved{}.{out_ext}", t.id));
 
                 if fs::rename(&in_file_path, &new_file_path).is_err() {
-                    logger::log(" unable to move input file, unable to encode .", false);
+                    logger::log(" unable to move input file, unable to encode.", false);
                     success = false;
                 } else {
                     in_file_path = new_file_path;
@@ -309,8 +309,7 @@ impl MediaFile {
     ///
     /// # Arguments
     ///
-    /// * `json`- The JSON string to be written to the file.
-    #[allow(unused)]
+    /// * `json` - The JSON string to be written to the file.
     pub(crate) fn dump_json(json: &str) {
         use std::{fs::File, io::Write};
 
@@ -797,6 +796,8 @@ impl MediaFile {
         // Run any pre-conversion processes, if any were requested.
         self.run_commands(RunCommandType::PreConvert, params);
 
+        logger::log("", false);
+
         // Convert the audio tracks.
         if let Some(ac) = &params.audio_tracks.conversion {
             if ac.codec.is_some() && !self.convert_all_audio(ac) {
@@ -813,6 +814,8 @@ impl MediaFile {
         if let Some(_vc) = &params.video_tracks.conversion {
             todo!("not yet implemented");
         }
+
+        logger::log("", false);
 
         // Run any post-conversion processes, if any were requested.
         self.run_commands(RunCommandType::PostConvert, params);
@@ -894,7 +897,7 @@ impl MediaFile {
         }
 
         if !utils::file_exists(path) {
-            logger::log(format!("[INFO] Attachment path '{path}' was selected for inclusion but the path couldn't be found. This may be expected if external commands have been used."), false);
+            logger::log(format!("[INFO] Attachment path '{path}' was selected for inclusion but the path couldn't be found. This may be expected if you used external run commands!"), false);
             return;
         }
 
