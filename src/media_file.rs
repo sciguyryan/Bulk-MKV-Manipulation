@@ -428,7 +428,7 @@ impl MediaFile {
         if DEBUG_PARAMS {
             logger::log(
                 format!(
-                    "mkvextract command line: \"{}\" chapters.xml",
+                    "[INFO] mkvextract command line: \"{}\" chapters.xml",
                     mkvtoolnix::get_exe("mkvextract")
                 ),
                 false,
@@ -475,7 +475,7 @@ impl MediaFile {
         if DEBUG_PARAMS {
             logger::log(
                 format!(
-                    "mkvextract command line: \"{}\" {}",
+                    "[INFO] mkvextract command line: \"{}\" {}",
                     mkvtoolnix::get_exe("mkvextract"),
                     &args.join(" ")
                 ),
@@ -1362,7 +1362,7 @@ impl MediaFile {
         if DEBUG_PARAMS {
             logger::log(
                 format!(
-                    "mkvmerge command line: \"{}\" {}",
+                    "[INFO] mkvmerge command line: \"{}\" {}",
                     mkvtoolnix::get_exe("mkvmerge"),
                     &args.join(" ")
                 ),
