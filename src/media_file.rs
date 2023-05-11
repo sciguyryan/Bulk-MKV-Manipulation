@@ -547,11 +547,8 @@ impl MediaFile {
         let video = &params.video_tracks;
 
         for (i, track) in &mut self.media.tracks.iter().enumerate() {
-            let keep = self.should_keep_track(&track.track_type, i, params);
-
-            // If we do not need to keep this track, then
-            // skip to the next track.
-            if !keep {
+            // If we don't need to keep this track, then skip to the next track.
+            if !self.should_keep_track(&track.track_type, i, params) {
                 continue;
             }
 
@@ -587,7 +584,7 @@ impl MediaFile {
             {
                 logger::log(
                     format!(
-                        "Fewer tracks of type {target_type} than required for file {}.",
+                        "Filtered track target for type {target_type} was different than expected for file {}.",
                         self.file_path
                     ),
                     false,
@@ -639,7 +636,7 @@ impl MediaFile {
         };
 
         // The panic should never happen since the cases are all dealt with above.
-        let tracks_to_retail = match track_type {
+        let tracks_to_retain = match track_type {
             TrackType::Audio => &params.audio_tracks.total_to_retain,
             TrackType::Subtitle => &params.subtitle_tracks.total_to_retain,
             TrackType::Video => &params.video_tracks.total_to_retain,
@@ -647,11 +644,10 @@ impl MediaFile {
         };
 
         // Is a track limiter in place, and have we reached the target number of tracks?
-        if let Some(count) = tracks_to_retail {
-            if let Some(c) = self.track_type_counter.get(track_type) {
-                if c >= count {
-                    return false;
-                }
+        if let Some(target) = tracks_to_retain {
+            let retained = self.track_type_counter.get(track_type).unwrap_or(&0);
+            if retained >= target {
+                return false;
             }
         }
 
@@ -1592,7 +1588,7 @@ where
         // Unknown codecs.
         _ => {
             logger::log(
-                format!("[warning] Unexpected codec ID when parsing MKV file: {string}"),
+                format!("[WARN] Unexpected codec ID when parsing MKV file: {string}"),
                 true,
             );
             panic!()
