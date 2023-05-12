@@ -51,6 +51,7 @@ pub enum Codec {
     Unknown,
     Vp8,
     Vp9,
+    WebVtt,
 }
 
 impl From<AudioCodec> for Codec {
@@ -1525,6 +1526,7 @@ impl MediaFileTrack {
             Codec::Unknown => "unknown",
             Codec::Vp8 => "vp8",
             Codec::Vp9 => "vp9",
+            Codec::WebVtt => "vtt",
         };
 
         r.to_string()
@@ -1584,6 +1586,7 @@ where
         "S_IMAGE/BMP" => Codec::SubtitleBitmap,
         "S_DVBSUB" => Codec::DvbSubtitle,
         "S_HDMV/PGS" | "S_HDMV/TEXTST" => Codec::Hdmv,
+        "S_TEXT/WEBVTT" => Codec::WebVtt,
 
         // Unknown codecs.
         _ => {
