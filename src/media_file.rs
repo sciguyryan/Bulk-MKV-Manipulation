@@ -10,10 +10,10 @@ use crate::{
 };
 
 use core::fmt;
+use hashbrown::HashMap;
 use serde::de::{self, Deserialize, Deserializer, Unexpected};
 use serde_derive::Deserialize;
 use std::{
-    collections::HashMap,
     fs,
     process::Command,
     sync::atomic::{AtomicUsize, Ordering},
@@ -156,18 +156,18 @@ impl MediaFile {
     ///
     /// * `params` - The conversion parameters.
     pub fn apply_track_language_defaults(&mut self, params: &UnifiedParams) {
-        let mut defs = HashMap::new();
+        let mut defs = Vec::new();
 
         if let Some(da) = &params.audio_tracks.default_language {
-            defs.insert(TrackType::Audio, da);
+            defs.push((TrackType::Audio, da));
         }
 
         if let Some(ds) = &params.subtitle_tracks.default_language {
-            defs.insert(TrackType::Subtitle, ds);
+            defs.push((TrackType::Subtitle, ds));
         }
 
         if let Some(dv) = &params.video_tracks.default_language {
-            defs.insert(TrackType::Video, dv);
+            defs.push((TrackType::Video, dv));
         }
 
         for (track_type, default_lang) in defs {
@@ -541,7 +541,7 @@ impl MediaFile {
     /// * `params` - The conversion parameters to be applied to the media file.
     pub fn filter_tracks(&mut self, params: &UnifiedParams) -> bool {
         // Create a new vector to hold the tracks that we want to keep.
-        let mut kept = Vec::new();
+        let mut kept = Vec::with_capacity(self.media.tracks.len());
 
         let audio = &params.audio_tracks;
         let subtitle = &params.subtitle_tracks;
@@ -1037,48 +1037,48 @@ impl MediaFile {
 
         let track_type = &self.media.tracks[track_id].track_type;
 
-        let mut param_opts = HashMap::new();
+        let mut param_opts = Vec::new();
 
         if let Some(b) = track_params.default {
-            param_opts.insert("default-track", b);
+            param_opts.push(("default-track", b));
         }
         if let Some(b) = track_params.enabled {
-            param_opts.insert("track-enabled", b);
+            param_opts.push(("track-enabled", b));
         }
         if let Some(b) = track_params.forced {
             if *track_type == TrackType::Subtitle {
-                param_opts.insert("forced-display", b);
+                param_opts.push(("forced-display", b));
             } else {
                 eprintln!("The forced flag was set for track ID {track_id}, but the track type does not support it.");
             }
         }
         if let Some(b) = track_params.hearing_impaired {
             if *track_type == TrackType::Audio {
-                param_opts.insert("hearing-impaired", b);
+                param_opts.push(("hearing-impaired", b));
             } else {
                 eprintln!("The hearing impaired flag was set for track ID {track_id}, but the track type does not support it.");
             }
         }
         if let Some(b) = track_params.hearing_impaired {
             if *track_type == TrackType::Audio {
-                param_opts.insert("visual-impaired", b);
+                param_opts.push(("visual-impaired", b));
             } else {
                 eprintln!("The visually impaired flag was set for track ID {track_id}, but the track type does not support it.");
             }
         }
         if let Some(b) = track_params.text_descriptions {
             if *track_type == TrackType::Subtitle {
-                param_opts.insert("text-descriptions", b);
+                param_opts.push(("text-descriptions", b));
             } else {
                 eprintln!("The text descriptions flag was set for track ID {track_id}, but the track type does not support it.");
             }
         }
         if let Some(b) = track_params.original {
-            param_opts.insert("original", b);
+            param_opts.push(("original", b));
         }
         if let Some(b) = track_params.commentary {
             if matches!(*track_type, TrackType::Audio | TrackType::Subtitle) {
-                param_opts.insert("commentary", b);
+                param_opts.push(("commentary", b));
             } else {
                 eprintln!("The commentary flag was set for track ID {track_id}, but the track type does not support it.");
             }
@@ -1105,13 +1105,15 @@ impl MediaFile {
 
             // Do we have a delay override for this track?
             if let Some(tp) = &params.track_params {
-                if let Some(params) = tp.iter().find(|t| t.id == i) {
-                    if let Some(d) = params.delay_override {
-                        if delay_source == DelaySource::None {
-                            delay_source = DelaySource::Container;
-                        }
-                        delay = d;
+                if let Some(d) = tp
+                    .iter()
+                    .find(|t| t.id == i && t.delay_override.is_some())
+                    .map(|t| t.delay_override.unwrap())
+                {
+                    if delay_source == DelaySource::None {
+                        delay_source = DelaySource::Container;
                     }
+                    delay = d;
                 }
             }
 
@@ -1241,10 +1243,10 @@ impl MediaFile {
             );
 
             let command_args = match command {
-                ProcessRun::PreConvert(args) => args,
-                ProcessRun::PreMux(args) => args,
-                ProcessRun::PostConvert(args) => args,
-                ProcessRun::PostMux(args) => args,
+                ProcessRun::PreConvert(args)
+                | ProcessRun::PreMux(args)
+                | ProcessRun::PostConvert(args)
+                | ProcessRun::PostMux(args) => args,
             };
 
             // The path to the command must always be the first in the list.

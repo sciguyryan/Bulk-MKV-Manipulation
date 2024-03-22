@@ -1,7 +1,7 @@
+use hashbrown::HashMap;
 use lazy_static::lazy_static;
 use regex::Regex;
 use serde_derive::Deserialize;
-use std::collections::HashMap;
 use titlecase::titlecase;
 
 const BAD_NTFS_CHARS: [char; 9] = ['/', '?', '<', '>', '\\', ':', '*', '|', '"'];

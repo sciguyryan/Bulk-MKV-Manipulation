@@ -79,13 +79,7 @@ pub fn convert_video_file(
 fn run_ffmpeg(args: &[String]) -> i32 {
     let output = Command::new(&paths::PATHS.ffmpeg).args(args).output();
     let result = match &output {
-        Ok(o) => {
-            if let Some(code) = o.status.code() {
-                code
-            } else {
-                FAIL_ERROR_CODE
-            }
-        }
+        Ok(o) => o.status.code().unwrap_or(FAIL_ERROR_CODE),
         Err(_) => FAIL_ERROR_CODE,
     };
 
