@@ -179,7 +179,7 @@ impl MediaFile {
                 .iter_mut()
                 .filter(|t| t.track_type == track_type && t.language == "und")
             {
-                track.language = default_lang.clone();
+                track.language.clone_from(default_lang);
             }
         }
     }
@@ -706,7 +706,7 @@ impl MediaFile {
             mf.file_path = fp.to_string();
 
             // Do we have any attachments? If so, copy them to the main struct.
-            mf.attachments = mf.media.tracks[0].extra_info.attachments.clone();
+            mf.attachments.clone_from(&mf.media.tracks[0].extra_info.attachments);
 
             // Set up the temporary directory structure for the file.
             mf.init_temp_directory();

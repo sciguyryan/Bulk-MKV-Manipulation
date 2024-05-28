@@ -24,16 +24,16 @@ pub fn set_is_first_section(first: bool) {
     LOGGER.lock().unwrap().is_first_section = first;
 }
 
-pub fn log<S: AsRef<str>>(message: S, console: bool)
+pub fn log<S>(message: S, console: bool)
 where
-    S: Display,
+    S: Display, S: AsRef<str>
 {
     LOGGER.lock().unwrap().log(message.as_ref(), console);
 }
 
-pub fn log_inline<S: AsRef<str>>(message: S, console: bool)
+pub fn log_inline<S>(message: S, console: bool)
 where
-    S: Display,
+    S: Display, S: AsRef<str>
 {
     LOGGER.lock().unwrap().log_inline(message.as_ref(), console);
 }
@@ -49,9 +49,9 @@ pub fn log_output_lines(output: &str, console: bool) {
     }
 }
 
-pub fn section<S: AsRef<str>>(title: S, console: bool)
+pub fn section<S>(title: S, console: bool)
 where
-    S: Display,
+    S: Display, S: AsRef<str>
 {
     if is_first_section() {
         set_is_first_section(false);
@@ -62,9 +62,9 @@ where
     log(format!("{:-^1$}", title, 60), console);
 }
 
-pub fn subsection<S: AsRef<str>>(title: S, console: bool)
+pub fn subsection<S>(title: S, console: bool)
 where
-    S: Display,
+    S: Display, S: AsRef<str>
 {
     log(format!("[{title}]"), console);
 }
