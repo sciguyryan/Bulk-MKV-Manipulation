@@ -14,16 +14,16 @@ publish = false
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-lazy_static = "1.4.0"
+lazy_static = "1.5.0"
 lexical-sort = "0.3.1"
 hashbrown = "0.14.5"
-regex = "1.10.4"
+regex = "1.10.5"
 serde = "1.0.203"
 serde_derive = "1.0.203"
 serde_json = "1.0.117"
 system_shutdown = "4.0.1"
 titlecase = "3.2.0"
-trash = "4.1.1"
+trash = "5.0.0"
 walkdir = "2.5.0"
 
 [features]

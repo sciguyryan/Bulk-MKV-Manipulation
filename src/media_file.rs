@@ -1059,7 +1059,7 @@ impl MediaFile {
                 eprintln!("The hearing impaired flag was set for track ID {track_id}, but the track type does not support it.");
             }
         }
-        if let Some(b) = track_params.hearing_impaired {
+        if let Some(b) = track_params.visual_impaired {
             if *track_type == TrackType::Audio {
                 param_opts.push(("visual-impaired", b));
             } else {
@@ -1448,10 +1448,6 @@ pub struct MediaFileTrack {
     )]
     pub language: String,
 
-    /// Is the track selected by default?
-    #[serde(rename = "Default", deserialize_with = "yes_no_to_bool", default)]
-    pub default: bool,
-
     /// The width of the track, only applicable to video tracks.
     #[serde(rename = "Width", deserialize_with = "string_to_u32", default)]
     pub width: u32,
@@ -1470,13 +1466,10 @@ pub struct MediaFileTrack {
     #[serde(rename = "extra", default)]
     pub extra_info: MediaInfoExtra,
 
+
     /// The index of the file to which this track belongs.
     #[serde(skip)]
     pub file_id: usize,
-
-    /// Should this file be kept when remuxing?
-    #[serde(skip)]
-    pub keep: usize,
 }
 
 impl MediaFileTrack {
@@ -1668,6 +1661,7 @@ where
     }
 }
 
+#[allow(unused)]
 fn yes_no_to_bool<'de, D>(deserializer: D) -> Result<bool, D::Error>
 where
     D: Deserializer<'de>,
