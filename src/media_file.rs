@@ -368,7 +368,7 @@ impl MediaFile {
             .attachments
             .iter()
             .enumerate()
-            .map(|(i, a)| format!("{}:{a}", i + 1))
+            .map(|(i, a)| format!("{}:\"{a}\"", i + 1))
             .collect();
 
         let r = match mkvtoolnix::run_extract(
@@ -376,6 +376,7 @@ impl MediaFile {
             &self.get_temp_path(),
             "attachments",
             &args,
+            self.id,
         ) {
             0 | 1 => {
                 logger::log(" extraction complete.", false);
@@ -412,6 +413,7 @@ impl MediaFile {
             &self.get_temp_path(),
             "chapters",
             &["chapters.xml".to_string()],
+            self.id,
         ) {
             0 | 1 => {
                 logger::log(" extraction complete.", false);
@@ -459,6 +461,7 @@ impl MediaFile {
             &self.get_temp_path(),
             "tracks",
             &args,
+            self.id,
         ) {
             0 | 1 => {
                 logger::log(" extraction complete.", false);
@@ -706,7 +709,8 @@ impl MediaFile {
             mf.file_path = fp.to_string();
 
             // Do we have any attachments? If so, copy them to the main struct.
-            mf.attachments.clone_from(&mf.media.tracks[0].extra_info.attachments);
+            mf.attachments
+                .clone_from(&mf.media.tracks[0].extra_info.attachments);
 
             // Set up the temporary directory structure for the file.
             mf.init_temp_directory();
@@ -742,7 +746,7 @@ impl MediaFile {
     fn init_temp_directory(&self) -> bool {
         // Create each subdirectory.
         let mut result = true;
-        for dir in ["attachments", "chapters", "tracks"] {
+        for dir in ["attachments", "chapters", "tracks", "scripts"] {
             let p = self.get_temp_for_output_type(dir);
             result &= fs::create_dir_all(p).is_ok();
         }
@@ -904,7 +908,7 @@ impl MediaFile {
 
         // Set the attachment file path.
         args.push("--attach-file".to_string());
-        args.push(path.to_string());
+        args.push(format!("\"{path}\""));
     }
 
     /// Apply the parameters related to any attachments to be added to the media file.
@@ -942,7 +946,7 @@ impl MediaFile {
         for attachment in &self.attachments {
             self.add_attachment_if_matching(
                 args,
-                &format!("{}/attachments/{attachment}", self.get_temp_path()),
+                &format!("\"{}/attachments/{attachment}\"", self.get_temp_path()),
                 &params.attachments.import_original_extensions,
             );
         }
@@ -991,7 +995,7 @@ impl MediaFile {
         if utils::file_exists(&chapters_fp) {
             // Yes, include that file.
             args.push("--chapters".to_string());
-            args.push(chapters_fp);
+            args.push(format!("\"{chapters_fp}\""));
         } else if params.chapters.create_if_not_present {
             // No, we will have to create the chapters from scratch.
             args.push("--generate-chapters-name-template".to_string());
@@ -1155,7 +1159,7 @@ impl MediaFile {
             }
 
             // Set the file path.
-            args.push(format!("./tracks/{}", track.get_out_file_name()));
+            args.push(format!("\"./tracks/{}\"", track.get_out_file_name()));
         }
     }
 
@@ -1312,7 +1316,7 @@ impl MediaFile {
 
         // The output file path.
         args.push("-o".to_string());
-        args.push(out_path.to_string());
+        args.push(format!("\"{out_path}\""));
 
         // The title of the media file, if needed.
         if let Some(b) = params.misc.set_file_title {
@@ -1348,7 +1352,7 @@ impl MediaFile {
         args.push(order);
 
         // Run the MKV merge process.
-        let success = match mkvtoolnix::run_merge(&self.get_temp_path(), &args) {
+        let success = match mkvtoolnix::run_merge(&self.get_temp_path(), &args, self.id) {
             0 | 1 => {
                 logger::log("Remuxing complete.", false);
                 true
@@ -1465,7 +1469,6 @@ pub struct MediaFileTrack {
     /// `Note:` This field will only contains meaningful data when the track type is [`TrackType::General`].
     #[serde(rename = "extra", default)]
     pub extra_info: MediaInfoExtra,
-
 
     /// The index of the file to which this track belongs.
     #[serde(skip)]

@@ -1,4 +1,4 @@
-use crate::{logger, paths};
+use crate::{logger, paths, script_file::ScriptFile};
 
 use std::{path::Path, process::Command};
 
@@ -11,13 +11,31 @@ pub fn get_exe(exe: &str) -> String {
         .to_string()
 }
 
-pub fn run_extract(in_path: &str, out_path: &str, arg_type: &str, args: &[String]) -> i32 {
+/// Run the MKV extract process.
+///
+/// # Arguments
+///
+/// * `in_path` - The input file path.
+/// * `out_path` - The output file path.
+/// * `arg_type` - The type of action to be performed.
+/// * `args` - A list of arguments to be passed to the extractor.
+/// * `file_id` - The ID of the media file.
+pub fn run_extract(
+    in_path: &str,
+    out_path: &str,
+    arg_type: &str,
+    args: &[String],
+    file_id: usize,
+) -> i32 {
     let path = get_exe("mkvextract");
 
-    let output = Command::new(path)
-        .arg(in_path)
-        .arg(arg_type)
-        .args(args)
+    let temp_file = ScriptFile::new(file_id, "mkvextract");
+    temp_file.write_string(format!(
+        "\"{path}\" \"{in_path}\" {arg_type} {}",
+        args.join(" ")
+    ));
+
+    let output = Command::new(temp_file.get_path())
         .current_dir(format!("{out_path}/{arg_type}"))
         .output();
 
@@ -44,8 +62,18 @@ pub fn run_extract(in_path: &str, out_path: &str, arg_type: &str, args: &[String
     result
 }
 
-pub fn run_merge(base_dir: &str, args: &[String]) -> i32 {
+/// Run the MKV merge process.
+///
+/// # Arguments
+///
+/// * `base_dir` - The base directory for the process.
+/// * `args` - A list of arguments to be passed to the extractor.
+/// * `file_id` - The ID of the media file.
+pub fn run_merge(base_dir: &str, args: &[String], file_id: usize) -> i32 {
     let path = get_exe("mkvmerge");
+
+    let temp_file = ScriptFile::new(file_id, "mkvmerge");
+    temp_file.write_string(format!("\"{path}\" {}", args.join(" ")));
 
     let output = Command::new(path).args(args).current_dir(base_dir).output();
     let result = match &output {

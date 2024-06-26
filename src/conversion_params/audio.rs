@@ -95,6 +95,8 @@ pub struct AudioConvertParams {
     pub threads: Option<u8>,
     /// Should an adjustment be applied to the audio volume?
     pub volume_adjustment: Option<String>,
+    /// Any custom filers to be applied.
+    pub filters: Option<String>,
 }
 
 impl ConversionParams for AudioConvertParams {
@@ -159,7 +161,7 @@ impl ConversionParams for AudioConvertParams {
 
         // Input file.
         args.push("-i".to_string());
-        args.push(file_in.to_string());
+        args.push(format!("\"{file_in}\""));
 
         // Volume adjustment, if specified.
         if let Some(vol) = &self.volume_adjustment {
@@ -175,6 +177,12 @@ impl ConversionParams for AudioConvertParams {
         if let Some(bitrate) = self.bitrate {
             args.push("-b:a".to_string());
             args.push(format!("{bitrate}k"));
+        }
+
+        // Any filters that may need to be applied.
+        if let Some(filters) = &self.filters {
+            args.push("-filter:a".to_string());
+            args.push(format!("\"{filters}\""));
         }
 
         // Variable bitrate (VBR).
@@ -211,7 +219,7 @@ impl ConversionParams for AudioConvertParams {
         }
 
         // The output file path should always go last.
-        args.push(file_out.to_string());
+        args.push(format!("\"{file_out}\""));
 
         Some(args)
     }
