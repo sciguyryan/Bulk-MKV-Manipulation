@@ -1,4 +1,4 @@
-use crate::{logger, paths, script_file::ScriptFile};
+use crate::{logger, paths};
 
 use std::{path::Path, process::Command};
 
@@ -19,23 +19,13 @@ pub fn get_exe(exe: &str) -> String {
 /// * `out_path` - The output file path.
 /// * `arg_type` - The type of action to be performed.
 /// * `args` - A list of arguments to be passed to the extractor.
-/// * `file_id` - The ID of the media file.
-pub fn run_extract(
-    in_path: &str,
-    out_path: &str,
-    arg_type: &str,
-    args: &[String],
-    file_id: usize,
-) -> i32 {
+pub fn run_extract(in_path: &str, out_path: &str, arg_type: &str, args: &[String]) -> i32 {
     let path = get_exe("mkvextract");
 
-    let temp_file = ScriptFile::new(file_id, "mkvextract");
-    temp_file.write_string(format!(
-        "\"{path}\" \"{in_path}\" {arg_type} {}",
-        args.join(" ")
-    ));
-
-    let output = Command::new(temp_file.get_path())
+    let output = Command::new(path)
+        .arg(in_path)
+        .arg(arg_type)
+        .args(args)
         .current_dir(format!("{out_path}/{arg_type}"))
         .output();
 
@@ -52,7 +42,7 @@ pub fn run_extract(
 
     if result == FAIL_ERROR_CODE {
         logger::log(
-            "MKV Extract was not successfully executed and yielded the following output:",
+            " MKV Extract was not successfully executed and yielded the following output:",
             false,
         );
         let out = output.unwrap();
@@ -68,12 +58,8 @@ pub fn run_extract(
 ///
 /// * `base_dir` - The base directory for the process.
 /// * `args` - A list of arguments to be passed to the extractor.
-/// * `file_id` - The ID of the media file.
-pub fn run_merge(base_dir: &str, args: &[String], file_id: usize) -> i32 {
+pub fn run_merge(base_dir: &str, args: &[String]) -> i32 {
     let path = get_exe("mkvmerge");
-
-    let temp_file = ScriptFile::new(file_id, "mkvmerge");
-    temp_file.write_string(format!("\"{path}\" {}", args.join(" ")));
 
     let output = Command::new(path).args(args).current_dir(base_dir).output();
     let result = match &output {
@@ -89,7 +75,7 @@ pub fn run_merge(base_dir: &str, args: &[String], file_id: usize) -> i32 {
 
     if result == FAIL_ERROR_CODE {
         logger::log(
-            "MKV Merge was not successfully executed and yielded the following output:",
+            " MKV Merge was not successfully executed and yielded the following output:",
             false,
         );
         let out = output.unwrap();

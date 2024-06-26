@@ -6,7 +6,6 @@ mod logger;
 mod media_file;
 mod mkvtoolnix;
 mod paths;
-mod script_file;
 mod substitutions;
 mod utils;
 

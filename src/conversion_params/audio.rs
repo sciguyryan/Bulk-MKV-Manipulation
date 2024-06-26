@@ -161,7 +161,7 @@ impl ConversionParams for AudioConvertParams {
 
         // Input file.
         args.push("-i".to_string());
-        args.push(format!("\"{file_in}\""));
+        args.push(file_in.to_string());
 
         // Volume adjustment, if specified.
         if let Some(vol) = &self.volume_adjustment {
@@ -182,7 +182,7 @@ impl ConversionParams for AudioConvertParams {
         // Any filters that may need to be applied.
         if let Some(filters) = &self.filters {
             args.push("-filter:a".to_string());
-            args.push(format!("\"{filters}\""));
+            args.push(filters.to_string());
         }
 
         // Variable bitrate (VBR).
@@ -219,7 +219,7 @@ impl ConversionParams for AudioConvertParams {
         }
 
         // The output file path should always go last.
-        args.push(format!("\"{file_out}\""));
+        args.push(file_out.to_string());
 
         Some(args)
     }
