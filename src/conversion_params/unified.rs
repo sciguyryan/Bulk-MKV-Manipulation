@@ -106,6 +106,8 @@ pub struct MiscParams {
     pub tags_path: Option<String>,
     /// The paths to any processes that should be run before or after this processing step.
     pub run: Option<Vec<ProcessRun>>,
+    /// Should certain types of media file be automatically muxed to MKV files before processing?
+    pub pre_mux_media_files: Option<bool>,
 }
 
 pub trait PredicateFilterMatch<T> {

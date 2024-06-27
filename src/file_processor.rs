@@ -143,8 +143,12 @@ impl FileProcessor {
             false,
         );
 
-        // Remux certain other media files to allow them to be handled.
-        FileProcessor::pre_mux_media_files(profile);
+        if let Some(b) = &profile.processing_params.misc.pre_mux_media_files {
+            if *b {
+                // Remux certain other media files to allow them to be automatically handled.
+                FileProcessor::pre_mux_media_files(profile);
+            }
+        }
 
         // Build the list of input file paths.
         let read = fs::read_dir(&profile.input_dir);
