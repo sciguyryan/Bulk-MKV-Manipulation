@@ -163,12 +163,6 @@ impl ConversionParams for AudioConvertParams {
         args.push("-i".to_string());
         args.push(file_in.to_string());
 
-        // Volume adjustment, if specified.
-        if let Some(vol) = &self.volume_adjustment {
-            args.push("-filter:a".to_string());
-            args.push(format!("volume={vol}"));
-        }
-
         // Codec type.
         args.push("-c:a".to_string());
         args.push(format!("{codec}"));
@@ -179,10 +173,19 @@ impl ConversionParams for AudioConvertParams {
             args.push(format!("{bitrate}k"));
         }
 
-        // Any filters that may need to be applied.
+        // Filters. These are simply treated as strings since the format is too complex to be
+        // easily represented by other means.
         if let Some(filters) = &self.filters {
-            args.push("-filter:a".to_string());
-            args.push(filters.to_string());
+            // Add any manually specified filters first.
+            let mut filters_sub = filters.clone();
+
+            // Volume adjustment, if specified.
+            if let Some(vol) = &self.volume_adjustment {
+                filters_sub.push_str(&format!("volume={vol};"));
+            }
+
+            args.push("-af".to_string());
+            args.push(filters_sub);
         }
 
         // Variable bitrate (VBR).

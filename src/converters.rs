@@ -26,14 +26,12 @@ pub fn convert_audio_file(
     file_out: &str,
     params: &AudioConvertParams,
 ) -> bool {
-    // If the arguments were not valid then None will be returned.
-    let args = params.as_ffmpeg_argument_list(track, file_in, file_out);
-    if args.is_none() {
-        return false;
+    if let Some(args) = params.as_ffmpeg_argument_list(track, file_in, file_out) {
+        // Run FFMPEG with the specified parameters.
+        run_ffmpeg(&args) == 0
+    } else {
+        false
     }
-
-    // Run FFMPEG with the specified parameters.
-    run_ffmpeg(&args.unwrap()) == 0
 }
 
 /// Convert a subtitle file, based on the specified conversion parameters.
