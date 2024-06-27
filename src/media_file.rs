@@ -3,7 +3,9 @@ use crate::{
         audio::{AudioCodec, AudioConvertParams},
         params_trait::ConversionParams,
         subtitle::SubtitleConvertParams,
-        unified::{PredicateFilterMatch, ProcessRun, TrackPredicate, UnifiedParams},
+        unified::{
+            DeletionOptions, PredicateFilterMatch, ProcessRun, TrackPredicate, UnifiedParams,
+        },
         video::VideoConvertParams,
     },
     converters, logger, mkvtoolnix, paths, utils,
@@ -759,8 +761,6 @@ impl MediaFile {
     /// * `title` - The title of the media file.
     /// * `params` - The conversion parameters to be applied to the media file.
     pub fn process(&mut self, out_path: &str, title: &str, params: &UnifiedParams) -> bool {
-        use crate::conversion_params::unified::DeletionOptions;
-
         self.output_path = out_path.to_string();
 
         // Set the file IDs of all child tracks.
@@ -835,26 +835,8 @@ impl MediaFile {
 
         logger::log("", false);
 
-        // Delete the temporary files.
-        match params.misc.remove_temp_files {
-            Some(DeletionOptions::Delete) => {
-                logger::log_inline("Attempting to delete temporary files... ", false);
-                if utils::delete_directory(&self.get_temp_path()) {
-                    logger::log(" files successfully deleted.", false);
-                } else {
-                    logger::log(" files could not be deleted.", false);
-                }
-            }
-            Some(DeletionOptions::Trash) => {
-                logger::log_inline("Attempting to delete temporary files... ", false);
-                if trash::delete(self.get_temp_path()).is_ok() {
-                    logger::log(" files successfully sent to the trash.", false);
-                } else {
-                    logger::log(" files could not be sent to the trash.", false);
-                }
-            }
-            _ => {}
-        }
+        // Delete the temporary files, if needed.
+        MediaFile::maybe_delete_file(&self.get_temp_path(), &params.misc.remove_temp_files);
 
         true
     }
@@ -1199,6 +1181,34 @@ impl MediaFile {
             Some(path.display().to_string())
         } else {
             None
+        }
+    }
+
+    /// Maybe delete a file, based a [`DeletionOptions`] parameter.
+    ///
+    /// # Arguments
+    ///
+    /// * `path` - The path to the file or directory.
+    /// * `del_type` - A reference to the option indicating the [`DeletionOptions`] deletion type to be used.
+    pub fn maybe_delete_file(path: &str, del_type: &Option<DeletionOptions>) {
+        match del_type {
+            Some(DeletionOptions::Delete) => {
+                logger::log_inline("Attempting to delete files... ", false);
+                if utils::delete_directory(path) {
+                    logger::log(" files successfully deleted.", false);
+                } else {
+                    logger::log(" files could not be deleted.", false);
+                }
+            }
+            Some(DeletionOptions::Trash) => {
+                logger::log_inline("Attempting to delete files... ", false);
+                if trash::delete(path).is_ok() {
+                    logger::log(" files successfully sent to the trash.", false);
+                } else {
+                    logger::log(" files could not be sent to the trash.", false);
+                }
+            }
+            _ => {}
         }
     }
 

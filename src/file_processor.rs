@@ -1,5 +1,6 @@
 use crate::{
-    conversion_params::unified::UnifiedParams, input_profile::InputProfile, logger, utils,
+    conversion_params::unified::UnifiedParams, converters, input_profile::InputProfile, logger,
+    media_file::MediaFile, utils,
 };
 
 use lexical_sort::{natural_cmp, StringSort};
@@ -11,6 +12,8 @@ use std::{
 };
 
 const VALID_EXTENSIONS: [&str; 1] = ["mkv"];
+
+const VALID_REMUX_EXTENSIONS: [&str; 1] = ["mp4"];
 
 #[derive(Clone, Copy, Deserialize)]
 pub enum PadType {
@@ -140,6 +143,9 @@ impl FileProcessor {
             false,
         );
 
+        // Remux certain other media files to allow them to be handled.
+        FileProcessor::pre_mux_media_files(profile);
+
         // Build the list of input file paths.
         let read = fs::read_dir(&profile.input_dir);
         assert!(
@@ -151,7 +157,7 @@ impl FileProcessor {
         let mut input_paths = Vec::new();
         for path in read
             .unwrap()
-            .filter_map(FileProcessor::filter_by_file_extension)
+            .filter_map(|p| FileProcessor::filter_by_file_extension(p, &VALID_EXTENSIONS))
         {
             input_paths.push(path);
         }
@@ -254,7 +260,7 @@ impl FileProcessor {
     /// # Returns
     ///
     /// A String giving the path to the file, if its extension is within the valid extensions list.
-    fn filter_by_file_extension(entry: Result<DirEntry, Error>) -> Option<String> {
+    fn filter_by_file_extension(entry: Result<DirEntry, Error>, exts: &[&str]) -> Option<String> {
         // Eliminate invalid entries.
         let dir_entry = match entry {
             Ok(de) => de,
@@ -278,10 +284,50 @@ impl FileProcessor {
             .to_string_lossy()
             .to_string();
 
-        if VALID_EXTENSIONS.contains(&&extension[..]) {
+        if exts.contains(&extension.as_str()) {
             Some(path.display().to_string())
         } else {
             None
+        }
+    }
+
+    /// Run a pre-processing remux on certain media files within the input directory
+    /// to permit them to be correctly handled by the main remuxing system.
+    ///
+    /// # Arguments
+    ///
+    /// * `profile` - The input profile.
+    fn pre_mux_media_files(profile: &InputProfile) {
+        logger::log(
+            "Running pre-mux for files within the input directory...",
+            false,
+        );
+
+        // Build the list of input file paths.
+        let read = fs::read_dir(&profile.input_dir);
+        assert!(
+            read.is_ok(),
+            "Failed to read input files directory: {read:?}"
+        );
+
+        // Add all of the matching files into the file list.
+        for path in read
+            .unwrap()
+            .filter_map(|p| FileProcessor::filter_by_file_extension(p, &VALID_REMUX_EXTENSIONS))
+        {
+            logger::log(
+                format!("File \"{path}\" is a valid remuxing target and will be remuxed..."),
+                false,
+            );
+
+            let out_path = utils::swap_file_extension(&path, "mkv");
+            converters::remux_media_file(&path, &out_path);
+
+            // Delete the original file, if required.
+            MediaFile::maybe_delete_file(
+                &path,
+                &profile.processing_params.misc.remove_original_file,
+            );
         }
     }
 

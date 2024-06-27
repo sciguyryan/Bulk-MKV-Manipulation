@@ -85,3 +85,21 @@ fn run_ffmpeg(args: &[String]) -> i32 {
 
     result
 }
+
+/// Run a basic remux of an input file into a MKV file.
+///
+/// # Arguments
+///
+/// * `file_in` - The path to the input file.
+/// * `file_out` - The path to the output file.
+pub fn remux_media_file(file_in: &str, file_out: &str) -> bool {
+    let args = [
+        "-i".to_string(),
+        file_in.to_string(),
+        "-c".to_string(),
+        "copy".to_string(),
+        file_out.to_string(),
+    ];
+
+    run_ffmpeg(&args) == 0
+}
