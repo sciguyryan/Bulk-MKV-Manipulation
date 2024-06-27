@@ -11,9 +11,12 @@ use std::{
     time::Instant,
 };
 
+/// A list of valid extension that can be automatically processed.
 const VALID_EXTENSIONS: [&str; 1] = ["mkv"];
-
+/// A list of valid extensions that can be automatically converted into MKV files in pre-processing.
 const VALID_REMUX_EXTENSIONS: [&str; 1] = ["mp4"];
+/// The file list early stop clause.
+const STOP_CLAUSE: &str = "###STOP###";
 
 #[derive(Clone, Copy, Deserialize)]
 pub enum PadType {
@@ -103,7 +106,7 @@ impl FileProcessor {
 
             // If the STOP clause is present then we should stop reading
             // the file name lines.
-            if line == "###STOP###" {
+            if line == STOP_CLAUSE {
                 has_stop_clause = true;
                 break;
             }
