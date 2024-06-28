@@ -149,9 +149,83 @@ pub struct MediaFile {
     /// A list of the track types and how many of each have been kept.
     #[serde(skip)]
     track_type_counter: HashMap<TrackType, usize>,
+
+    /// The input path to the media file.
+    #[serde(skip)]
+    conversion_args: Vec<String>,
 }
 
 impl MediaFile {
+    /// Add an attachment to the argument list.
+    ///
+    /// # Arguments
+    ///
+    /// * `path` - A string slice representing the path to the attachment file.
+    /// * `accepted_extensions` - A reference to the option containing permitted extensions list. If omitted then all extensions are permitted.
+    fn add_attachment_if_matching(
+        &mut self,
+        path: &str,
+        accepted_extensions: &Option<Vec<String>>,
+    ) {
+        let file_name = utils::get_file_name(path).unwrap_or_default();
+        if file_name.is_empty() {
+            return;
+        }
+
+        let valid_extensions = match accepted_extensions {
+            Some(exts) => exts.clone(),
+            None => Vec::new(),
+        };
+
+        // The file is a match if:
+        //   * The extension is within the valid list, or the valid list is empty.
+        //   * The extension is empty and the valid list is empty.
+        let is_match = match utils::get_file_extension(&file_name) {
+            Some(ext) => valid_extensions.is_empty() || valid_extensions.contains(&ext),
+            None => valid_extensions.is_empty(),
+        };
+
+        if !is_match {
+            return;
+        }
+
+        if !utils::file_exists(path) {
+            logger::log(format!("[INFO] Attachment path '{path}' was selected for inclusion but the path couldn't be found. This may be expected if you used external run commands!"), false);
+            return;
+        }
+
+        // Set the attachment name.
+        self.conversion_args.push("--attachment-name".to_string());
+        self.conversion_args.push(file_name);
+
+        // Set the attachment file path.
+        self.conversion_args.push("--attach-file".to_string());
+        self.conversion_args.push(path.to_string());
+    }
+
+    /// Apply the parameters related to any attachments to be added to the media file.
+    ///
+    /// # Arguments
+    ///
+    /// * `params` - The conversion parameters to be applied to the media file.
+    fn apply_attachment_mux_params(&mut self, params: &UnifiedParams) {
+        // Apply the internal (extracted) attachment muxing arguments, if needed.
+        if params.attachments.import_from_original {
+            self.apply_internal_attachment_mux_params(params);
+        }
+
+        // Add any external attachments from the specified folder, if needed.
+        // We don't don't have any to add if the folder path is empty.
+        let import_dir = params
+            .attachments
+            .import_from_folder
+            .clone()
+            .unwrap_or_default();
+        if !import_dir.is_empty() {
+            self.apply_external_attachment_mux_params(&import_dir, params);
+        }
+    }
+
     /// Apply default track languages.
     ///
     /// # Arguments
@@ -184,6 +258,237 @@ impl MediaFile {
                 track.language.clone_from(default_lang);
             }
         }
+    }
+
+    /// Apply the parameters related to any internal attachments to be added to the media file.
+    ///
+    /// # Arguments
+    ///
+    /// * `params` - The conversion parameters to be applied to the media file.
+    fn apply_internal_attachment_mux_params(&mut self, params: &UnifiedParams) {
+        // Iterate over all of the attachments.
+        let temp_path = self.get_temp_path();
+        for attachment in self.attachments.clone() {
+            self.add_attachment_if_matching(
+                &format!("{}/attachments/{attachment}", temp_path),
+                &params.attachments.import_original_extensions,
+            );
+        }
+    }
+
+    /// Apply the parameters related to any external attachments to be added to the media file.
+    ///
+    /// # Arguments
+    ///
+    /// * `dir` - The directory from which the files should be imported.
+    /// * `params` - The conversion parameters to be applied to the media file.
+    fn apply_external_attachment_mux_params(&mut self, dir: &String, params: &UnifiedParams) {
+        // Read the contents of the import attachments folder recursively.
+        for path in WalkDir::new(dir)
+            .into_iter()
+            .filter_map(MediaFile::filter_files)
+        {
+            // If the path is valid, add it to the kept attachments list.
+            self.add_attachment_if_matching(&path, &params.attachments.import_folder_extensions);
+        }
+    }
+
+    /// Apply the parameters related the chapters to be added to the media file.
+    ///
+    /// # Arguments
+    ///
+    /// * `params` - The conversion parameters to be applied to the media file.
+    fn apply_chapters_mux_params(&mut self, params: &UnifiedParams) {
+        self.conversion_args.push("--chapter-language".to_string());
+        self.conversion_args.push("en".to_string());
+
+        // Did we export an existing chapters file?
+        let chapters_fp =
+            utils::join_path_segments(&self.get_temp_path(), &["chapters", "chapters.xml"]);
+        if utils::file_exists(&chapters_fp) {
+            // Yes, include that file.
+            self.conversion_args.push("--chapters".to_string());
+            self.conversion_args.push(chapters_fp.to_string());
+        } else if params.chapters.create_if_not_present {
+            // No, we will have to create the chapters from scratch.
+            self.conversion_args
+                .push("--generate-chapters-name-template".to_string());
+            self.conversion_args.push("Chapter <NUM:2>".to_string());
+
+            self.conversion_args.push("--generate-chapters".to_string());
+
+            // By default we will create chapters at intervals of
+            // 5 minutes, unless a different interval is specified.
+            let mut format = "00:05:00.000000000";
+            if let Some(interval) = &params.chapters.create_interval {
+                format = interval;
+            }
+
+            self.conversion_args.push(format!("interval:{format}"));
+        }
+    }
+
+    /// Apply any additional track parameters, such as default, forced, etc.
+    ///
+    /// # Arguments
+    ///
+    /// * `track_id` - The ID of the track to which the parameters should be applied.
+    /// * `params` - The conversion parameters to be applied to the media file.
+    fn apply_additional_track_mux_params(&mut self, track_id: usize, params: &UnifiedParams) {
+        // Do we have any track parameters to apply?
+        let all_track_params = match &params.track_params {
+            Some(tps) => tps,
+            None => return,
+        };
+
+        // Do we have any parameters to apply to this track?
+        let track_params = match all_track_params.iter().find(|t| t.id == track_id) {
+            Some(tp) => tp,
+            None => return,
+        };
+
+        let track_type = &self.media.tracks[track_id].track_type;
+
+        let mut param_opts = Vec::with_capacity(50);
+
+        if let Some(b) = track_params.default {
+            param_opts.push(("default-track", b));
+        }
+        if let Some(b) = track_params.enabled {
+            param_opts.push(("track-enabled", b));
+        }
+        if let Some(b) = track_params.forced {
+            if *track_type == TrackType::Subtitle {
+                param_opts.push(("forced-display", b));
+            } else {
+                eprintln!("The forced flag was set for track ID {track_id}, but the track type does not support it.");
+            }
+        }
+        if let Some(b) = track_params.hearing_impaired {
+            if *track_type == TrackType::Audio {
+                param_opts.push(("hearing-impaired", b));
+            } else {
+                eprintln!("The hearing impaired flag was set for track ID {track_id}, but the track type does not support it.");
+            }
+        }
+        if let Some(b) = track_params.visual_impaired {
+            if *track_type == TrackType::Audio {
+                param_opts.push(("visual-impaired", b));
+            } else {
+                eprintln!("The visually impaired flag was set for track ID {track_id}, but the track type does not support it.");
+            }
+        }
+        if let Some(b) = track_params.text_descriptions {
+            if *track_type == TrackType::Subtitle {
+                param_opts.push(("text-descriptions", b));
+            } else {
+                eprintln!("The text descriptions flag was set for track ID {track_id}, but the track type does not support it.");
+            }
+        }
+        if let Some(b) = track_params.original {
+            param_opts.push(("original", b));
+        }
+        if let Some(b) = track_params.commentary {
+            if matches!(*track_type, TrackType::Audio | TrackType::Subtitle) {
+                param_opts.push(("commentary", b));
+            } else {
+                eprintln!("The commentary flag was set for track ID {track_id}, but the track type does not support it.");
+            }
+        }
+
+        // Iterate over the specified parameters.
+        for (k, v) in param_opts {
+            self.conversion_args.push(format!("--{k}-flag"));
+            self.conversion_args
+                .push(format!("0:{}", utils::bool_to_yes_no(v)));
+        }
+    }
+
+    /// Apply the parameters related the tracks to be added to the media file.
+    ///
+    /// # Arguments
+    ///
+    /// * `params` - The conversion parameters to be applied to the media file.
+    fn apply_track_mux_params(&mut self, params: &UnifiedParams) {
+        // Iterate over all of the tracks.
+        for (i, track) in self.media.tracks.clone().iter().enumerate() {
+            let mut delay = track.delay;
+            let mut delay_source = track.delay_source.clone();
+
+            // Do we have a delay override for this track?
+            if let Some(tp) = &params.track_params {
+                if let Some(d) = tp
+                    .iter()
+                    .find(|t| t.id == i && t.delay_override.is_some())
+                    .map(|t| t.delay_override.unwrap())
+                {
+                    if delay_source == DelaySource::None {
+                        delay_source = DelaySource::Container;
+                    }
+                    delay = d;
+                }
+            }
+
+            // Do we need to specify a delay for the track?
+            if delay != 0 {
+                match delay_source {
+                    DelaySource::Container => {
+                        self.conversion_args.push("--sync".to_string());
+                        self.conversion_args.push(format!("0:{}", track.delay));
+                    }
+                    DelaySource::None => {}
+                    _ => {
+                        todo!("DelaySource {delay_source:?} not yet implemented.");
+                    }
+                }
+            }
+
+            // Do we need to set the width and height?
+            if track.width != 0 && track.height != 0 {
+                self.conversion_args
+                    .push("--display-dimensions".to_string());
+                self.conversion_args
+                    .push(format!("0:{}x{}", track.width, track.height));
+            }
+
+            // Do we need to set the bit depth?
+            if track.bit_depth != 0 {
+                self.conversion_args
+                    .push("--color-bits-per-channel".to_string());
+                self.conversion_args.push(format!("0:{}", track.bit_depth));
+            }
+
+            // Apply any additional track parameters, if any were specified.
+            self.apply_additional_track_mux_params(i, params);
+
+            // Specify the track language. We set undefined for any video tracks.
+            self.conversion_args.push("--language".to_string());
+            if track.track_type == TrackType::Video {
+                self.conversion_args.push("0:und".to_string());
+            } else {
+                self.conversion_args.push(format!("0:{}", track.language));
+            }
+
+            // Set the file path.
+            self.conversion_args
+                .push(format!("./tracks/{}", track.get_out_file_name()));
+        }
+    }
+
+    /// Apply the parameters related the tags to be added to the media file.
+    ///
+    /// # Arguments
+    ///
+    /// * `params` - The conversion parameters to be applied to the media file.
+    fn apply_tag_mux_params(&mut self, params: &UnifiedParams) {
+        let path = params.misc.tags_path.clone().unwrap_or_default();
+        if !utils::file_exists(&path) {
+            return;
+        }
+
+        // Set the global tags argument.
+        self.conversion_args.push("--global-tags".to_string());
+        self.conversion_args.push(path);
     }
 
     /// Convert each audio track found within the media file.
@@ -247,9 +552,9 @@ impl MediaFile {
             // so that the codec can be updated later.
             if success {
                 update_indices.push(i);
-                logger::log(" conversion successful.", false);
+                logger::log(" success!", false);
             } else {
-                logger::log(" conversion failed.", false);
+                logger::log(" failed!", false);
             }
 
             // Output the FFmpeg parameters, if the debug flag is set.
@@ -416,11 +721,11 @@ impl MediaFile {
             &["chapters.xml".to_string()],
         ) {
             0 | 1 => {
-                logger::log(" extraction complete.", false);
+                logger::log(" success!", false);
                 true
             }
             2 => {
-                logger::log(" extraction failed.", false);
+                logger::log(" failed!", false);
                 false
             }
             _ => true,
@@ -463,11 +768,11 @@ impl MediaFile {
             &args,
         ) {
             0 | 1 => {
-                logger::log(" extraction complete.", false);
+                logger::log(" success!", false);
                 true
             }
             2 => {
-                logger::log(" extraction failed.", false);
+                logger::log(" failed!", false);
                 false
             }
             _ => true,
@@ -486,6 +791,31 @@ impl MediaFile {
         }
 
         r
+    }
+
+    /// Filter files from a [`DirEntry`] iterator filter_map.
+    ///
+    /// # Arguments
+    ///
+    /// * `entry` - The [`DirEntry`] we are currently examining.
+    ///
+    /// # Returns
+    ///
+    /// A [`String`] if the [`DirEntry`] points to a file, and if the path is valid, None otherwise.
+    fn filter_files(entry: Result<DirEntry, Error>) -> Option<String> {
+        let dir_entry = match entry {
+            Ok(de) => de,
+            Err(_) => {
+                return None;
+            }
+        };
+
+        let path = dir_entry.path();
+        if path.is_file() {
+            Some(path.display().to_string())
+        } else {
+            None
+        }
     }
 
     /// Filter the attachments from the original input file based on the specified criteria.
@@ -607,63 +937,6 @@ impl MediaFile {
         success
     }
 
-    /// Check whether a given track should be kept in the final file.
-    ///
-    /// # Arguments
-    ///
-    /// * `track_type` - The type of track.
-    /// * `index` - The index of the track.
-    /// * `params` - The conversion parameters to be applied to the media file.
-    fn should_keep_track(
-        &self,
-        track_type: &TrackType,
-        index: usize,
-        params: &UnifiedParams,
-    ) -> bool {
-        // We can handle certain types of tracks by type, rather than by
-        // examining them in a more detailed way.
-        if matches!(track_type, TrackType::General | TrackType::Menu) {
-            // These tracks will never be kept.
-            return false;
-        } else if matches!(track_type, TrackType::Button | TrackType::Other) {
-            // These tracks will only be kept is the relevant flag is set.
-            return params.other_tracks.import_from_original;
-        }
-
-        // The panic should never happen since the cases are all dealt with above.
-        let predicate = match track_type {
-            TrackType::Audio => &params.audio_tracks.predicate,
-            TrackType::Subtitle => &params.subtitle_tracks.predicate,
-            TrackType::Video => &params.video_tracks.predicate,
-            _ => panic!(),
-        };
-
-        // The panic should never happen since the cases are all dealt with above.
-        let tracks_to_retain = match track_type {
-            TrackType::Audio => &params.audio_tracks.total_to_retain,
-            TrackType::Subtitle => &params.subtitle_tracks.total_to_retain,
-            TrackType::Video => &params.video_tracks.total_to_retain,
-            _ => panic!(),
-        };
-
-        // Is a track limiter in place, and have we reached the target number of tracks?
-        if let Some(target) = tracks_to_retain {
-            let retained = self.track_type_counter.get(track_type).unwrap_or(&0);
-            if retained >= target {
-                return false;
-            }
-        }
-
-        // Note: that the filters are validated so the unwraps are safe here.
-        let track = &self.media.tracks[index];
-        match &predicate {
-            TrackPredicate::Index(i) => i.is_match(index - 1),
-            TrackPredicate::Language(l) => l.is_match(&track.language),
-            TrackPredicate::Title(t) => t.is_match(&track.title),
-            TrackPredicate::None => true,
-        }
-    }
-
     /// Create a [`MediaFile] instance from a media file path.
     ///
     /// # Arguments
@@ -720,6 +993,8 @@ impl MediaFile {
                 false,
             );
 
+            mf.conversion_args = Vec::with_capacity(100);
+
             // Return the MediaFile object.
             Some(mf)
         } else {
@@ -751,6 +1026,37 @@ impl MediaFile {
         }
 
         result
+    }
+
+    /// Delete the temporary directory, if applicable..
+    ///
+    /// # Arguments
+    ///
+    /// * `path` - The path to the directory.
+    /// * `del_type` - A reference to the option indicating the [`DeletionOptions`] deletion type to be used.
+    pub fn maybe_delete_temp_directory(path: &str, del_type: &Option<DeletionOptions>) {
+        match del_type {
+            Some(DeletionOptions::Delete) => {
+                logger::log_inline("Attempting to delete temporary directory... ", false);
+                if utils::delete_directory(path) {
+                    logger::log(" success!", false);
+                } else {
+                    logger::log(" failed!", false);
+                }
+            }
+            Some(DeletionOptions::Trash) => {
+                logger::log_inline(
+                    "Attempting send the temporary directory to the trash... ",
+                    false,
+                );
+                if trash::delete(path).is_ok() {
+                    logger::log(" success!", false);
+                } else {
+                    logger::log(" failed!", false);
+                }
+            }
+            _ => {}
+        }
     }
 
     /// Process a media file, applying any conversions and filters before remuxing the file.
@@ -836,380 +1142,12 @@ impl MediaFile {
         logger::log("", false);
 
         // Delete the temporary files, if needed.
-        MediaFile::maybe_delete_file(&self.get_temp_path(), &params.misc.remove_temp_files);
+        MediaFile::maybe_delete_temp_directory(
+            &self.get_temp_path(),
+            &params.misc.remove_temp_files,
+        );
 
         true
-    }
-
-    /// Add an attachment to the argument list.
-    ///
-    /// # Arguments
-    ///
-    /// * `args` - A reference to the vector containing the argument list.
-    /// * `path` - A string slice representing the path to the attachment file.
-    /// * `accepted_extensions` - A reference to the option containing permitted extensions list. If omitted then all extensions are permitted.
-    fn add_attachment_if_matching(
-        &self,
-        args: &mut Vec<String>,
-        path: &str,
-        accepted_extensions: &Option<Vec<String>>,
-    ) {
-        let file_name = utils::get_file_name(path).unwrap_or_default();
-        if file_name.is_empty() {
-            return;
-        }
-
-        let valid_extensions = match accepted_extensions {
-            Some(exts) => exts.clone(),
-            None => Vec::new(),
-        };
-
-        // The file is a match if:
-        //   * The extension is within the valid list, or the valid list is empty.
-        //   * The extension is empty and the valid list is empty.
-        let is_match = match utils::get_file_extension(&file_name) {
-            Some(ext) => valid_extensions.is_empty() || valid_extensions.contains(&ext),
-            None => valid_extensions.is_empty(),
-        };
-
-        if !is_match {
-            return;
-        }
-
-        if !utils::file_exists(path) {
-            logger::log(format!("[INFO] Attachment path '{path}' was selected for inclusion but the path couldn't be found. This may be expected if you used external run commands!"), false);
-            return;
-        }
-
-        // Set the attachment name.
-        args.push("--attachment-name".to_string());
-        args.push(file_name);
-
-        // Set the attachment file path.
-        args.push("--attach-file".to_string());
-        args.push(path.to_string());
-    }
-
-    /// Apply the parameters related to any attachments to be added to the media file.
-    ///
-    /// # Arguments
-    ///
-    /// * `args` - A reference to the vector containing the argument list.
-    /// * `params` - The conversion parameters to be applied to the media file.
-    fn apply_attachment_mux_params(&self, args: &mut Vec<String>, params: &UnifiedParams) {
-        // Apply the internal (extracted) attachment muxing arguments, if needed.
-        if params.attachments.import_from_original {
-            self.apply_internal_attachment_mux_params(args, params);
-        }
-
-        // Add any external attachments from the specified folder, if needed.
-        // We don't don't have any to add if the folder path is empty.
-        let import_dir = params
-            .attachments
-            .import_from_folder
-            .clone()
-            .unwrap_or_default();
-        if !import_dir.is_empty() {
-            self.apply_external_attachment_mux_params(args, &import_dir, params);
-        }
-    }
-
-    /// Apply the parameters related to any internal attachments to be added to the media file.
-    ///
-    /// # Arguments
-    ///
-    /// * `args` - A reference to the vector containing the argument list.
-    /// * `params` - The conversion parameters to be applied to the media file.
-    fn apply_internal_attachment_mux_params(&self, args: &mut Vec<String>, params: &UnifiedParams) {
-        // Iterate over all of the attachments.
-        for attachment in &self.attachments {
-            self.add_attachment_if_matching(
-                args,
-                &format!("{}/attachments/{attachment}", self.get_temp_path()),
-                &params.attachments.import_original_extensions,
-            );
-        }
-    }
-
-    /// Apply the parameters related to any external attachments to be added to the media file.
-    ///
-    /// # Arguments
-    ///
-    /// * `args` - A reference to the vector containing the argument list.
-    /// * `dir` - The directory from which the files should be imported.
-    /// * `params` - The conversion parameters to be applied to the media file.
-    fn apply_external_attachment_mux_params(
-        &self,
-        args: &mut Vec<String>,
-        dir: &String,
-        params: &UnifiedParams,
-    ) {
-        // Read the contents of the import attachments folder recursively.
-        for path in WalkDir::new(dir)
-            .into_iter()
-            .filter_map(MediaFile::filter_files)
-        {
-            // If the path is valid, add it to the kept attachments list.
-            self.add_attachment_if_matching(
-                args,
-                &path,
-                &params.attachments.import_folder_extensions,
-            );
-        }
-    }
-
-    /// Apply the parameters related the chapters to be added to the media file.
-    ///
-    /// # Arguments
-    ///
-    /// * `args` - A reference to the vector containing the argument list.
-    /// * `params` - The conversion parameters to be applied to the media file.
-    fn apply_chapters_mux_params(&self, args: &mut Vec<String>, params: &UnifiedParams) {
-        args.push("--chapter-language".to_string());
-        args.push("en".to_string());
-
-        // Did we export an existing chapters file?
-        let chapters_fp =
-            utils::join_path_segments(&self.get_temp_path(), &["chapters", "chapters.xml"]);
-        if utils::file_exists(&chapters_fp) {
-            // Yes, include that file.
-            args.push("--chapters".to_string());
-            args.push(chapters_fp.to_string());
-        } else if params.chapters.create_if_not_present {
-            // No, we will have to create the chapters from scratch.
-            args.push("--generate-chapters-name-template".to_string());
-            args.push("Chapter <NUM:2>".to_string());
-
-            args.push("--generate-chapters".to_string());
-
-            // By default we will create chapters at intervals of
-            // 5 minutes, unless a different interval is specified.
-            let mut format = "00:05:00.000000000";
-            if let Some(interval) = &params.chapters.create_interval {
-                format = interval;
-            }
-
-            args.push(format!("interval:{format}"));
-        }
-    }
-
-    /// Apply any additional track parameters, such as default, forced, etc.
-    ///
-    /// # Arguments
-    ///
-    /// * `args` - A reference to the vector containing the argument list.
-    /// * `track_id` - The ID of the track to which the parameters should be applied.
-    /// * `params` - The conversion parameters to be applied to the media file.
-    fn apply_additional_track_mux_params(
-        &self,
-        args: &mut Vec<String>,
-        track_id: usize,
-        params: &UnifiedParams,
-    ) {
-        // Do we have any track parameters to apply?
-        let all_track_params = match &params.track_params {
-            Some(tps) => tps,
-            None => return,
-        };
-
-        // Do we have any parameters to apply to this track?
-        let track_params = match all_track_params.iter().find(|t| t.id == track_id) {
-            Some(tp) => tp,
-            None => return,
-        };
-
-        let track_type = &self.media.tracks[track_id].track_type;
-
-        let mut param_opts = Vec::new();
-
-        if let Some(b) = track_params.default {
-            param_opts.push(("default-track", b));
-        }
-        if let Some(b) = track_params.enabled {
-            param_opts.push(("track-enabled", b));
-        }
-        if let Some(b) = track_params.forced {
-            if *track_type == TrackType::Subtitle {
-                param_opts.push(("forced-display", b));
-            } else {
-                eprintln!("The forced flag was set for track ID {track_id}, but the track type does not support it.");
-            }
-        }
-        if let Some(b) = track_params.hearing_impaired {
-            if *track_type == TrackType::Audio {
-                param_opts.push(("hearing-impaired", b));
-            } else {
-                eprintln!("The hearing impaired flag was set for track ID {track_id}, but the track type does not support it.");
-            }
-        }
-        if let Some(b) = track_params.visual_impaired {
-            if *track_type == TrackType::Audio {
-                param_opts.push(("visual-impaired", b));
-            } else {
-                eprintln!("The visually impaired flag was set for track ID {track_id}, but the track type does not support it.");
-            }
-        }
-        if let Some(b) = track_params.text_descriptions {
-            if *track_type == TrackType::Subtitle {
-                param_opts.push(("text-descriptions", b));
-            } else {
-                eprintln!("The text descriptions flag was set for track ID {track_id}, but the track type does not support it.");
-            }
-        }
-        if let Some(b) = track_params.original {
-            param_opts.push(("original", b));
-        }
-        if let Some(b) = track_params.commentary {
-            if matches!(*track_type, TrackType::Audio | TrackType::Subtitle) {
-                param_opts.push(("commentary", b));
-            } else {
-                eprintln!("The commentary flag was set for track ID {track_id}, but the track type does not support it.");
-            }
-        }
-
-        // Iterate over the specified parameters.
-        for (k, v) in param_opts {
-            args.push(format!("--{k}-flag"));
-            args.push(format!("0:{}", utils::bool_to_yes_no(v)));
-        }
-    }
-
-    /// Apply the parameters related the tracks to be added to the media file.
-    ///
-    /// # Arguments
-    ///
-    /// * `args` - A reference to the vector containing the argument list.
-    /// * `params` - The conversion parameters to be applied to the media file.
-    fn apply_track_mux_params(&self, args: &mut Vec<String>, params: &UnifiedParams) {
-        // Iterate over all of the tracks.
-        for (i, track) in self.media.tracks.iter().enumerate() {
-            let mut delay = track.delay;
-            let mut delay_source = track.delay_source.clone();
-
-            // Do we have a delay override for this track?
-            if let Some(tp) = &params.track_params {
-                if let Some(d) = tp
-                    .iter()
-                    .find(|t| t.id == i && t.delay_override.is_some())
-                    .map(|t| t.delay_override.unwrap())
-                {
-                    if delay_source == DelaySource::None {
-                        delay_source = DelaySource::Container;
-                    }
-                    delay = d;
-                }
-            }
-
-            // Do we need to specify a delay for the track?
-            if delay != 0 {
-                match delay_source {
-                    DelaySource::Container => {
-                        args.push("--sync".to_string());
-                        args.push(format!("0:{}", track.delay));
-                    }
-                    DelaySource::None => {}
-                    _ => {
-                        todo!("DelaySource {delay_source:?} not yet implemented.");
-                    }
-                }
-            }
-
-            // Do we need to set the width and height?
-            if track.width != 0 && track.height != 0 {
-                args.push("--display-dimensions".to_string());
-                args.push(format!("0:{}x{}", track.width, track.height));
-            }
-
-            // Do we need to set the bit depth?
-            if track.bit_depth != 0 {
-                args.push("--color-bits-per-channel".to_string());
-                args.push(format!("0:{}", track.bit_depth));
-            }
-
-            // Apply any additional track parameters, if any were specified.
-            self.apply_additional_track_mux_params(args, i, params);
-
-            // Specify the track language. We set undefined for any video tracks.
-            args.push("--language".to_string());
-            if track.track_type == TrackType::Video {
-                args.push("0:und".to_string());
-            } else {
-                args.push(format!("0:{}", track.language));
-            }
-
-            // Set the file path.
-            args.push(format!("./tracks/{}", track.get_out_file_name()));
-        }
-    }
-
-    /// Apply the parameters related the tags to be added to the media file.
-    ///
-    /// # Arguments
-    ///
-    /// * `args` - A reference to the vector containing the argument list.
-    /// * `params` - The conversion parameters to be applied to the media file.
-    fn apply_tag_mux_params(&self, args: &mut Vec<String>, params: &UnifiedParams) {
-        let path = params.misc.tags_path.clone().unwrap_or_default();
-        if !utils::file_exists(&path) {
-            return;
-        }
-
-        // Set the global tags argument.
-        args.push("--global-tags".to_string());
-        args.push(path);
-    }
-
-    /// Filter files from a [`DirEntry`] iterator filter_map.
-    ///
-    /// # Arguments
-    ///
-    /// * `entry` - The [`DirEntry`] we are currently examining.
-    ///
-    /// # Returns
-    ///
-    /// A [`String`] if the [`DirEntry`] points to a file, and if the path is valid, None otherwise.
-    fn filter_files(entry: Result<DirEntry, Error>) -> Option<String> {
-        let dir_entry = match entry {
-            Ok(de) => de,
-            Err(_) => {
-                return None;
-            }
-        };
-
-        let path = dir_entry.path();
-        if path.is_file() {
-            Some(path.display().to_string())
-        } else {
-            None
-        }
-    }
-
-    /// Maybe delete a file, based a [`DeletionOptions`] parameter.
-    ///
-    /// # Arguments
-    ///
-    /// * `path` - The path to the file or directory.
-    /// * `del_type` - A reference to the option indicating the [`DeletionOptions`] deletion type to be used.
-    pub fn maybe_delete_file(path: &str, del_type: &Option<DeletionOptions>) {
-        match del_type {
-            Some(DeletionOptions::Delete) => {
-                logger::log_inline("Attempting to delete files... ", false);
-                if utils::delete_directory(path) {
-                    logger::log(" files successfully deleted.", false);
-                } else {
-                    logger::log(" files could not be deleted.", false);
-                }
-            }
-            Some(DeletionOptions::Trash) => {
-                logger::log_inline("Attempting to delete files... ", false);
-                if trash::delete(path).is_ok() {
-                    logger::log(" files successfully sent to the trash.", false);
-                } else {
-                    logger::log(" files could not be sent to the trash.", false);
-                }
-            }
-            _ => {}
-        }
     }
 
     /// Run any pre-muxing commands.
@@ -1316,37 +1254,35 @@ impl MediaFile {
     /// * `out_path` - The path to the expected location of the output media file.
     /// * `title` - The title of the media file.
     /// * `params` - The conversion parameters to be applied to the media file.
-    pub fn remux_file(&self, out_path: &str, title: &str, params: &UnifiedParams) -> bool {
+    pub fn remux_file(&mut self, out_path: &str, title: &str, params: &UnifiedParams) -> bool {
         logger::log("Remuxing media file... ", false);
 
-        let mut args = Vec::with_capacity(100);
-
         // The output file path.
-        args.push("-o".to_string());
-        args.push(out_path.to_string());
+        self.conversion_args.push("-o".to_string());
+        self.conversion_args.push(out_path.to_string());
 
         // The title of the media file, if needed.
         if let Some(b) = params.misc.set_file_title {
             if b {
-                args.push("--title".to_string());
-                args.push(title.to_string());
+                self.conversion_args.push("--title".to_string());
+                self.conversion_args.push(title.to_string());
             }
         }
 
         // Apply the track muxing arguments.
-        self.apply_track_mux_params(&mut args, params);
+        self.apply_track_mux_params(params);
 
         // Apply the attachment muxing arguments, if needed.
-        self.apply_attachment_mux_params(&mut args, params);
+        self.apply_attachment_mux_params(params);
 
         // Apply the chapter muxing arguments, if needed.
         if params.chapters.import_from_original || params.chapters.create_if_not_present {
-            self.apply_chapters_mux_params(&mut args, params);
+            self.apply_chapters_mux_params(params);
         }
 
         // Apply the tag muxing arguments, if needed.
         if params.misc.tags_path.is_some() {
-            self.apply_tag_mux_params(&mut args, params);
+            self.apply_tag_mux_params(params);
         }
 
         // Set the track order.
@@ -1355,17 +1291,17 @@ impl MediaFile {
             .collect::<Vec<String>>()
             .join(",");
 
-        args.push("--track-order".to_string());
-        args.push(order);
+        self.conversion_args.push("--track-order".to_string());
+        self.conversion_args.push(order);
 
         // Run the MKV merge process.
-        let success = match mkvtoolnix::run_merge(&self.get_temp_path(), &args) {
+        let success = match mkvtoolnix::run_merge(&self.get_temp_path(), &self.conversion_args) {
             0 | 1 => {
-                logger::log("Remuxing complete.", false);
+                logger::log("Remuxing complete!", false);
                 true
             }
             2 => {
-                logger::log("Remuxing failed.", false);
+                logger::log("Remuxing failed!", false);
                 false
             }
             _ => true,
@@ -1377,13 +1313,70 @@ impl MediaFile {
                 format!(
                     "[INFO] mkvmerge command line: \"{}\" {}",
                     mkvtoolnix::get_exe("mkvmerge"),
-                    &args.join(" ")
+                    self.conversion_args.join(" ")
                 ),
                 false,
             );
         }
 
         success
+    }
+
+    /// Check whether a given track should be kept in the final file.
+    ///
+    /// # Arguments
+    ///
+    /// * `track_type` - The type of track.
+    /// * `index` - The index of the track.
+    /// * `params` - The conversion parameters to be applied to the media file.
+    fn should_keep_track(
+        &self,
+        track_type: &TrackType,
+        index: usize,
+        params: &UnifiedParams,
+    ) -> bool {
+        // We can handle certain types of tracks by type, rather than by
+        // examining them in a more detailed way.
+        if matches!(track_type, TrackType::General | TrackType::Menu) {
+            // These tracks will never be kept.
+            return false;
+        } else if matches!(track_type, TrackType::Button | TrackType::Other) {
+            // These tracks will only be kept is the relevant flag is set.
+            return params.other_tracks.import_from_original;
+        }
+
+        // The panic should never happen since the cases are all dealt with above.
+        let predicate = match track_type {
+            TrackType::Audio => &params.audio_tracks.predicate,
+            TrackType::Subtitle => &params.subtitle_tracks.predicate,
+            TrackType::Video => &params.video_tracks.predicate,
+            _ => panic!(),
+        };
+
+        // The panic should never happen since the cases are all dealt with above.
+        let tracks_to_retain = match track_type {
+            TrackType::Audio => &params.audio_tracks.total_to_retain,
+            TrackType::Subtitle => &params.subtitle_tracks.total_to_retain,
+            TrackType::Video => &params.video_tracks.total_to_retain,
+            _ => panic!(),
+        };
+
+        // Is a track limiter in place, and have we reached the target number of tracks?
+        if let Some(target) = tracks_to_retain {
+            let retained = self.track_type_counter.get(track_type).unwrap_or(&0);
+            if retained >= target {
+                return false;
+            }
+        }
+
+        // Note: that the filters are validated so the unwraps are safe here.
+        let track = &self.media.tracks[index];
+        match &predicate {
+            TrackPredicate::Index(i) => i.is_match(index - 1),
+            TrackPredicate::Language(l) => l.is_match(&track.language),
+            TrackPredicate::Title(t) => t.is_match(&track.title),
+            TrackPredicate::None => true,
+        }
     }
 
     /// Parse the JSON output from MediaInfo.
@@ -1558,6 +1551,10 @@ where
     Ok(string.split(" / ").map(|s| s.to_string()).collect())
 }
 
+fn default_track_language() -> String {
+    "und".to_string()
+}
+
 fn string_to_codec_enum<'de, D>(deserializer: D) -> Result<Codec, D::Error>
 where
     D: Deserializer<'de>,
@@ -1686,8 +1683,4 @@ where
             &"expected yes or no",
         )),
     }
-}
-
-fn default_track_language() -> String {
-    "und".to_string()
 }

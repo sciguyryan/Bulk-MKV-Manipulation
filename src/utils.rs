@@ -1,4 +1,8 @@
-use std::{fmt::Display, fs, path::Path};
+use std::{
+    fmt::Display,
+    fs,
+    path::{Path, PathBuf},
+};
 
 /// Convert a boolean value to yes or no.
 ///
@@ -144,7 +148,7 @@ pub fn get_file_name(fp: &str) -> Option<String> {
 /// * `paths` - A slice of strings to be appended to the base path.
 #[inline]
 pub fn join_path_segments<S: AsRef<str>>(base: &str, paths: &[S]) -> String {
-    let mut p = Path::new(base).to_path_buf();
+    let mut p = PathBuf::from(base);
 
     for path in paths {
         p.push(path.as_ref());

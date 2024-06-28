@@ -1,6 +1,10 @@
 use crate::{
-    conversion_params::unified::UnifiedParams, converters, input_profile::InputProfile, logger,
-    media_file::MediaFile, utils,
+    conversion_params::unified::{DeletionOptions, UnifiedParams},
+    converters,
+    input_profile::InputProfile,
+    logger,
+    media_file::MediaFile,
+    utils,
 };
 
 use lexical_sort::{natural_cmp, StringSort};
@@ -27,6 +31,7 @@ pub enum PadType {
 }
 
 pub struct FileProcessor {
+    pub has_stop_clause: bool,
     pub input_paths: Vec<String>,
     pub output_paths: Vec<String>,
     pub titles: Vec<String>,
@@ -36,124 +41,58 @@ impl FileProcessor {
     pub fn new(profile: &InputProfile) -> Option<Self> {
         logger::section("File Processing Initialization", false);
 
-        let mut check = true;
-        if !utils::dir_exists(&profile.input_dir) {
-            logger::log(
-                format!("Input directory '{}' does not exist", profile.input_dir),
-                true,
-            );
-            check = false;
-        }
-
-        if !utils::dir_exists(&profile.output_dir) {
-            logger::log(
-                format!("Output directory '{}' does not exist", profile.output_dir),
-                true,
-            );
-            check = false;
-        }
-
-        if !utils::file_exists(&profile.output_names_file_path) {
-            logger::log(
-                format!(
-                    "Output file names file '{}' does not exist",
-                    profile.output_names_file_path
-                ),
-                true,
-            );
-            check = false;
-        }
+        let mut s = Self {
+            has_stop_clause: false,
+            input_paths: vec![],
+            output_paths: vec![],
+            titles: vec![],
+        };
 
         // If one or more required paths were invalid then we can't continue.
-        if !check {
+        if !FileProcessor::validate_paths(profile) {
             return None;
         }
 
-        // Read the file containing the output names.
-        let file = match File::open(&profile.output_names_file_path) {
-            Ok(f) => f,
-            Err(e) => {
-                logger::log(
-                    format!(
-                        "An error occurred while attempting to open the output names file: {e:?}"
-                    ),
-                    true,
-                );
-                return None;
-            }
-        };
-
-        // Create a local copy of the substitution instance.
-        let mut substitutions = profile.substitutions.clone();
-
-        // If we have a stop clause then we are permitted to have
-        // less files than specified in the final list, but not more.
-        let mut has_stop_clause = false;
-
-        // Iterate over each line of the file.
-        let mut output_paths = Vec::new();
-        let mut titles = Vec::new();
-        let mut index = profile.start_from.unwrap_or_default();
-        for line in BufReader::new(file).lines() {
-            // This can occur if the line does not contain valid UTF-8
-            // sequences.
-            if let Err(e) = line {
-                logger::log(format!("Error parsing input names file: {e}"), false);
-                continue;
-            }
-
-            let line = line.unwrap();
-
-            // If the STOP clause is present then we should stop reading
-            // the file name lines.
-            if line == STOP_CLAUSE {
-                has_stop_clause = true;
-                break;
-            }
-
-            // Sanitize the title of the media file based on the supplied
-            // substitution parameters.
-            let sanitized = substitutions.apply(&line);
-
-            // Skip empty lines and comment lines.
-            if sanitized.is_empty() || sanitized.starts_with('#') {
-                continue;
-            }
-
-            // Handle the number padding, if required.
-            let file_name = FileProcessor::file_name_from_padded_index(
-                &sanitized,
-                index,
-                profile.index_pad_type,
-            );
-
-            // Add the file output path to the vector.
-            output_paths.push(utils::join_path_segments(&profile.output_dir, &[file_name]));
-
-            // Add the title to the vector.
-            titles.push(sanitized.to_string());
-
-            // Increment the index counter.
-            index += 1;
-        }
-
-        logger::log(
-            format!(
-                "{} file name{} are present in the output file name list.",
-                output_paths.len(),
-                if output_paths.len() != 1 { "s" } else { "" }
-            ),
-            false,
-        );
-
-        if let Some(b) = &profile.processing_params.misc.pre_mux_media_files {
-            if *b {
-                // Remux certain other media files to allow them to be automatically handled.
-                FileProcessor::pre_mux_media_files(profile);
-            }
+        // Build the output file name list.
+        s.build_output_list(profile);
+        if s.output_paths.is_empty() || s.titles.is_empty() {
+            return None;
         }
 
         // Build the list of input file paths.
+        s.build_input_list(profile);
+        if s.input_paths.is_empty() {
+            return None;
+        }
+
+        // We must now check that the number of files in the input
+        // directory is equal to the number of entries from the output file list.
+        if s.input_paths.len() != s.output_paths.len() {
+            logger::log(
+                format!(
+                    "The number of files in the input directory {} is not equal to the number of files in the output file list {}",
+                    s.input_paths.len(),
+                    s.output_paths.len()
+                ),
+                true,
+            );
+            return None;
+        }
+
+        logger::log(
+            "The number of files in the input directory and output list match.",
+            false,
+        );
+
+        Some(s)
+    }
+
+    /// Build the input file list from the parameter specified by the [`InputProfile`].
+    ///
+    /// # Arguments
+    ///
+    /// * `profile` - The [`InputProfile`] specified when running the program.
+    fn build_input_list(&mut self, profile: &InputProfile) {
         let read = fs::read_dir(&profile.input_dir);
         assert!(
             read.is_ok(),
@@ -175,7 +114,7 @@ impl FileProcessor {
                 "There are no applicable files in the input directory.",
                 true,
             );
-            return None;
+            return;
         }
 
         // Sort the input file paths using a natural sorting algorithm.
@@ -185,7 +124,7 @@ impl FileProcessor {
             format!(
                 "{} applicable file{} present in the input files directory.",
                 input_paths.len(),
-                if output_paths.len() != 1 {
+                if self.output_paths.len() != 1 {
                     "s are"
                 } else {
                     " is"
@@ -196,34 +135,99 @@ impl FileProcessor {
 
         // If the stop clause has been specified then we need to truncate
         // the input file list to be the same length as the output file list.
-        if has_stop_clause {
-            input_paths.truncate(output_paths.len());
+        if self.has_stop_clause {
+            input_paths.truncate(self.output_paths.len());
         }
+    }
 
-        // We must now check that the number of files in the input
-        // directory is equal to the number of entries from the output file list.
-        if input_paths.len() != output_paths.len() {
-            logger::log(
-                format!(
-                    "The number of files in the input directory {} is not equal to the number of files in the output file list {}",
-                    input_paths.len(),
-                    output_paths.len()
-                ),
-                true,
+    /// Build the output file list from the parameter specified by the [`InputProfile`].
+    ///
+    /// # Arguments
+    ///
+    /// * `profile` - The [`InputProfile`] specified when running the program.
+    fn build_output_list(&mut self, profile: &InputProfile) {
+        // Read the file containing the output names.
+        let file = match File::open(&profile.output_names_file_path) {
+            Ok(f) => f,
+            Err(e) => {
+                logger::log(
+                    format!(
+                        "An error occurred while attempting to open the output names file: {e:?}"
+                    ),
+                    true,
+                );
+                return;
+            }
+        };
+
+        // Create a local copy of the substitution instance.
+        let mut substitutions = profile.substitutions.clone();
+
+        // Iterate over each line of the file.
+        let mut index = profile.start_from.unwrap_or_default();
+        for line in BufReader::new(file).lines() {
+            // This can occur if the line does not contain valid UTF-8
+            // sequences.
+            if let Err(e) = line {
+                logger::log(format!("Error parsing input names file: {e}"), false);
+                continue;
+            }
+
+            let line = line.unwrap();
+
+            // If the STOP clause is present then we should stop reading
+            // the file name lines.
+            if line == STOP_CLAUSE {
+                self.has_stop_clause = true;
+                break;
+            }
+
+            // Sanitize the title of the media file based on the supplied
+            // substitution parameters.
+            let sanitized = substitutions.apply(&line);
+
+            // Skip empty lines and comment lines.
+            if sanitized.is_empty() || sanitized.starts_with('#') {
+                continue;
+            }
+
+            // Handle the number padding, if required.
+            let file_name = FileProcessor::file_name_from_padded_index(
+                &sanitized,
+                index,
+                profile.index_pad_type,
             );
-            return None;
+
+            // Add the file output path to the vector.
+            self.output_paths
+                .push(utils::join_path_segments(&profile.output_dir, &[file_name]));
+
+            // Add the title to the vector.
+            self.titles.push(sanitized.to_string());
+
+            // Increment the index counter.
+            index += 1;
         }
 
         logger::log(
-            "The number of files in the input directory and output list match.",
+            format!(
+                "{} file name{} are present in the output file name list.",
+                self.output_paths.len(),
+                if self.output_paths.len() != 1 {
+                    "s"
+                } else {
+                    ""
+                }
+            ),
             false,
         );
 
-        Some(Self {
-            input_paths,
-            output_paths,
-            titles,
-        })
+        if let Some(b) = &profile.processing_params.misc.pre_mux_media_files {
+            if *b {
+                // Remux certain other media files to allow them to be automatically handled.
+                FileProcessor::pre_mux_media_files(profile);
+            }
+        }
     }
 
     /// Build a filename from a name, an index (optional) and a pad type (optional).
@@ -232,7 +236,7 @@ impl FileProcessor {
     ///
     /// * `name` - The name of the file.
     /// * `index` - The index of the file, if applicable.
-    /// * `pad_type` - The pad type to be applied to the index, if applicable.
+    /// * `pad_type` - An option containing the [`PadType`] to be applied to the index.
     ///
     /// # Returns
     ///
@@ -298,12 +302,57 @@ impl FileProcessor {
         }
     }
 
+    /// Handle the removal of the the original media file, if remuxing has taken place.
+    ///
+    /// # Arguments
+    ///
+    /// * `path` - The path to the file.
+    /// * `params` - The [`UnifiedParams`] to be used while processing the media files.
+    fn maybe_delete_original_file(path: &str, params: &UnifiedParams) {
+        match params.misc.remove_original_file {
+            Some(DeletionOptions::Delete) => {
+                logger::log_inline("Attempting to delete original media file... ", false);
+                if fs::remove_file(path).is_ok() {
+                    logger::log(" file successfully deleted.", false);
+                } else {
+                    logger::log(" file could not be deleted.", false);
+                }
+            }
+            Some(DeletionOptions::Trash) => {
+                logger::log_inline("Attempting to delete original media file... ", false);
+                if trash::delete(path).is_ok() {
+                    logger::log(" file successfully sent to the trash.", false);
+                } else {
+                    logger::log(" file could not be sent to the trash.", false);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    /// Handle the removal of the the original media file, if remuxing has taken place.
+    ///
+    /// # Arguments
+    ///
+    /// * `params` - The [`UnifiedParams`] to be used while processing the media files.
+    fn maybe_shutdown(params: &UnifiedParams) {
+        // Shutdown the computer after processing, if required.
+        if let Some(b) = params.misc.shutdown_upon_completion {
+            if b {
+                match system_shutdown::shutdown() {
+                    Ok(_) => logger::log("Attempting to shutdown down the computer...", true),
+                    Err(e) => logger::log(format!("Failed to shutdown the computer: {e}"), true),
+                }
+            }
+        }
+    }
+
     /// Run a pre-processing remux on certain media files within the input directory
     /// to permit them to be correctly handled by the main remuxing system.
     ///
     /// # Arguments
     ///
-    /// * `profile` - The input profile.
+    /// * `profile` - The [`InputProfile`] specified when running the program.
     fn pre_mux_media_files(profile: &InputProfile) {
         logger::log(
             "Running pre-mux for files within the input directory...",
@@ -331,23 +380,19 @@ impl FileProcessor {
             converters::remux_media_file(&path, &out_path);
 
             // Delete the original file, if required.
-            MediaFile::maybe_delete_file(
+            MediaFile::maybe_delete_temp_directory(
                 &path,
                 &profile.processing_params.misc.remove_original_file,
             );
         }
     }
 
-    /// Process each of the media files in the input directory.
+    /// Process each media file in the input directory.
     ///
     /// # Arguments
     ///
-    /// * `params` - The parameters to be used while processing the media files.
-    ///
+    /// * `params` - The [`UnifiedParams`] to be used while processing the media file.
     pub fn process(&self, params: &UnifiedParams) {
-        use crate::{conversion_params::unified::DeletionOptions, media_file::MediaFile};
-        use system_shutdown::shutdown;
-
         logger::section("Setup", false);
 
         let now = Instant::now();
@@ -393,26 +438,7 @@ impl FileProcessor {
                 true,
             );
 
-            // Delete the original file, if required.
-            match params.misc.remove_original_file {
-                Some(DeletionOptions::Delete) => {
-                    logger::log_inline("Attempting to delete original media file... ", false);
-                    if fs::remove_file(&self.input_paths[i]).is_ok() {
-                        logger::log(" file successfully deleted.", false);
-                    } else {
-                        logger::log(" file could not be deleted.", false);
-                    }
-                }
-                Some(DeletionOptions::Trash) => {
-                    logger::log_inline("Attempting to delete original media file... ", false);
-                    if trash::delete(&self.input_paths[i]).is_ok() {
-                        logger::log(" file successfully sent to the trash.", false);
-                    } else {
-                        logger::log(" file could not be sent to the trash.", false);
-                    }
-                }
-                _ => {}
-            }
+            FileProcessor::maybe_delete_original_file(&self.input_paths[i], params);
         }
 
         logger::section("", true);
@@ -425,14 +451,43 @@ impl FileProcessor {
             );
         }
 
-        // Shutdown the computer after processing, if required.
-        if let Some(b) = params.misc.shutdown_upon_completion {
-            if b {
-                match shutdown() {
-                    Ok(_) => logger::log("Attempting to shutdown down the computer...", true),
-                    Err(e) => logger::log(format!("Failed to shutdown the computer: {e}"), true),
-                }
-            }
+        FileProcessor::maybe_shutdown(params);
+    }
+
+    /// Validate the paths specified by the [`InputProfile`] are valid.
+    ///
+    /// # Arguments
+    ///
+    /// * `profile` - The [`InputProfile`] specified when running the program.
+    fn validate_paths(profile: &InputProfile) -> bool {
+        let mut check = true;
+        if !utils::dir_exists(&profile.input_dir) {
+            logger::log(
+                format!("Input directory '{}' does not exist", profile.input_dir),
+                true,
+            );
+            check = false;
         }
+
+        if !utils::dir_exists(&profile.output_dir) {
+            logger::log(
+                format!("Output directory '{}' does not exist", profile.output_dir),
+                true,
+            );
+            check = false;
+        }
+
+        if !utils::file_exists(&profile.output_names_file_path) {
+            logger::log(
+                format!(
+                    "Output file names file '{}' does not exist",
+                    profile.output_names_file_path
+                ),
+                true,
+            );
+            check = false;
+        }
+
+        check
     }
 }
