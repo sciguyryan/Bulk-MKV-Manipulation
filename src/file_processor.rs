@@ -100,16 +100,15 @@ impl FileProcessor {
         );
 
         // Add all of the matching files into the file list.
-        let mut input_paths = Vec::new();
         for path in read
             .unwrap()
             .filter_map(|p| FileProcessor::filter_by_file_extension(p, &VALID_EXTENSIONS))
         {
-            input_paths.push(path);
+            self.input_paths.push(path);
         }
 
         // Do we have any files in the input directory?
-        if input_paths.is_empty() {
+        if self.input_paths.is_empty() {
             logger::log(
                 "There are no applicable files in the input directory.",
                 true,
@@ -118,12 +117,12 @@ impl FileProcessor {
         }
 
         // Sort the input file paths using a natural sorting algorithm.
-        input_paths.string_sort_unstable(natural_cmp);
+        self.input_paths.string_sort_unstable(natural_cmp);
 
         logger::log(
             format!(
                 "{} applicable file{} present in the input files directory.",
-                input_paths.len(),
+                self.input_paths.len(),
                 if self.output_paths.len() != 1 {
                     "s are"
                 } else {
@@ -136,7 +135,7 @@ impl FileProcessor {
         // If the stop clause has been specified then we need to truncate
         // the input file list to be the same length as the output file list.
         if self.has_stop_clause {
-            input_paths.truncate(self.output_paths.len());
+            self.input_paths.truncate(self.output_paths.len());
         }
     }
 
@@ -380,7 +379,7 @@ impl FileProcessor {
             converters::remux_media_file(&path, &out_path);
 
             // Delete the original file, if required.
-            MediaFile::maybe_delete_temp_directory(
+            MediaFile::delete_path(
                 &path,
                 &profile.processing_params.misc.remove_original_file,
             );

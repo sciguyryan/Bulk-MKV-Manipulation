@@ -1,6 +1,5 @@
 use std::{
     fmt::Display,
-    fs,
     path::{Path, PathBuf},
 };
 
@@ -22,16 +21,6 @@ pub fn bool_to_yes_no(b: bool) -> String {
 #[inline]
 pub fn dir_exists(path: &str) -> bool {
     Path::new(path).is_dir()
-}
-
-/// Delete a directory, and all containing subdirectories and files.
-///
-/// # Arguments
-///
-/// * `path` - The path to the directory.
-#[inline]
-pub fn delete_directory(path: &str) -> bool {
-    fs::remove_dir_all(path).is_ok()
 }
 
 /// Return a boolean value indicating whether a given file exists.

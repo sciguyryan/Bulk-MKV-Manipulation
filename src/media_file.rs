@@ -17,6 +17,7 @@ use serde::de::{self, Deserialize, Deserializer, Unexpected};
 use serde_derive::Deserialize;
 use std::{
     fs,
+    path::Path,
     process::Command,
     sync::atomic::{AtomicUsize, Ordering},
 };
@@ -150,9 +151,9 @@ pub struct MediaFile {
     #[serde(skip)]
     track_type_counter: HashMap<TrackType, usize>,
 
-    /// The input path to the media file.
+    /// The conversion args used for MKV muxing.
     #[serde(skip)]
-    conversion_args: Vec<String>,
+    muxing_args: Vec<String>,
 }
 
 impl MediaFile {
@@ -195,19 +196,19 @@ impl MediaFile {
         }
 
         // Set the attachment name.
-        self.conversion_args.push("--attachment-name".to_string());
-        self.conversion_args.push(file_name);
+        self.muxing_args.push("--attachment-name".to_string());
+        self.muxing_args.push(file_name);
 
         // Set the attachment file path.
-        self.conversion_args.push("--attach-file".to_string());
-        self.conversion_args.push(path.to_string());
+        self.muxing_args.push("--attach-file".to_string());
+        self.muxing_args.push(path.to_string());
     }
 
     /// Apply the parameters related to any attachments to be added to the media file.
     ///
     /// # Arguments
     ///
-    /// * `params` - The conversion parameters to be applied to the media file.
+    /// * `params` - The [`UnifiedParams`] to be applied to the media file.
     fn apply_attachment_mux_params(&mut self, params: &UnifiedParams) {
         // Apply the internal (extracted) attachment muxing arguments, if needed.
         if params.attachments.import_from_original {
@@ -264,7 +265,7 @@ impl MediaFile {
     ///
     /// # Arguments
     ///
-    /// * `params` - The conversion parameters to be applied to the media file.
+    /// * `params` - The [`UnifiedParams`] to be applied to the media file.
     fn apply_internal_attachment_mux_params(&mut self, params: &UnifiedParams) {
         // Iterate over all of the attachments.
         let temp_path = self.get_temp_path();
@@ -281,7 +282,7 @@ impl MediaFile {
     /// # Arguments
     ///
     /// * `dir` - The directory from which the files should be imported.
-    /// * `params` - The conversion parameters to be applied to the media file.
+    /// * `params` - The [`UnifiedParams`] to be applied to the media file.
     fn apply_external_attachment_mux_params(&mut self, dir: &String, params: &UnifiedParams) {
         // Read the contents of the import attachments folder recursively.
         for path in WalkDir::new(dir)
@@ -297,25 +298,25 @@ impl MediaFile {
     ///
     /// # Arguments
     ///
-    /// * `params` - The conversion parameters to be applied to the media file.
+    /// * `params` - The [`UnifiedParams`] to be applied to the media file.
     fn apply_chapters_mux_params(&mut self, params: &UnifiedParams) {
-        self.conversion_args.push("--chapter-language".to_string());
-        self.conversion_args.push("en".to_string());
+        self.muxing_args.push("--chapter-language".to_string());
+        self.muxing_args.push("en".to_string());
 
         // Did we export an existing chapters file?
         let chapters_fp =
             utils::join_path_segments(&self.get_temp_path(), &["chapters", "chapters.xml"]);
         if utils::file_exists(&chapters_fp) {
             // Yes, include that file.
-            self.conversion_args.push("--chapters".to_string());
-            self.conversion_args.push(chapters_fp.to_string());
+            self.muxing_args.push("--chapters".to_string());
+            self.muxing_args.push(chapters_fp.to_string());
         } else if params.chapters.create_if_not_present {
             // No, we will have to create the chapters from scratch.
-            self.conversion_args
+            self.muxing_args
                 .push("--generate-chapters-name-template".to_string());
-            self.conversion_args.push("Chapter <NUM:2>".to_string());
+            self.muxing_args.push("Chapter <NUM:2>".to_string());
 
-            self.conversion_args.push("--generate-chapters".to_string());
+            self.muxing_args.push("--generate-chapters".to_string());
 
             // By default we will create chapters at intervals of
             // 5 minutes, unless a different interval is specified.
@@ -324,7 +325,7 @@ impl MediaFile {
                 format = interval;
             }
 
-            self.conversion_args.push(format!("interval:{format}"));
+            self.muxing_args.push(format!("interval:{format}"));
         }
     }
 
@@ -333,7 +334,7 @@ impl MediaFile {
     /// # Arguments
     ///
     /// * `track_id` - The ID of the track to which the parameters should be applied.
-    /// * `params` - The conversion parameters to be applied to the media file.
+    /// * `params` - The [`UnifiedParams`] to be applied to the media file.
     fn apply_additional_track_mux_params(&mut self, track_id: usize, params: &UnifiedParams) {
         // Do we have any track parameters to apply?
         let all_track_params = match &params.track_params {
@@ -398,8 +399,8 @@ impl MediaFile {
 
         // Iterate over the specified parameters.
         for (k, v) in param_opts {
-            self.conversion_args.push(format!("--{k}-flag"));
-            self.conversion_args
+            self.muxing_args.push(format!("--{k}-flag"));
+            self.muxing_args
                 .push(format!("0:{}", utils::bool_to_yes_no(v)));
         }
     }
@@ -408,7 +409,7 @@ impl MediaFile {
     ///
     /// # Arguments
     ///
-    /// * `params` - The conversion parameters to be applied to the media file.
+    /// * `params` - The [`UnifiedParams`] to be applied to the media file.
     fn apply_track_mux_params(&mut self, params: &UnifiedParams) {
         // Iterate over all of the tracks.
         for (i, track) in self.media.tracks.clone().iter().enumerate() {
@@ -433,8 +434,8 @@ impl MediaFile {
             if delay != 0 {
                 match delay_source {
                     DelaySource::Container => {
-                        self.conversion_args.push("--sync".to_string());
-                        self.conversion_args.push(format!("0:{}", track.delay));
+                        self.muxing_args.push("--sync".to_string());
+                        self.muxing_args.push(format!("0:{}", track.delay));
                     }
                     DelaySource::None => {}
                     _ => {
@@ -445,32 +446,31 @@ impl MediaFile {
 
             // Do we need to set the width and height?
             if track.width != 0 && track.height != 0 {
-                self.conversion_args
-                    .push("--display-dimensions".to_string());
-                self.conversion_args
+                self.muxing_args.push("--display-dimensions".to_string());
+                self.muxing_args
                     .push(format!("0:{}x{}", track.width, track.height));
             }
 
             // Do we need to set the bit depth?
             if track.bit_depth != 0 {
-                self.conversion_args
+                self.muxing_args
                     .push("--color-bits-per-channel".to_string());
-                self.conversion_args.push(format!("0:{}", track.bit_depth));
+                self.muxing_args.push(format!("0:{}", track.bit_depth));
             }
 
             // Apply any additional track parameters, if any were specified.
             self.apply_additional_track_mux_params(i, params);
 
             // Specify the track language. We set undefined for any video tracks.
-            self.conversion_args.push("--language".to_string());
+            self.muxing_args.push("--language".to_string());
             if track.track_type == TrackType::Video {
-                self.conversion_args.push("0:und".to_string());
+                self.muxing_args.push("0:und".to_string());
             } else {
-                self.conversion_args.push(format!("0:{}", track.language));
+                self.muxing_args.push(format!("0:{}", track.language));
             }
 
             // Set the file path.
-            self.conversion_args
+            self.muxing_args
                 .push(format!("./tracks/{}", track.get_out_file_name()));
         }
     }
@@ -479,7 +479,7 @@ impl MediaFile {
     ///
     /// # Arguments
     ///
-    /// * `params` - The conversion parameters to be applied to the media file.
+    /// * `params` - The [`UnifiedParams`] to be applied to the media file.
     fn apply_tag_mux_params(&mut self, params: &UnifiedParams) {
         let path = params.misc.tags_path.clone().unwrap_or_default();
         if !utils::file_exists(&path) {
@@ -487,8 +487,8 @@ impl MediaFile {
         }
 
         // Set the global tags argument.
-        self.conversion_args.push("--global-tags".to_string());
-        self.conversion_args.push(path);
+        self.muxing_args.push("--global-tags".to_string());
+        self.muxing_args.push(path);
     }
 
     /// Convert each audio track found within the media file.
@@ -630,35 +630,34 @@ impl MediaFile {
     ///
     /// # Arguments
     ///
-    /// * `extract_tracks` - Should tracks be extracted?
-    /// * `extract_attachments` - Should attachments be extracted?
-    /// * `extract_chapters` - Should chapters be extracted?
-    pub fn extract(
-        &mut self,
-        extract_tracks: bool,
-        extract_attachments: bool,
-        extract_chapters: bool,
-    ) -> bool {
-        let mut success = true;
-        if extract_tracks {
-            success = self.extract_tracks();
+    /// * `params` - The [`UnifiedParams`] to be applied to the media file.
+    fn extract(&mut self, params: &UnifiedParams) -> bool {
+        if !self.extract_tracks() {
+            return false;
         }
 
-        if success && extract_attachments {
-            success = self.extract_attachments();
-        } else {
+        if !self.extract_attachments(params) {
             self.attachments.clear();
+            return false;
         }
 
-        if success && extract_chapters {
-            success = self.extract_chapters();
+        if !self.extract_chapters(params) {
+            return false;
         }
 
-        success
+        true
     }
 
     /// Extract the attachments from a MKV file, if present.
-    pub fn extract_attachments(&self) -> bool {
+    ///
+    /// # Arguments
+    ///
+    /// * `params` - The [`UnifiedParams`] to be applied to the media file.
+    pub fn extract_attachments(&self, params: &UnifiedParams) -> bool {
+        if !params.attachments.import_from_original {
+            return true;
+        }
+
         // Do we have any attachments to extract?
         // The attachments will always be found on the first
         // track of the file.
@@ -711,7 +710,15 @@ impl MediaFile {
     }
 
     /// Extract the chapters from a MKV file, if present.
-    pub fn extract_chapters(&self) -> bool {
+    ///
+    /// # Arguments
+    ///
+    /// * `params` - The [`UnifiedParams`] to be applied to the media file.
+    pub fn extract_chapters(&self, params: &UnifiedParams) -> bool {
+        if !params.chapters.import_from_original {
+            return true;
+        }
+
         logger::log_inline("Extracting chapters...", false);
 
         let r = match mkvtoolnix::run_extract(
@@ -822,7 +829,7 @@ impl MediaFile {
     ///
     /// # Arguments
     ///
-    /// * `params` - The conversion parameters to be applied to the media file.
+    /// * `params` - The [`UnifiedParams`] to be applied to the media file.
     pub fn filter_internal_attachments(&mut self, params: &UnifiedParams) {
         // If we have no attachments we can exit early.
         if self.attachments.is_empty() {
@@ -964,7 +971,7 @@ impl MediaFile {
                 false,
             );
 
-            mf.conversion_args = Vec::with_capacity(100);
+            mf.muxing_args = Vec::with_capacity(100);
 
             // Return the MediaFile object.
             Some(mf)
@@ -990,43 +997,54 @@ impl MediaFile {
     /// Initialize the temporary directory structure for the media file.
     fn init_temp_directory(&self) -> bool {
         // Create each subdirectory.
-        let mut result = true;
+        let mut success = true;
         for dir in ["attachments", "chapters", "tracks"] {
             let p = self.get_temp_for_output_type(dir);
-            result &= fs::create_dir_all(p).is_ok();
+            success &= fs::create_dir_all(p).is_ok();
         }
 
-        result
+        success
     }
 
-    /// Delete the temporary directory, if applicable..
+    /// Delete a file or folder, if the argument specifies it, by the method specified [`DeletionOptions`] method.
     ///
     /// # Arguments
     ///
-    /// * `path` - The path to the directory.
-    /// * `del_type` - A reference to the option indicating the [`DeletionOptions`] deletion type to be used.
-    pub fn maybe_delete_temp_directory(path: &str, del_type: &Option<DeletionOptions>) {
-        match del_type {
+    /// * `path` - The path to the file.
+    /// * `del_type` - An option giving the [`DeletionOptions`] deletion type to perform.
+    #[inline]
+    pub fn delete_path(path_str: &str, del_type: &Option<DeletionOptions>) {
+        let path = Path::new(path_str);
+        if !path.exists() {
+            return;
+        }
+
+        let mut skip_message = false;
+        let success = match del_type {
             Some(DeletionOptions::Delete) => {
-                logger::log_inline("Attempting to delete temporary directory... ", false);
-                if utils::delete_directory(path) {
-                    logger::log(" success!", false);
+                logger::log_inline("Attempting to delete path...", false);
+                if path.is_file() {
+                    fs::remove_file(path).is_ok()
                 } else {
-                    logger::log(" failed!", false);
+                    fs::remove_dir_all(path).is_ok()
                 }
             }
             Some(DeletionOptions::Trash) => {
-                logger::log_inline(
-                    "Attempting send the temporary directory to the trash... ",
-                    false,
-                );
-                if trash::delete(path).is_ok() {
-                    logger::log(" success!", false);
-                } else {
-                    logger::log(" failed!", false);
-                }
+                logger::log_inline("Attempting to trash path... ", false);
+                trash::delete(path).is_ok()
             }
-            _ => {}
+            _ => {
+                skip_message = true;
+                true
+            }
+        };
+
+        if !skip_message {
+            if success {
+                logger::log(" success!", false);
+            } else {
+                logger::log(" failed!", false);
+            }
         }
     }
 
@@ -1055,7 +1073,7 @@ impl MediaFile {
     ///
     /// * `out_path` - The path of the output media file.
     /// * `title` - The title of the media file.
-    /// * `params` - The conversion parameters to be applied to the media file.
+    /// * `params` - The [`UnifiedParams`] to be applied to the media file.
     pub fn process(&mut self, out_path: &str, title: &str, params: &UnifiedParams) -> bool {
         self.output_path = out_path.to_string();
 
@@ -1077,11 +1095,7 @@ impl MediaFile {
         }
 
         // Extract the files.
-        if !self.extract(
-            true,
-            params.attachments.import_from_original,
-            params.chapters.import_from_original,
-        ) {
+        if !self.extract(params) {
             return false;
         }
 
@@ -1132,10 +1146,7 @@ impl MediaFile {
         logger::log("", false);
 
         // Delete the temporary files, if needed.
-        MediaFile::maybe_delete_temp_directory(
-            &self.get_temp_path(),
-            &params.misc.remove_temp_files,
-        );
+        MediaFile::delete_path(&self.get_temp_path(), &params.misc.remove_temp_files);
 
         true
     }
@@ -1145,7 +1156,7 @@ impl MediaFile {
     /// # Arguments
     ///
     /// * `run_type` - The type of command to be run.
-    /// * `params` - The conversion parameters to be applied to the media file.
+    /// * `params` - The [`UnifiedParams`] to be applied to the media file.
     pub fn run_commands(&self, run_type: RunCommandType, params: &UnifiedParams) {
         logger::log_inline("Checking for run commands... ", false);
 
@@ -1243,19 +1254,19 @@ impl MediaFile {
     ///
     /// * `out_path` - The path to the expected location of the output media file.
     /// * `title` - The title of the media file.
-    /// * `params` - The conversion parameters to be applied to the media file.
+    /// * `params` - The [`UnifiedParams`] to be applied to the media file.
     pub fn remux_file(&mut self, out_path: &str, title: &str, params: &UnifiedParams) -> bool {
         logger::log("Remuxing media file... ", false);
 
         // The output file path.
-        self.conversion_args.push("-o".to_string());
-        self.conversion_args.push(out_path.to_string());
+        self.muxing_args.push("-o".to_string());
+        self.muxing_args.push(out_path.to_string());
 
         // The title of the media file, if needed.
         if let Some(b) = params.misc.set_file_title {
             if b {
-                self.conversion_args.push("--title".to_string());
-                self.conversion_args.push(title.to_string());
+                self.muxing_args.push("--title".to_string());
+                self.muxing_args.push(title.to_string());
             }
         }
 
@@ -1281,11 +1292,11 @@ impl MediaFile {
             .collect::<Vec<String>>()
             .join(",");
 
-        self.conversion_args.push("--track-order".to_string());
-        self.conversion_args.push(order);
+        self.muxing_args.push("--track-order".to_string());
+        self.muxing_args.push(order);
 
         // Run the MKV merge process.
-        let success = match mkvtoolnix::run_merge(&self.get_temp_path(), &self.conversion_args) {
+        let success = match mkvtoolnix::run_merge(&self.get_temp_path(), &self.muxing_args) {
             0 | 1 => {
                 logger::log("Remuxing complete!", false);
                 true
@@ -1303,7 +1314,7 @@ impl MediaFile {
                 format!(
                     "[INFO] mkvmerge command line: \"{}\" {}",
                     mkvtoolnix::get_exe("mkvmerge"),
-                    self.conversion_args.join(" ")
+                    self.muxing_args.join(" ")
                 ),
                 false,
             );
@@ -1318,7 +1329,7 @@ impl MediaFile {
     ///
     /// * `track_type` - The type of track.
     /// * `index` - The index of the track.
-    /// * `params` - The conversion parameters to be applied to the media file.
+    /// * `params` - The [`UnifiedParams`] to be applied to the media file.
     fn should_keep_track(
         &self,
         track_type: &TrackType,
