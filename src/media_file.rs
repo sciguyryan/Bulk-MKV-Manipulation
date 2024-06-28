@@ -830,25 +830,23 @@ impl MediaFile {
             return;
         }
 
-        // If the attachment filter list is empty, we will allow all attachments
-        // to be imported from the original file.
-        let import_ext = match &params.attachments.import_original_extensions {
-            Some(exts) => {
-                if exts.is_empty() {
-                    return;
-                } else {
-                    exts
-                }
-            }
-            None => return,
-        };
+        // If the attachment filter list is empty, we will retain
+        // all attachments imported from the original file.
+        let retain_extensions = params
+            .attachments
+            .import_original_extensions
+            .clone()
+            .unwrap_or_default();
+        if retain_extensions.is_empty() {
+            return;
+        }
 
         self.attachments = self
             .attachments
             .iter()
             .filter_map(|path| {
                 let ext = utils::get_file_extension(path)?;
-                if import_ext.contains(&ext) {
+                if retain_extensions.contains(&ext) {
                     Some(path.clone())
                 } else {
                     None
@@ -870,14 +868,14 @@ impl MediaFile {
     ///
     /// # Arguments
     ///
-    /// * `params` - The conversion parameters to be applied to the media file.
+    /// * `params` - The [`UnifiedParams`] to be applied to the media file.
+    ///
+    /// # Returns
+    ///
+    /// A boolean, true if the filtering met the track targets (if applicable), false otherwise.
     pub fn filter_tracks(&mut self, params: &UnifiedParams) -> bool {
         // Create a new vector to hold the tracks that we want to keep.
         let mut kept = Vec::with_capacity(self.media.tracks.len());
-
-        let audio = &params.audio_tracks;
-        let subtitle = &params.subtitle_tracks;
-        let video = &params.video_tracks;
 
         for (i, track) in &mut self.media.tracks.iter().enumerate() {
             // If we don't need to keep this track, then skip to the next track.
@@ -895,35 +893,8 @@ impl MediaFile {
                 .or_default() += 1;
         }
 
-        let mut success = true;
-        for target_type in [TrackType::Audio, TrackType::Subtitle, TrackType::Video] {
-            let target = match target_type {
-                TrackType::Audio => audio.total_to_retain,
-                TrackType::Subtitle => subtitle.total_to_retain,
-                TrackType::Video => video.total_to_retain,
-                _ => None,
-            };
-
-            if target.is_none() {
-                continue;
-            }
-
-            if self
-                .track_type_counter
-                .get(&target_type)
-                .cloned()
-                .unwrap_or_default()
-                != target.unwrap()
-            {
-                logger::log(
-                    format!(
-                        "Filtered track target for type {target_type} was different than expected for file {}.",
-                        self.file_path
-                    ),
-                    false,
-                );
-                success = false;
-            }
+        if !self.validate_filter_targets(params) {
+            return false;
         }
 
         logger::log(
@@ -934,7 +905,7 @@ impl MediaFile {
         // Assign the kept tracks back into the container object.
         self.media.tracks = kept;
 
-        success
+        true
     }
 
     /// Create a [`MediaFile] instance from a media file path.
@@ -1056,6 +1027,25 @@ impl MediaFile {
                 }
             }
             _ => {}
+        }
+    }
+
+    /// Parse the JSON output from MediaInfo.
+    ///
+    /// # Arguments
+    ///
+    /// * `json` - The JSON string to be parsed.
+    fn parse_json(json: &str) -> Option<MediaFile> {
+        if EXPORT_JSON {
+            MediaFile::dump_json(json);
+        }
+
+        match serde_json::from_str::<MediaFile>(json) {
+            Ok(mi) => Some(mi),
+            Err(e) => {
+                logger::log(format!("Error attempting to parse JSON data: {e:?}"), true);
+                None
+            }
         }
     }
 
@@ -1379,23 +1369,49 @@ impl MediaFile {
         }
     }
 
-    /// Parse the JSON output from MediaInfo.
+    /// Validate whether the number of tracks met the specified target, if applicable.
     ///
     /// # Arguments
     ///
-    /// * `json` - The JSON string to be parsed.
-    fn parse_json(json: &str) -> Option<MediaFile> {
-        if EXPORT_JSON {
-            MediaFile::dump_json(json);
-        }
+    /// * `params` - The [`UnifiedParams`] to be applied to the media file.
+    ///
+    /// # Returns
+    ///
+    /// A boolean, true if the filtering met the track targets (if applicable), false otherwise.
+    fn validate_filter_targets(&self, params: &UnifiedParams) -> bool {
+        let mut success = true;
+        for target_type in [TrackType::Audio, TrackType::Subtitle, TrackType::Video] {
+            let target = match target_type {
+                TrackType::Audio => params.audio_tracks.total_to_retain,
+                TrackType::Subtitle => params.subtitle_tracks.total_to_retain,
+                TrackType::Video => params.video_tracks.total_to_retain,
+                _ => None,
+            };
 
-        match serde_json::from_str::<MediaFile>(json) {
-            Ok(mi) => Some(mi),
-            Err(e) => {
-                logger::log(format!("Error attempting to parse JSON data: {e:?}"), true);
-                None
+            if target.is_none() {
+                continue;
+            }
+
+            if self
+                .track_type_counter
+                .get(&target_type)
+                .cloned()
+                .unwrap_or_default()
+                != target.unwrap()
+            {
+                logger::log(
+                    format!(
+                        "Filtered track target for type {target_type} was different than expected for file {}.",
+                        self.file_path
+                    ),
+                    false,
+                );
+
+                success = false;
             }
         }
+
+        success
     }
 }
 
