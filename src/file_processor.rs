@@ -379,10 +379,7 @@ impl FileProcessor {
             converters::remux_media_file(&path, &out_path);
 
             // Delete the original file, if required.
-            MediaFile::delete_path(
-                &path,
-                &profile.processing_params.misc.remove_original_file,
-            );
+            MediaFile::delete_path(&path, &profile.processing_params.misc.remove_original_file);
         }
     }
 
@@ -418,7 +415,7 @@ impl FileProcessor {
         let mut success = true;
         for (i, m) in &mut media.iter_mut().enumerate() {
             logger::subsection(
-                &format!("File {} of {}", i + 1, self.input_paths.len()),
+                format!("File {} of {}", i + 1, self.input_paths.len()),
                 true,
             );
 
