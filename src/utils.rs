@@ -44,7 +44,7 @@ impl<'a> DurationUnit<'a> {
     }
 }
 
-impl<'a> Display for DurationUnit<'a> {
+impl Display for DurationUnit<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut r = write!(f, "{} {}", self.amount, self.unit);
         if self.amount != 1 {
