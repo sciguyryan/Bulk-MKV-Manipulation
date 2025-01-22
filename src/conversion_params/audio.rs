@@ -102,9 +102,7 @@ pub struct AudioConvertParams {
 impl ConversionParams for AudioConvertParams {
     /// Validate the specified codec parameters.
     fn validate(&self) -> bool {
-        let codec = if let Some(c) = &self.codec {
-            c
-        } else {
+        let Some(codec) = &self.codec else {
             return true;
         };
 

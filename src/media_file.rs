@@ -1058,13 +1058,13 @@ impl MediaFile {
             MediaFile::dump_json(json);
         }
 
-        match serde_json::from_str::<MediaFile>(json) {
-            Ok(mi) => Some(mi),
-            Err(e) => {
+        serde_json::from_str::<MediaFile>(json).map_or_else(
+            |e| {
                 logger::log(format!("Error attempting to parse JSON data: {e:?}"), true);
                 None
-            }
-        }
+            },
+            Some,
+        )
     }
 
     /// Process a media file, applying any conversions and filters before remuxing the file.
@@ -1160,12 +1160,9 @@ impl MediaFile {
     pub fn run_commands(&self, run_type: RunCommandType, params: &UnifiedParams) {
         logger::log_inline("Checking for run commands... ", false);
 
-        let run = match params.misc.run.clone() {
-            Some(r) => r,
-            None => {
-                logger::log("no commands were specified.", false);
-                return;
-            }
+        let Some(run) = params.misc.run.clone() else {
+            logger::log("no commands were specified.", false);
+            return;
         };
 
         let commands: Vec<&ProcessRun> = run
