@@ -290,8 +290,8 @@ impl FileProcessor {
         let extension = path
             .extension()
             .unwrap_or_default()
-            .to_ascii_lowercase()
             .to_string_lossy()
+            .to_uppercase()
             .to_string();
 
         if exts.contains(&extension.as_str()) {
