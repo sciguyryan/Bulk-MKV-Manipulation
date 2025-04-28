@@ -291,7 +291,7 @@ impl FileProcessor {
             .extension()
             .unwrap_or_default()
             .to_string_lossy()
-            .to_uppercase()
+            .to_lowercase()
             .to_string();
 
         if exts.contains(&extension.as_str()) {

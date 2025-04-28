@@ -1595,6 +1595,7 @@ where
         "V_FFV1" => Codec::FfV1,
 
         // Audio codecs.
+        "A_MPEG/L2" => Codec::Aac,
         "A_MPEG/L3" => Codec::Mp3,
         "A_AC3" | "A_AC3/BSID9" | "A_AC3/BSID10" => Codec::Ac3,
         "A_DTS" | "A_DTS/EXPRESS" | "A_DTS/LOSSLESS" => Codec::Dts,
