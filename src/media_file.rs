@@ -32,7 +32,7 @@ const EXPORT_JSON: bool = false;
 /// This will indicate whether to output the command line parameters used.
 const DEBUG_PARAMS: bool = false;
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default)]
 pub enum Codec {
     Aac,
     Ac3,
@@ -84,7 +84,7 @@ pub enum RunCommandType {
     PostMux,
 }
 
-#[derive(Clone, Debug, Default, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Eq)]
 pub enum DelaySource {
     Container,
     #[default]
@@ -174,8 +174,8 @@ impl MediaFile {
         }
 
         let valid_extensions = match accepted_extensions {
-            Some(exts) => exts.clone(),
-            None => Vec::new(),
+            Some(exts) => exts.as_ref(),
+            None => &Vec::new(),
         };
 
         // The file is a match if:
@@ -429,7 +429,7 @@ impl MediaFile {
         // Iterate over all of the tracks.
         for (i, track) in self.media.tracks.clone().iter().enumerate() {
             let mut delay = track.delay;
-            let mut delay_source = track.delay_source.clone();
+            let mut delay_source = track.delay_source;
 
             // Do we have a delay override for this track?
             if let Some(tp) = &params.track_params {
@@ -496,14 +496,14 @@ impl MediaFile {
     ///
     /// * `params` - The [`UnifiedParams`] to be applied to the media file.
     fn apply_tag_mux_params(&mut self, params: &UnifiedParams) {
-        let path = params.misc.tags_path.clone().unwrap_or_default();
+        let path = params.misc.tags_path.as_deref().unwrap_or_default();
         if !utils::file_exists(&path) {
             return;
         }
 
         // Set the global tags argument.
         self.muxing_args.push("--global-tags".to_string());
-        self.muxing_args.push(path);
+        self.muxing_args.push(path.to_string());
     }
 
     /// Convert each audio track found within the media file.
@@ -594,7 +594,7 @@ impl MediaFile {
 
         // Update the codecs of the converted tracks.
         for index in update_indices {
-            self.media.tracks[index].codec = out_codec.clone();
+            self.media.tracks[index].codec = *out_codec;
         }
 
         true
@@ -1168,7 +1168,7 @@ impl MediaFile {
     pub fn run_commands(&self, run_type: RunCommandType, params: &UnifiedParams) {
         logger::log_inline("Checking for run commands... ", false);
 
-        let Some(run) = params.misc.run.clone() else {
+        let Some(run) = params.misc.run.as_ref() else {
             logger::log("no commands were specified.", false);
             return;
         };
@@ -1411,11 +1411,11 @@ impl MediaFile {
                 continue;
             }
 
-            if self
+            if *self
                 .track_type_counter
                 .get(&target_type)
-                .cloned()
-                .unwrap_or_default()
+                .as_deref()
+                .unwrap_or(&0)
                 != target.unwrap()
             {
                 logger::log(
