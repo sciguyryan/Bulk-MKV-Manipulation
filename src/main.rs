@@ -16,61 +16,51 @@ use std::{env, fs};
 fn main() {
     let args: Vec<String> = env::args().collect();
 
-    if args.len() == 3 {
-        // Do we need to enable logging?
-        if args[2].to_lowercase() == "--logging" {
-            logger::set_enabled(true);
-        }
+    if args.len() < 2 {
+        eprintln!("Usage: {} <profile_path> [--logging]", args[0]);
+        return;
+    }
+
+    if args
+        .get(2)
+        .map(|a| a.eq_ignore_ascii_case("--logging"))
+        .unwrap_or(false)
+    {
+        logger::set_enabled(true);
     }
 
     logger::section("Initial Setup", false);
 
-    // Read and parse the conversion profile data file.
-    assert!(
-        args.len() >= 2,
-        "No path to the conversion profile data file was specified."
-    );
     let profile_path = &args[1];
-    assert!(
-        utils::file_exists(profile_path),
-        "The path to the conversion profile data file was invalid."
-    );
+    if !utils::file_exists(profile_path) {
+        eprintln!("The path to the conversion profile data file was invalid.");
+        return;
+    }
 
-    let profile_json = fs::read_to_string(profile_path).expect("failed to open profile data file");
-    let profile = serde_json::from_str::<InputProfile>(&profile_json);
-    assert!(
-        profile.is_ok(),
-        "An error occurred while attempting to parse the JSON data: {:?}.",
-        profile.err()
-    );
+    let profile_json = fs::read_to_string(profile_path).expect("Failed to open profile data file");
+    let mut profile: InputProfile = serde_json::from_str(&profile_json)
+        .expect("An error occurred while attempting to parse the JSON data.");
 
     logger::log("Attempting to validate filter parameters...", false);
 
-    let mut profile = profile.unwrap();
-
-    // Validate the index processing parameters.
     if !profile.validate_index_params() {
         return;
     }
 
-    // Initialize any regular expression filters that may be present.
     if !profile.initialize_filters() {
         return;
     }
 
-    // Validate the track filter parameters.
     if !profile.validate_filter_params() {
         return;
     }
 
     logger::log("All parameters successfully validated.", false);
 
-    // Create the file processor instance.
     let file_processor = match FileProcessor::new(&profile) {
         Some(p) => p,
         None => return,
     };
 
-    // Run the converter.
     file_processor.process(&profile.processing_params);
 }

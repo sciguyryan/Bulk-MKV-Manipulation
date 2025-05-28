@@ -191,7 +191,12 @@ impl MediaFile {
         }
 
         if !utils::file_exists(path) {
-            logger::log(format!("[INFO] Attachment path '{path}' was selected for inclusion but the path couldn't be found. This may be expected if you used external run commands!"), false);
+            logger::log(
+                format!(
+                    "[INFO] Attachment path '{path}' was selected for inclusion but the path couldn't be found. This may be expected if you used external run commands!"
+                ),
+                false,
+            );
             return;
         }
 
@@ -220,8 +225,8 @@ impl MediaFile {
         let import_dir = params
             .attachments
             .import_from_folder
-            .clone()
-            .unwrap_or_default();
+            .as_deref()
+            .unwrap_or("");
         if !import_dir.is_empty() {
             self.apply_external_attachment_mux_params(&import_dir, params);
         }
@@ -283,7 +288,7 @@ impl MediaFile {
     ///
     /// * `dir` - The directory from which the files should be imported.
     /// * `params` - The [`UnifiedParams`] to be applied to the media file.
-    fn apply_external_attachment_mux_params(&mut self, dir: &String, params: &UnifiedParams) {
+    fn apply_external_attachment_mux_params(&mut self, dir: &str, params: &UnifiedParams) {
         // Read the contents of the import attachments folder recursively.
         for path in WalkDir::new(dir)
             .into_iter()
@@ -359,31 +364,39 @@ impl MediaFile {
             param_opts.push(("track-enabled", b));
         }
         if let Some(b) = track_params.forced {
-            if *track_type == TrackType::Subtitle {
+            if matches!(*track_type, TrackType::Subtitle) {
                 param_opts.push(("forced-display", b));
             } else {
-                eprintln!("The forced flag was set for track ID {track_id}, but the track type does not support it.");
+                eprintln!(
+                    "The forced flag was set for track ID {track_id}, but the track type does not support it."
+                );
             }
         }
         if let Some(b) = track_params.hearing_impaired {
-            if *track_type == TrackType::Audio {
+            if matches!(*track_type, TrackType::Audio) {
                 param_opts.push(("hearing-impaired", b));
             } else {
-                eprintln!("The hearing impaired flag was set for track ID {track_id}, but the track type does not support it.");
+                eprintln!(
+                    "The hearing impaired flag was set for track ID {track_id}, but the track type does not support it."
+                );
             }
         }
         if let Some(b) = track_params.visual_impaired {
-            if *track_type == TrackType::Audio {
+            if matches!(*track_type, TrackType::Audio) {
                 param_opts.push(("visual-impaired", b));
             } else {
-                eprintln!("The visually impaired flag was set for track ID {track_id}, but the track type does not support it.");
+                eprintln!(
+                    "The visually impaired flag was set for track ID {track_id}, but the track type does not support it."
+                );
             }
         }
         if let Some(b) = track_params.text_descriptions {
-            if *track_type == TrackType::Subtitle {
+            if matches!(*track_type, TrackType::Subtitle) {
                 param_opts.push(("text-descriptions", b));
             } else {
-                eprintln!("The text descriptions flag was set for track ID {track_id}, but the track type does not support it.");
+                eprintln!(
+                    "The text descriptions flag was set for track ID {track_id}, but the track type does not support it."
+                );
             }
         }
         if let Some(b) = track_params.original {
@@ -393,7 +406,9 @@ impl MediaFile {
             if matches!(*track_type, TrackType::Audio | TrackType::Subtitle) {
                 param_opts.push(("commentary", b));
             } else {
-                eprintln!("The commentary flag was set for track ID {track_id}, but the track type does not support it.");
+                eprintln!(
+                    "The commentary flag was set for track ID {track_id}, but the track type does not support it."
+                );
             }
         }
 
@@ -842,24 +857,17 @@ impl MediaFile {
         let retain_extensions = params
             .attachments
             .import_original_extensions
-            .clone()
+            .as_deref()
             .unwrap_or_default();
         if retain_extensions.is_empty() {
             return;
         }
 
-        self.attachments = self
-            .attachments
-            .iter()
-            .filter_map(|path| {
-                let ext = utils::get_file_extension(path)?;
-                if retain_extensions.contains(&ext) {
-                    Some(path.clone())
-                } else {
-                    None
-                }
-            })
-            .collect();
+        self.attachments.retain(|path| {
+            utils::get_file_extension(path)
+                .map(|ext| retain_extensions.contains(&ext))
+                .unwrap_or(false)
+        });
 
         // Assign the kept attachments back into the container object.
         logger::log(
@@ -1238,7 +1246,10 @@ impl MediaFile {
                 }
                 Err(e) => {
                     logger::log(
-                        format!("The command was not successfully executed and yielded the following output: {e:?}"), false
+                        format!(
+                            "The command was not successfully executed and yielded the following output: {e:?}"
+                        ),
+                        false,
                     );
                 }
             }

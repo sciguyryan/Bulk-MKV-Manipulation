@@ -7,7 +7,7 @@ use crate::{
     utils,
 };
 
-use lexical_sort::{natural_cmp, StringSort};
+use lexical_sort::{StringSort, natural_cmp};
 use serde_derive::Deserialize;
 use std::{
     fs::{self, DirEntry, File},
