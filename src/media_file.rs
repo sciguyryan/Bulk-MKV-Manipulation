@@ -174,7 +174,7 @@ impl MediaFile {
         }
 
         let valid_extensions = match accepted_extensions {
-            Some(exts) => exts.as_ref(),
+            Some(exts) => exts,
             None => &Vec::new(),
         };
 
@@ -228,7 +228,7 @@ impl MediaFile {
             .as_deref()
             .unwrap_or("");
         if !import_dir.is_empty() {
-            self.apply_external_attachment_mux_params(&import_dir, params);
+            self.apply_external_attachment_mux_params(import_dir, params);
         }
     }
 
@@ -276,7 +276,7 @@ impl MediaFile {
         let temp_path = self.get_temp_path();
         for attachment in self.attachments.clone() {
             self.add_attachment_if_matching(
-                &format!("{}/attachments/{attachment}", temp_path),
+                &format!("{temp_path}/attachments/{attachment}"),
                 &params.attachments.import_original_extensions,
             );
         }
@@ -497,7 +497,7 @@ impl MediaFile {
     /// * `params` - The [`UnifiedParams`] to be applied to the media file.
     fn apply_tag_mux_params(&mut self, params: &UnifiedParams) {
         let path = params.misc.tags_path.as_deref().unwrap_or_default();
-        if !utils::file_exists(&path) {
+        if !utils::file_exists(path) {
             return;
         }
 
@@ -1414,7 +1414,6 @@ impl MediaFile {
             if *self
                 .track_type_counter
                 .get(&target_type)
-                .as_deref()
                 .unwrap_or(&0)
                 != target.unwrap()
             {

@@ -6,7 +6,7 @@ const FAIL_ERROR_CODE: i32 = 2;
 
 pub fn get_exe(exe: &str) -> String {
     Path::new(&paths::PATHS.mkvtoolnix)
-        .join(format!("{}.exe", exe))
+        .join(format!("{exe}.exe"))
         .display()
         .to_string()
 }
