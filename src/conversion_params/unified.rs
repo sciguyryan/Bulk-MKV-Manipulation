@@ -1,6 +1,5 @@
 use regex::Regex;
 use serde::{Deserialize, Deserializer};
-use serde_derive::Deserialize;
 
 use super::{
     audio::AudioConvertParams, subtitle::SubtitleConvertParams, video::VideoConvertParams,
