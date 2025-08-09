@@ -432,8 +432,8 @@ impl MediaFile {
             let mut delay_source = track.delay_source;
 
             // Do we have a delay override for this track?
-            if let Some(tp) = &params.track_params {
-                if let Some(d) = tp
+            if let Some(tp) = &params.track_params
+                && let Some(d) = tp
                     .iter()
                     .find(|t| t.id == i && t.delay_override.is_some())
                     .map(|t| t.delay_override.unwrap())
@@ -443,7 +443,6 @@ impl MediaFile {
                     }
                     delay = d;
                 }
-            }
 
             // Do we need to specify a delay for the track?
             if delay != 0 {
@@ -1115,11 +1114,10 @@ impl MediaFile {
         logger::log("", false);
 
         // Convert the audio tracks.
-        if let Some(ac) = &params.audio_tracks.conversion {
-            if ac.codec.is_some() && !self.convert_all_audio(ac) {
+        if let Some(ac) = &params.audio_tracks.conversion
+            && ac.codec.is_some() && !self.convert_all_audio(ac) {
                 return false;
             }
-        }
 
         // Convert the subtitle tracks.
         if let Some(_sc) = &params.subtitle_tracks.conversion {
@@ -1271,12 +1269,11 @@ impl MediaFile {
         self.muxing_args.push(out_path.to_string());
 
         // The title of the media file, if needed.
-        if let Some(b) = params.misc.set_file_title {
-            if b {
+        if let Some(b) = params.misc.set_file_title
+            && b {
                 self.muxing_args.push("--title".to_string());
                 self.muxing_args.push(title.to_string());
             }
-        }
 
         // Apply the track muxing arguments.
         self.apply_track_mux_params(params);

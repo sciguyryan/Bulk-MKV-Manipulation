@@ -221,12 +221,11 @@ impl FileProcessor {
             false,
         );
 
-        if let Some(b) = &profile.processing_params.misc.pre_mux_media_files {
-            if *b {
+        if let Some(b) = &profile.processing_params.misc.pre_mux_media_files
+            && *b {
                 // Remux certain other media files to allow them to be automatically handled.
                 FileProcessor::pre_mux_media_files(profile);
             }
-        }
     }
 
     /// Build a filename from a name, an index (optional) and a pad type (optional).
@@ -336,14 +335,13 @@ impl FileProcessor {
     /// * `params` - The [`UnifiedParams`] to be used while processing the media files.
     fn maybe_shutdown(params: &UnifiedParams) {
         // Shutdown the computer after processing, if required.
-        if let Some(b) = params.misc.shutdown_upon_completion {
-            if b {
+        if let Some(b) = params.misc.shutdown_upon_completion
+            && b {
                 match system_shutdown::shutdown() {
                     Ok(_) => logger::log("Attempting to shutdown down the computer...", true),
                     Err(e) => logger::log(format!("Failed to shutdown the computer: {e}"), true),
                 }
             }
-        }
     }
 
     /// Run a pre-processing remux on certain media files within the input directory

@@ -212,12 +212,11 @@ impl ConversionParams for AudioConvertParams {
         }
 
         // The number of audio channels.
-        if let Some(channels) = self.channels {
-            if track.channels != channels {
+        if let Some(channels) = self.channels
+            && track.channels != channels {
                 args.push("-ac".to_string());
                 args.push(channels.to_string());
             }
-        }
 
         // The output file path should always go last.
         args.push(file_out.to_string());
