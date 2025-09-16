@@ -437,12 +437,12 @@ impl MediaFile {
                     .iter()
                     .find(|t| t.id == i && t.delay_override.is_some())
                     .map(|t| t.delay_override.unwrap())
-                {
-                    if delay_source == DelaySource::None {
-                        delay_source = DelaySource::Container;
-                    }
-                    delay = d;
+            {
+                if delay_source == DelaySource::None {
+                    delay_source = DelaySource::Container;
                 }
+                delay = d;
+            }
 
             // Do we need to specify a delay for the track?
             if delay != 0 {
@@ -1115,9 +1115,11 @@ impl MediaFile {
 
         // Convert the audio tracks.
         if let Some(ac) = &params.audio_tracks.conversion
-            && ac.codec.is_some() && !self.convert_all_audio(ac) {
-                return false;
-            }
+            && ac.codec.is_some()
+            && !self.convert_all_audio(ac)
+        {
+            return false;
+        }
 
         // Convert the subtitle tracks.
         if let Some(_sc) = &params.subtitle_tracks.conversion {
@@ -1270,10 +1272,11 @@ impl MediaFile {
 
         // The title of the media file, if needed.
         if let Some(b) = params.misc.set_file_title
-            && b {
-                self.muxing_args.push("--title".to_string());
-                self.muxing_args.push(title.to_string());
-            }
+            && b
+        {
+            self.muxing_args.push("--title".to_string());
+            self.muxing_args.push(title.to_string());
+        }
 
         // Apply the track muxing arguments.
         self.apply_track_mux_params(params);
@@ -1408,12 +1411,7 @@ impl MediaFile {
                 continue;
             }
 
-            if *self
-                .track_type_counter
-                .get(&target_type)
-                .unwrap_or(&0)
-                != target.unwrap()
-            {
+            if *self.track_type_counter.get(&target_type).unwrap_or(&0) != target.unwrap() {
                 logger::log(
                     format!(
                         "Filtered track target for type {target_type} was different than expected for file {}.",
